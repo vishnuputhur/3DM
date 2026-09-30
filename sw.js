@@ -1,5 +1,5 @@
 // --- അപ്‌ഡേറ്റുകൾക്കായി ഈ വേർഷൻ നമ്പർ മാറ്റുക ---
-const CACHE_VERSION = 'v1.0.2';
+const CACHE_VERSION = 'v1.0.3';
 const CACHE_NAME = `vtsoft-3dm-${CACHE_VERSION}`;
 
 const ASSETS_TO_CACHE = [
