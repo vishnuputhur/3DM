@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1.0.6';
+const CACHE_VERSION = 'v1.0.7';
 const CACHE_NAME = `vtsoft-3dm-${CACHE_VERSION}`;
 
 // നിർബന്ധമായും കാഷെ ചെയ്യേണ്ട പ്രധാന ഫയലുകൾ
