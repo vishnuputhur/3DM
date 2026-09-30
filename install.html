@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Install 3DM Viewer - VT Soft</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-glow: rgba(2, 132, 199, 0.4);
+            --bg-dark: #0a0f18;
+            --card-bg: #111a28;
+            --border-line: rgba(255, 255, 255, 0.08);
+            --success: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            background: radial-gradient(circle at center, #132238 0%, var(--bg-dark) 100%);
+            color: #e2e8f0;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .install-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-line);
+            color: #e2e8f0;
+            border-radius: 28px;
+            padding: 35px 24px;
+            max-width: 400px;
+            width: 100%;
+            margin: auto;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(10px);
+        }
+
+        .badge {
+            font-size: 0.72rem;
+            background: rgba(2, 132, 199, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-weight: 700;
+            color: #38bdf8;
+            letter-spacing: 0.08em;
+            display: inline-block;
+        }
+
+        .logo-wrap {
+            margin: 22px auto 16px;
+            width: 95px;
+            height: 95px;
+            border-radius: 22px;
+            background: #fff;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+        }
+
+        .logo-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 4px;
+            letter-spacing: 0.03em;
+        }
+
+        .sub-tag {
+            color: #38bdf8;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+            letter-spacing: 0.04em;
+        }
+
+        .desc-text {
+            font-size: 0.84rem;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .btn-install {
+            background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            transition: all 0.25s ease;
+        }
+
+        .btn-install:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+        }
+
+        .status-container {
+            display: none;
+            padding: 15px 10px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 10px;
+        }
+
+        .spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(56, 189, 248, 0.2);
+            border-top-color: #38bdf8;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .status-sub {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .success-icon {
+            width: 32px;
+            height: 32px;
+            color: var(--success);
+            margin: 0 auto 8px;
+        }
+
+        .skip-link {
+            display: block;
+            margin-top: 22px;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 13px;
+            transition: color 0.2s;
+        }
+
+        .skip-link:hover {
+            color: #94a3b8;
+            text-decoration: underline;
+        }
+
+        .footer-tag {
+            margin-top: 25px;
+            font-size: 0.78rem;
+            color: #475569;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="install-card">
+        <span class="badge">OFFICIAL SHIPBUILDING APP</span>
+        
+        <div class="logo-wrap">
+            <img src="logo.png" class="logo-img" alt="3DM Viewer Logo" onerror="this.onerror=null; this.src='icon-192.png';">
+        </div>
+        
+        <h2>3DM Viewer</h2>
+        <div class="sub-tag">Ship & Hull Engineering Tool</div>
+        
+        <p class="desc-text">
+            View 3D models, inspect block geometry, take accurate shipyard measurements, and plan structural fabrication directly on your device — 100% offline.
+        </p>
+        
+        <!-- Install Trigger Button -->
+        <button id="installBtn" class="btn-install" style="display: none;">Install Application</button>
+        <div id="waitMsg" style="color: #64748b; font-size: 13px;">Checking system readiness...</div>
+
+        <!-- Dynamic Installing & Success Progress Box -->
+        <div id="statusBox" class="status-container">
+            <!-- Phase 1: Installing State -->
+            <div id="installingState">
+                <div class="spinner"></div>
+                <div class="status-title">Installing Application...</div>
+                <div class="status-sub">Configuring offline CAD engine & storage</div>
+            </div>
+
+            <!-- Phase 2: Success State -->
+            <div id="successState" style="display: none;">
+                <svg class="success-icon" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div class="status-title" style="color: #4ade80;">Installation Successful!</div>
+                <div class="status-sub" id="redirectMsg">Redirecting to VT Soft in 4s...</div>
+            </div>
+        </div>
+
+        <a href="index.html" class="skip-link">Launch Web Version Directly &rarr;</a>
+        
+        <div class="footer-tag">Created by Vishnu T | VT Soft</div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+        const waitMsg = document.getElementById('waitMsg');
+        const statusBox = document.getElementById('statusBox');
+        const installingState = document.getElementById('installingState');
+        const successState = document.getElementById('successState');
+        const redirectMsg = document.getElementById('redirectMsg');
+
+        const REDIRECT_TARGET = "https://vtsoft.onrender.com";
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(console.warn);
+        }
+
+        // Catch PWA Install Prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+            waitMsg.style.display = 'none';
+        });
+
+        // Fallback for browsers that already installed or don't support beforeinstallprompt
+        setTimeout(() => {
+            if (!deferredPrompt && installBtn.style.display === 'none') {
+                installBtn.style.display = 'block';
+                installBtn.innerText = 'Install / Add to Screen';
+                waitMsg.style.display = 'none';
+            }
+        }, 1200);
+
+        // Click Handler: Triggers Prompt + 5s Installing + 4s Countdown Redirect
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                if (outcome !== 'accepted') {
+                    return; // User cancelled
+                }
+            }
+
+            // Start Installation UI Sequence
+            installBtn.style.display = 'none';
+            waitMsg.style.display = 'none';
+            statusBox.style.display = 'block';
+            installingState.style.display = 'block';
+            successState.style.display = 'none';
+
+            // Step 1: Wait 5 Seconds (Installing Phase)
+            setTimeout(() => {
+                installingState.style.display = 'none';
+                successState.style.display = 'block';
+
+                // Step 2: 4 Seconds Countdown & Redirect
+                let countdown = 4;
+                redirectMsg.innerText = `Redirecting to VT Soft in ${countdown}s...`;
+
+                const interval = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        redirectMsg.innerText = `Redirecting to VT Soft in ${countdown}s...`;
+                    } else {
+                        clearInterval(interval);
+                        window.location.href = REDIRECT_TARGET;
+                    }
+                }, 1000);
+
+            }, 5000);
+        });
+
+        // If opened already in installed Standalone Mode, redirect directly to index.html
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
