@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VT Soft 3DM Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <!-- Dynamic Theme Color: Starts with Warm White for Splash -->
+  <meta id="theme-color-meta" name="theme-color" content="#fdfbf7">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Offline Local Libraries -->
+  <script src="three.min.js"></script>
+  <script src="OrbitControls.js"></script>
+  <script src="rhino3dm.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0d131f;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #e2e8f0;
+    }
+    #viewport {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hud-glass {
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+    }
+    
+    /* Full-Screen Warm White Splash Screen (No Boxes, No Cropping) */
+    #splash-screen {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+      background-color: #fdfbf7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    }
+    #splash-screen.fade-out {
+      opacity: 0;
+      visibility: hidden;
+    }
+    .splash-logo-container {
+      width: 100%;
+      max-width: 290px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .splash-logo-wide {
+      width: 100%;
+      height: auto;
+      max-height: 110px;
+      object-fit: contain;
+      display: block;
+    }
+    .splash-app-badge {
+      margin-top: 18px;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      font-family: monospace;
+    }
+
+    /* Header Bar */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid #1e293b;
+    }
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+    .brand-logo-img {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      object-fit: contain;
+      background: #fff;
+      padding: 2px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .title-box {
+      min-width: 0;
+      flex: 1;
+    }
+    .app-name {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.1;
+    }
+    .file-name {
+      font-size: 10px;
+      color: #94a3b8;
+      font-family: monospace;
+      text-transform: lowercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    .actions-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+    .btn-open {
+      background: #2563eb;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      border: none;
+    }
+    .btn-icon {
+      background: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #334155;
+      padding: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Mode Tabs */
+    .mode-bar {
+      position: fixed;
+      top: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      width: calc(100% - 24px);
+      max-width: 360px;
+      display: flex;
+      padding: 3px;
+      border-radius: 8px;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 6px 0;
+      font-size: 11px;
+      font-weight: 500;
+      text-align: center;
+      color: #94a3b8;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn.active-view {
+      background: #2563eb;
+      color: #fff;
+    }
+    .mode-btn.active-measure {
+      background: #0891b2;
+      color: #fff;
+    }
+    .mode-btn.active-inspect {
+      background: #d97706;
+      color: #fff;
+    }
+
+    /* Marine Views Preset */
+    .views-bar {
+      position: fixed;
+      right: 10px;
+      top: 110px;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .view-btn {
+      padding: 6px 8px;
+      font-size: 10px;
+      font-family: monospace;
+      font-weight: 600;
+      border-radius: 6px;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      background: rgba(15, 23, 42, 0.8);
+      cursor: pointer;
+    }
+    .view-btn.iso {
+      color: #38bdf8;
+      border-color: #0284c7;
+    }
+
+    /* Bottom Panels */
+    .panel-bottom {
+      position: fixed;
+      bottom: 30px;
+      left: 10px;
+      right: 10px;
+      max-width: 420px;
+      margin: 0 auto;
+      z-index: 40;
+      border-radius: 8px;
+      padding: 10px;
+      display: none;
+    }
+    .panel-measure {
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+    .panel-inspect {
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      padding-bottom: 6px;
+      margin-bottom: 6px;
+    }
+    .panel-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      font-family: monospace;
+      text-align: center;
+    }
+    .stat-card {
+      background: rgba(2, 6, 23, 0.6);
+      padding: 4px;
+      border-radius: 4px;
+      border: 1px solid #1e293b;
+    }
+    .stat-label {
+      font-size: 8px;
+      color: #64748b;
+    }
+    .stat-val {
+      font-size: 11px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-top: 2px;
+    }
+
+    /* Magnifier Loupe */
+    #magnifier-loupe {
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 2px solid #38bdf8;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.5), inset 0 0 15px rgba(0,0,0,0.8);
+      pointer-events: none;
+      overflow: hidden;
+      display: none;
+      z-index: 100;
+      background: #0b111a;
+      transform: translate(-50%, -100%);
+    }
+    #magnifier-loupe::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 14px;
+      height: 14px;
+      transform: translate(-50%, -50%);
+      border: 1.5px solid #ef4444;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #ef4444;
+      pointer-events: none;
+      z-index: 3;
+    }
+    #magnifier-loupe::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(239, 68, 68, 0.7);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .crosshair-v {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(239, 68, 68, 0.7);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Watermark */
+    footer {
+      position: fixed;
+      bottom: 6px;
+      right: 12px;
+      z-index: 30;
+      font-size: 10px;
+      color: #64748b;
+      pointer-events: none;
+    }
+    footer span {
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+
+    /* Loader Modal */
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(2, 6, 23, 0.85);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fullscreen Warm White Splash Screen (Wide Brand Logo Friendly) -->
+  <div id="splash-screen">
+    <div class="splash-logo-container">
+      <img src="splash_logo.png" alt="VT Soft Logo" class="splash-logo-wide" onerror="this.onerror=null; this.src='logo.png';">
+    </div>
+    <div class="splash-app-badge">3DM Marine Viewer</div>
+  </div>
+
+  <div id="viewport"></div>
+
+  <div id="magnifier-loupe">
+    <div class="crosshair-v"></div>
+    <canvas id="loupe-canvas" width="140" height="140"></canvas>
+  </div>
+
+  <header class="hud-glass">
+    <div class="brand-wrap">
+      <img src="logo.png" alt="Logo" class="brand-logo-img" onerror="this.src='icon-192.png'">
+      <div class="title-box">
+        <div class="app-name">VT Soft 3DM Viewer</div>
+        <div id="active-file-display" class="file-name">no file loaded</div>
+      </div>
+    </div>
+    <div class="actions-wrap">
+      <label class="btn-open">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <span>Open</span>
+        <input type="file" id="file-input" accept=".3dm" style="display:none;">
+      </label>
+      <button id="btn-reset-view" class="btn-icon" title="Reset View">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.038 8.038 0 01-15.357-2m15.357 2H15"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="mode-bar hud-glass">
+    <button id="mode-view" class="mode-btn active-view">View</button>
+    <button id="mode-measure" class="mode-btn">Measure</button>
+    <button id="mode-inspect" class="mode-btn">Inspect Part</button>
+  </div>
+
+  <div class="views-bar">
+    <button onclick="setCameraView('top')" class="view-btn">PLAN</button>
+    <button onclick="setCameraView('side')" class="view-btn">SIDE</button>
+    <button onclick="setCameraView('front')" class="view-btn">SECT</button>
+    <button onclick="setCameraView('iso')" class="view-btn iso">ISO</button>
+  </div>
+
+  <div id="measure-panel" class="panel-bottom panel-measure hud-glass">
+    <div class="panel-head">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:6px; height:6px; border-radius:50%; background:#22d3ee; display:inline-block;"></span>
+        <span class="panel-title" style="color:#22d3ee;">Caliper Measurement</span>
+      </div>
+      <button id="btn-clear-measure" style="background:none; border:none; color:#f87171; font-size:10px; cursor:pointer; text-decoration:underline;">Reset Pins</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">DIST (MM)</div>
+        <div id="val-dist" class="stat-val" style="color:#fde047;">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">&Delta;X</div>
+        <div id="val-dx" class="stat-val">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">&Delta;Y</div>
+        <div id="val-dy" class="stat-val">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">&Delta;Z</div>
+        <div id="val-dz" class="stat-val">0.0</div>
+      </div>
+    </div>
+    <div id="measure-instruction" style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
+      Hold finger for 2 sec on Point 1 to snap.
+    </div>
+  </div>
+
+  <div id="inspect-panel" class="panel-bottom panel-inspect hud-glass">
+    <div class="panel-head">
+      <span class="panel-title" style="color:#fbbf24;">Part Inspection</span>
+      <button id="btn-unhide-all" style="background:none; border:none; color:#38bdf8; font-size:10px; cursor:pointer; text-decoration:underline;">Show All</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:8px;">
+      <div class="stat-card">
+        <div class="stat-label">BOUND X</div>
+        <div id="part-bx" class="stat-val">--</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">BOUND Y</div>
+        <div id="part-by" class="stat-val">--</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">BOUND Z</div>
+        <div id="part-bz" class="stat-val">--</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:6px;">
+      <button id="btn-hide-part" style="flex:1; padding:5px; font-size:10px; border-radius:4px; background:rgba(225,29,72,0.3); color:#fda4af; border:1px solid #9f1239; cursor:pointer;">Hide Part</button>
+      <button id="btn-isolate-part" style="flex:1; padding:5px; font-size:10px; border-radius:4px; background:rgba(217,119,6,0.3); color:#fde68a; border:1px solid #92400e; cursor:pointer;">Isolate Part</button>
+    </div>
+  </div>
+
+  <footer>
+    Created by <span>Vishnu T</span>
+  </footer>
+
+  <div id="loader" style="display:none;">
+    <div class="spinner"></div>
+    <div id="loader-msg" style="font-size:11px; font-family:monospace; color:#cbd5e1;">Reading CAD file...</div>
+  </div>
+
+  <script>
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            installingWorker.onstatechange = () => {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('Update found. Reloading...');
+                window.location.reload();
+              }
+            };
+          };
+        }).catch((err) => {
+          console.log('SW error:', err);
+        });
+      });
+    }
+
+    // 2-Second Clean Splash Screen Handler with Mobile Theme Meta Switch
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+          splash.classList.add('fade-out');
+          // Smoothly switch Status Bar from Warm White to Dark Navy
+          const themeMeta = document.getElementById('theme-color-meta');
+          if (themeMeta) {
+            themeMeta.setAttribute('content', '#0d131f');
+          }
+        }
+      }, 2000);
+    });
+
+    let scene, camera, renderer, controls;
+    let rhinoModule = null;
+    let modelRoot = new THREE.Group();
+    let currentMode = 'view';
+    let meshList = [];
+
+    let measurePoints = [];
+    let pinMarkers = [];
+    let measureLine = null;
+
+    let holdTimer = null;
+    let lockTimer = null;
+    let isHolding = false;
+    let touchDownPos = { x: 0, y: 0 };
+    let currentPointerPos = { x: 0, y: 0 };
+    let activeSnappedVertex = null;
+
+    const HOLD_DURATION = 2000;
+    const LOCK_DURATION = 800;
+
+    const loupeEl = document.getElementById('magnifier-loupe');
+    const loupeCanvas = document.getElementById('loupe-canvas');
+    const loupeCtx = loupeCanvas.getContext('2d');
+
+    let selectedObject = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initThree();
+      initRhino();
+      setupEvents();
+      setupModeSwitching();
+    });
+
+    function initThree() {
+      const container = document.getElementById('viewport');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0e1726);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000000);
+      camera.position.set(2500, 2500, 2500);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+      scene.add(ambientLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.75);
+      dirLight1.position.set(3000, 6000, 4000);
+      dirLight1.castShadow = true;
+      dirLight1.shadow.mapSize.width = 2048;
+      dirLight1.shadow.mapSize.height = 2048;
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0xa0aec0, 0.45);
+      dirLight2.position.set(-3000, -2000, -3000);
+      scene.add(dirLight2);
+
+      scene.add(modelRoot);
+
+      const grid = new THREE.GridHelper(10000, 50, 0x334155, 0x1e293b);
+      grid.position.y = -0.5;
+      scene.add(grid);
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+    }
+
+    function initRhino() {
+      if (typeof rhino3dm === 'undefined') {
+        console.error('rhino3dm library not found.');
+        return;
+      }
+      rhino3dm().then(m => {
+        rhinoModule = m;
+      }).catch(err => {
+        console.error('Failed to initialize Rhino3dm engine:', err);
+      });
+    }
+
+    function setupModeSwitching() {
+      const btnView = document.getElementById('mode-view');
+      const btnMeasure = document.getElementById('mode-measure');
+      const btnInspect = document.getElementById('mode-inspect');
+      const measurePanel = document.getElementById('measure-panel');
+      const inspectPanel = document.getElementById('inspect-panel');
+
+      function switchMode(newMode) {
+        currentMode = newMode;
+        cancelHold();
+
+        btnView.className = 'mode-btn';
+        btnMeasure.className = 'mode-btn';
+        btnInspect.className = 'mode-btn';
+
+        if (newMode === 'view') {
+          btnView.className = 'mode-btn active-view';
+          controls.enabled = true;
+          measurePanel.style.display = 'none';
+          inspectPanel.style.display = 'none';
+        } else if (newMode === 'measure') {
+          btnMeasure.className = 'mode-btn active-measure';
+          controls.enabled = true;
+          measurePanel.style.display = 'block';
+          inspectPanel.style.display = 'none';
+        } else if (newMode === 'inspect') {
+          btnInspect.className = 'mode-btn active-inspect';
+          controls.enabled = true;
+          measurePanel.style.display = 'none';
+          inspectPanel.style.display = 'block';
+        }
+      }
+
+      btnView.addEventListener('click', () => switchMode('view'));
+      btnMeasure.addEventListener('click', () => switchMode('measure'));
+      btnInspect.addEventListener('click', () => switchMode('inspect'));
+    }
+
+    function setupEvents() {
+      const dom = renderer.domElement;
+
+      dom.addEventListener('pointerdown', (e) => {
+        if (currentMode !== 'measure') {
+          if (currentMode === 'inspect') handleInspectClick(e);
+          return;
+        }
+
+        touchDownPos = { x: e.clientX, y: e.clientY };
+        currentPointerPos = { x: e.clientX, y: e.clientY };
+
+        lockTimer = setTimeout(() => {
+          controls.enabled = false;
+        }, LOCK_DURATION);
+
+        holdTimer = setTimeout(() => {
+          isHolding = true;
+          controls.enabled = false;
+          updateLoupePosition(currentPointerPos.x, currentPointerPos.y);
+          loupeEl.style.display = 'block';
+          findNearestVertexUnderPointer(currentPointerPos.x, currentPointerPos.y);
+        }, HOLD_DURATION);
+      });
+
+      dom.addEventListener('pointermove', (e) => {
+        currentPointerPos = { x: e.clientX, y: e.clientY };
+
+        if (!isHolding && holdTimer) {
+          const distMoved = Math.hypot(e.clientX - touchDownPos.x, e.clientY - touchDownPos.y);
+          if (distMoved > 8) {
+            cancelHold();
+          }
+        }
+
+        if (isHolding) {
+          updateLoupePosition(e.clientX, e.clientY);
+          findNearestVertexUnderPointer(e.clientX, e.clientY);
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (isHolding && activeSnappedVertex) {
+          registerMeasurementPoint(activeSnappedVertex);
+        }
+        cancelHold();
+      });
+
+      window.addEventListener('pointercancel', cancelHold);
+
+      document.getElementById('file-input').addEventListener('change', handleFileSelect);
+      document.getElementById('btn-reset-view').addEventListener('click', () => setCameraView('iso'));
+      document.getElementById('btn-clear-measure').addEventListener('click', clearMeasurements);
+
+      document.getElementById('btn-hide-part').addEventListener('click', () => {
+        if (selectedObject) selectedObject.visible = false;
+      });
+      document.getElementById('btn-isolate-part').addEventListener('click', () => {
+        if (!selectedObject) return;
+        meshList.forEach(m => m.visible = (m === selectedObject));
+      });
+      document.getElementById('btn-unhide-all').addEventListener('click', () => {
+        meshList.forEach(m => m.visible = true);
+      });
+    }
+
+    function cancelHold() {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      if (lockTimer) { clearTimeout(lockTimer); lockTimer = null; }
+      isHolding = false;
+      loupeEl.style.display = 'none';
+      activeSnappedVertex = null;
+      controls.enabled = true;
+    }
+
+    function updateLoupePosition(x, y) {
+      loupeEl.style.left = `${x}px`;
+      loupeEl.style.top = `${Math.max(y - 130, 80)}px`;
+    }
+
+    function findNearestVertexUnderPointer(screenX, screenY) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((screenX - rect.left) / rect.width) * 2 - 1,
+        -((screenY - rect.top) / rect.height) * 2 + 1
+      );
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(meshList, false);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0];
+        const geom = hit.object.geometry;
+        const posAttr = geom.attributes.position;
+        let closestDist = Infinity;
+        let closestPt = null;
+
+        for (let i = 0; i < posAttr.count; i++) {
+          const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+          hit.object.localToWorld(v);
+          const d = v.distanceTo(hit.point);
+          if (d < closestDist) {
+            closestDist = d;
+            closestPt = v.clone();
+          }
+        }
+
+        activeSnappedVertex = closestPt || hit.point;
+        renderLoupeView(activeSnappedVertex);
+      }
+    }
+
+    function renderLoupeView(targetWorldPt) {
+      const ptScreen = targetWorldPt.clone().project(camera);
+      const w = renderer.domElement.width;
+      const h = renderer.domElement.height;
+      const srcX = (ptScreen.x * 0.5 + 0.5) * w - 70;
+      const srcY = (-ptScreen.y * 0.5 + 0.5) * h - 70;
+
+      loupeCtx.fillStyle = '#0e1726';
+      loupeCtx.fillRect(0, 0, 140, 140);
+
+      loupeCtx.drawImage(
+        renderer.domElement,
+        Math.max(0, srcX), Math.max(0, srcY), 140, 140,
+        0, 0, 140, 140
+      );
+    }
+
+    function registerMeasurementPoint(worldPt) {
+      measurePoints.push(worldPt);
+
+      const pinGeom = new THREE.SphereGeometry(3, 16, 16);
+      const pinMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false });
+      const pin = new THREE.Mesh(pinGeom, pinMat);
+      pin.position.copy(worldPt);
+      scene.add(pin);
+      pinMarkers.push(pin);
+
+      if (measurePoints.length === 1) {
+        document.getElementById('measure-instruction').innerText = "Hold finger for 2 sec on Point 2 to complete.";
+      } else if (measurePoints.length === 2) {
+        const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, depthTest: false });
+        measureLine = new THREE.Line(lineGeom, lineMat);
+        scene.add(measureLine);
+
+        const p1 = measurePoints[0];
+        const p2 = measurePoints[1];
+        const dist = p1.distanceTo(p2);
+        const dx = Math.abs(p2.x - p1.x);
+        const dy = Math.abs(p2.y - p1.y);
+        const dz = Math.abs(p2.z - p1.z);
+
+        document.getElementById('val-dist').innerText = dist.toFixed(1);
+        document.getElementById('val-dx').innerText = dx.toFixed(1);
+        document.getElementById('val-dy').innerText = dy.toFixed(1);
+        document.getElementById('val-dz').innerText = dz.toFixed(1);
+        document.getElementById('measure-instruction').innerText = "Measurement complete. Tap 'Reset Pins' to re-measure.";
+      }
+    }
+
+    function clearMeasurements() {
+      pinMarkers.forEach(p => scene.remove(p));
+      pinMarkers = [];
+      if (measureLine) {
+        scene.remove(measureLine);
+        measureLine = null;
+      }
+      measurePoints = [];
+      document.getElementById('val-dist').innerText = '0.0';
+      document.getElementById('val-dx').innerText = '0.0';
+      document.getElementById('val-dy').innerText = '0.0';
+      document.getElementById('val-dz').innerText = '0.0';
+      document.getElementById('measure-instruction').innerText = "Hold finger for 2 sec on Point 1 to snap.";
+    }
+
+    function handleInspectClick(e) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(meshList, false);
+
+      if (intersects.length > 0) {
+        selectedObject = intersects[0].object;
+        meshList.forEach(m => {
+          if (m.material.emissive) m.material.emissive.setHex(0x000000);
+        });
+        if (selectedObject.material.emissive) {
+          selectedObject.material.emissive.setHex(0x334155);
+        }
+
+        selectedObject.geometry.computeBoundingBox();
+        const bbox = selectedObject.geometry.boundingBox;
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+
+        document.getElementById('part-bx').innerText = size.x.toFixed(1);
+        document.getElementById('part-by').innerText = size.y.toFixed(1);
+        document.getElementById('part-bz').innerText = size.z.toFixed(1);
+      }
+    }
+
+    function handleFileSelect(evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+
+      if (!rhinoModule) {
+        alert("Rhino3dm engine still loading or missing offline files.");
+        return;
+      }
+
+      document.getElementById('active-file-display').innerText = file.name.toLowerCase();
+      showLoader("Reading CAD file...");
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const buffer = new Uint8Array(e.target.result);
+          const doc = rhinoModule.File3dm.fromByteArray(buffer);
+          if (!doc) {
+            throw new Error("Unable to parse 3DM format.");
+          }
+          loadRhinoDoc(doc);
+        } catch (err) {
+          console.error("3DM parsing error:", err);
+          hideLoader();
+          alert("Error opening 3DM file: " + err.message);
+        }
+      };
+      reader.onerror = function() {
+        hideLoader();
+        alert("Failed to read file.");
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function loadRhinoDoc(doc) {
+      try {
+        while (modelRoot.children.length > 0) {
+          modelRoot.remove(modelRoot.children[0]);
+        }
+        meshList = [];
+        clearMeasurements();
+
+        const materialColorMap = {};
+        try {
+          const materials = doc.materials();
+          if (materials && materials.count) {
+            for (let m = 0; m < materials.count; m++) {
+              const mat = materials.get(m);
+              if (mat && mat.diffuseColor) {
+                const dc = mat.diffuseColor;
+                materialColorMap[mat.index] = new THREE.Color(dc.r / 255, dc.g / 255, dc.b / 255);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Materials reading skipped:", e);
+        }
+
+        const layerColorMap = {};
+        const layerMaterialMap = {};
+        try {
+          const layers = doc.layers();
+          if (layers && layers.count) {
+            for (let l = 0; l < layers.count; l++) {
+              const layer = layers.get(l);
+              if (layer) {
+                if (layer.color) {
+                  const c = layer.color;
+                  if (typeof c.r === 'number' && typeof c.g === 'number' && typeof c.b === 'number') {
+                    layerColorMap[layer.index] = new THREE.Color(c.r / 255, c.g / 255, c.b / 255);
+                  }
+                }
+                if (layer.renderMaterialIndex !== undefined && layer.renderMaterialIndex >= 0) {
+                  layerMaterialMap[layer.index] = layer.renderMaterialIndex;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Layer reading skipped:", e);
+        }
+
+        const objects = doc.objects();
+        const count = objects ? objects.count : 0;
+
+        for (let i = 0; i < count; i++) {
+          const obj = objects.get(i);
+          if (!obj) continue;
+
+          const geom = obj.geometry();
+          const attr = obj.attributes();
+          let mesh = null;
+
+          if (geom instanceof rhinoModule.Mesh) {
+            mesh = geom;
+          } else if (geom instanceof rhinoModule.Brep) {
+            mesh = new rhinoModule.Mesh();
+            const faces = geom.faces();
+            if (faces && faces.count) {
+              for (let f = 0; f < faces.count; f++) {
+                const faceMesh = faces.get(f).getMesh(rhinoModule.MeshType.Render);
+                if (faceMesh) mesh.append(faceMesh);
+              }
+            }
+          }
+
+          if (mesh && mesh.vertices && mesh.vertices().count > 0) {
+            const threeGeom = convertRhinoMeshToThree(mesh);
+            threeGeom.computeVertexNormals();
+
+            let resolvedColor = null;
+
+            if (attr && attr.materialIndex !== undefined && attr.materialIndex >= 0) {
+              if (materialColorMap[attr.materialIndex]) {
+                resolvedColor = materialColorMap[attr.materialIndex].clone();
+              }
+            }
+
+            if (!resolvedColor && attr) {
+              let oc = null;
+              if (typeof attr.drawColor === 'function') {
+                try { oc = attr.drawColor(doc); } catch(e) {}
+              }
+              if (!oc && attr.objectColor) {
+                oc = attr.objectColor;
+              }
+              if (oc && typeof oc.r === 'number') {
+                if (!(oc.r === 255 && oc.g === 255 && oc.b === 255) && !(oc.r === 0 && oc.g === 0 && oc.b === 0)) {
+                  resolvedColor = new THREE.Color(oc.r / 255, oc.g / 255, oc.b / 255);
+                }
+              }
+            }
+
+            if (!resolvedColor && attr && attr.layerIndex !== undefined) {
+              const lMatIdx = layerMaterialMap[attr.layerIndex];
+              if (lMatIdx !== undefined && materialColorMap[lMatIdx]) {
+                resolvedColor = materialColorMap[lMatIdx].clone();
+              }
+            }
+
+            if (!resolvedColor && attr && attr.layerIndex !== undefined) {
+              if (layerColorMap[attr.layerIndex]) {
+                resolvedColor = layerColorMap[attr.layerIndex].clone();
+              }
+            }
+
+            if (!resolvedColor) {
+              resolvedColor = new THREE.Color(0x64748b);
+            }
+
+            const material = new THREE.MeshStandardMaterial({
+              color: resolvedColor,
+              roughness: 0.45,
+              metalness: 0.2,
+              side: THREE.DoubleSide
+            });
+
+            const threeMesh = new THREE.Mesh(threeGeom, material);
+            threeMesh.castShadow = true;
+            threeMesh.receiveShadow = true;
+
+            try {
+              const edges = new THREE.EdgesGeometry(threeGeom, 25);
+              const lineMat = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1 });
+              const wireframe = new THREE.LineSegments(edges, lineMat);
+              threeMesh.add(wireframe);
+            } catch (e) {}
+
+            modelRoot.add(threeMesh);
+            meshList.push(threeMesh);
+          }
+        }
+
+        if (meshList.length === 0) {
+          alert("Notice: No render meshes found in this file.");
+        }
+
+        const bbox = new THREE.Box3().setFromObject(modelRoot);
+        const center = bbox.getCenter(new THREE.Vector3());
+        const size = bbox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1000;
+
+        controls.target.copy(center);
+        camera.position.set(center.x + maxDim * 1.3, center.y + maxDim * 1.1, center.z + maxDim * 1.3);
+        camera.near = maxDim / 1000;
+        camera.far = maxDim * 50;
+        camera.updateProjectionMatrix();
+
+      } catch (err) {
+        console.error("Rendering failed:", err);
+        alert("Render error: " + err.message);
+      } finally {
+        hideLoader();
+      }
+    }
+
+    function convertRhinoMeshToThree(rMesh) {
+      const geom = new THREE.BufferGeometry();
+      const vertices = rMesh.vertices();
+      const faces = rMesh.faces();
+      const positions = [];
+
+      const fCount = faces.count;
+      for (let i = 0; i < fCount; i++) {
+        const face = faces.get(i);
+        const pA = vertices.get(face[0]);
+        const pB = vertices.get(face[1]);
+        const pC = vertices.get(face[2]);
+
+        positions.push(pA[0], pA[1], pA[2]);
+        positions.push(pB[0], pB[1], pB[2]);
+        positions.push(pC[0], pC[1], pC[2]);
+
+        if (face[2] !== face[3]) {
+          const pD = vertices.get(face[3]);
+          positions.push(pA[0], pA[1], pA[2]);
+          positions.push(pC[0], pC[1], pC[2]);
+          positions.push(pD[0], pD[1], pD[2]);
+        }
+      }
+
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      return geom;
+    }
+
+    function setCameraView(preset) {
+      const bbox = new THREE.Box3().setFromObject(modelRoot);
+      const center = bbox.getCenter(new THREE.Vector3());
+      const size = bbox.getSize(new THREE.Vector3());
+      const d = (Math.max(size.x, size.y, size.z) || 1000) * 1.8;
+
+      controls.target.copy(center);
+      if (preset === 'top') camera.position.set(center.x, center.y + d, center.z);
+      else if (preset === 'side') camera.position.set(center.x + d, center.y, center.z);
+      else if (preset === 'front') camera.position.set(center.x, center.y, center.z + d);
+      else if (preset === 'iso') camera.position.set(center.x + d * 0.8, center.y + d * 0.7, center.z + d * 0.8);
+      camera.lookAt(center);
+    }
+
+    function showLoader(txt) {
+      document.getElementById('loader-msg').innerText = txt;
+      document.getElementById('loader').style.display = 'flex';
+    }
+    function hideLoader() {
+      document.getElementById('loader').style.display = 'none';
+    }
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+  </script>
+</body>
+</html>
