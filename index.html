@@ -141,15 +141,18 @@
       left: 50%;
       transform: translateX(-50%);
       z-index: 40;
-      width: calc(100% - 24px);
-      max-width: 360px;
+      width: calc(100% - 20px);
+      max-width: 480px;
       display: flex;
+      gap: 3px;
       padding: 3px;
       border-radius: 8px;
+      overflow-x: auto;
     }
     .mode-btn {
       flex: 1;
-      padding: 6px 0;
+      min-width: 65px;
+      padding: 6px 4px;
       font-size: 11px;
       font-weight: 500;
       text-align: center;
@@ -158,21 +161,24 @@
       border: none;
       background: transparent;
       cursor: pointer;
+      white-space: nowrap;
       transition: all 0.2s;
     }
     .mode-btn.active-view { background: #2563eb; color: #fff; }
+    .mode-btn.active-coords { background: #10b981; color: #fff; }
     .mode-btn.active-measure { background: #0891b2; color: #fff; }
+    .mode-btn.active-angle { background: #8b5cf6; color: #fff; }
     .mode-btn.active-inspect { background: #d97706; color: #fff; }
 
     /* Right Views Panel */
     .views-bar {
       position: fixed;
       right: 10px;
-      top: 108px;
+      top: 104px;
       z-index: 30;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
     .view-btn {
       padding: 6px 8px;
@@ -182,7 +188,7 @@
       border-radius: 6px;
       color: #cbd5e1;
       border: 1px solid #334155;
-      background: rgba(15, 23, 42, 0.8);
+      background: rgba(15, 23, 42, 0.85);
       cursor: pointer;
     }
     .view-btn.iso { color: #38bdf8; border-color: #0284c7; }
@@ -192,6 +198,12 @@
       color: #000;
       font-weight: 700;
       box-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
+    }
+    .btn-xray.active-xray {
+      background: #6366f1;
+      color: #fff;
+      border-color: #818cf8;
+      box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
     }
 
     /* Magnifier Loupe */
@@ -245,15 +257,17 @@
       bottom: 28px;
       left: 10px;
       right: 10px;
-      max-width: 440px;
+      max-width: 460px;
       margin: 0 auto;
       z-index: 40;
       border-radius: 8px;
       padding: 10px;
       display: none;
     }
-    .panel-measure { border: 1px solid rgba(6, 182, 212, 0.3); }
-    .panel-inspect { border: 1px solid rgba(245, 158, 11, 0.3); }
+    .panel-coords { border: 1px solid rgba(16, 185, 129, 0.4); }
+    .panel-measure { border: 1px solid rgba(6, 182, 212, 0.4); }
+    .panel-angle { border: 1px solid rgba(139, 92, 246, 0.4); }
+    .panel-inspect { border: 1px solid rgba(245, 158, 11, 0.4); }
     .panel-head {
       display: flex;
       justify-content: space-between;
@@ -267,6 +281,84 @@
       font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      font-family: monospace;
+      text-align: center;
+    }
+    .stat-card {
+      background: rgba(2, 6, 23, 0.6);
+      padding: 4px;
+      border-radius: 4px;
+      border: 1px solid #1e293b;
+    }
+    .stat-label { font-size: 8px; color: #64748b; }
+    .stat-val { font-size: 11px; font-weight: 600; color: #f1f5f9; margin-top: 2px; }
+
+    /* Coordinates Grid Inputs */
+    .coords-input-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr) auto;
+      gap: 6px;
+      margin-top: 6px;
+      align-items: center;
+    }
+    .coord-field {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      padding: 4px 6px;
+    }
+    .coord-field label {
+      display: block;
+      font-size: 8px;
+      font-family: monospace;
+      color: #10b981;
+      margin-bottom: 1px;
+    }
+    .coord-field input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: 600;
+      outline: none;
+    }
+    .btn-jump {
+      background: #10b981;
+      color: #022c22;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      height: 100%;
+    }
+    .btn-jump:hover { background: #34d399; }
+
+    /* Part Info Box */
+    .part-meta-box {
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid #1e293b;
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      font-family: monospace;
+      font-size: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .part-meta-item {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .dim-table {
@@ -298,23 +390,36 @@
       vertical-align: middle;
     }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
+    /* Version Badge Bottom Left */
+    .version-tag {
+      position: fixed;
+      bottom: 6px;
+      left: 10px;
+      z-index: 30;
+      font-size: 9px;
       font-family: monospace;
-      text-align: center;
-    }
-    .stat-card {
-      background: rgba(2, 6, 23, 0.6);
-      padding: 4px;
+      font-weight: 600;
+      color: #38bdf8;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 2px 6px;
       border-radius: 4px;
-      border: 1px solid #1e293b;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      pointer-events: none;
     }
-    .stat-label { font-size: 8px; color: #64748b; }
-    .stat-val { font-size: 11px; font-weight: 600; color: #f1f5f9; margin-top: 2px; }
 
-    /* Recent Files Modal / Drawer */
+    /* Footer Right */
+    footer {
+      position: fixed;
+      bottom: 6px;
+      right: 12px;
+      z-index: 30;
+      font-size: 10px;
+      color: #64748b;
+      pointer-events: none;
+    }
+    footer span { color: #cbd5e1; font-weight: 500; }
+
+    /* Recent Files Modal */
     #recent-modal {
       position: fixed;
       inset: 0;
@@ -399,17 +504,6 @@
     }
     .recent-del-btn:hover { opacity: 1; }
 
-    footer {
-      position: fixed;
-      bottom: 6px;
-      right: 12px;
-      z-index: 30;
-      font-size: 10px;
-      color: #64748b;
-      pointer-events: none;
-    }
-    footer span { color: #cbd5e1; font-weight: 500; }
-
     #loader {
       position: fixed;
       inset: 0;
@@ -467,23 +561,55 @@
     </div>
   </header>
 
-  <!-- Modes -->
+  <!-- Modes Bar -->
   <div class="mode-bar hud-glass">
     <button id="mode-view" class="mode-btn active-view">View</button>
+    <button id="mode-coords" class="mode-btn">Coords</button>
     <button id="mode-measure" class="mode-btn">Measure</button>
+    <button id="mode-angle" class="mode-btn">Angle</button>
     <button id="mode-inspect" class="mode-btn">Inspect Part</button>
   </div>
 
   <!-- Views & Controls (Vertical on Right) -->
   <div class="views-bar">
     <button id="btn-freeze-orbit" class="view-btn btn-freeze" title="Freeze 3D Movement">LOCK</button>
-    <button onclick="setCameraView('top')" class="view-btn">PLAN</button>
-    <button onclick="setCameraView('side')" class="view-btn">SIDE</button>
-    <button onclick="setCameraView('front')" class="view-btn">SECT</button>
+    <button id="btn-toggle-xray" class="view-btn btn-xray" title="Transparent internal steel parts">X-RAY</button>
+    <button onclick="setCameraView('top')" class="view-btn" title="Plan View (XY)">PLAN</button>
+    <button onclick="setCameraView('side')" class="view-btn" title="Side View">SIDE</button>
+    <button onclick="setCameraView('front')" class="view-btn" title="Section / Front">SECT</button>
     <button onclick="setCameraView('iso')" class="view-btn iso">ISO</button>
   </div>
 
-  <!-- Measurement Panel -->
+  <!-- Coordinates Panel -->
+  <div id="coords-panel" class="panel-bottom panel-coords hud-glass">
+    <div class="panel-head">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+        <span class="panel-title" style="color:#10b981;">Point Coordinate Finder & Editor</span>
+      </div>
+      <button id="btn-clear-coords" style="background:none; border:none; color:#f87171; font-size:10px; cursor:pointer; text-decoration:underline;">Clear Pin</button>
+    </div>
+    <div class="coords-input-grid">
+      <div class="coord-field">
+        <label>X (MM)</label>
+        <input type="number" id="inp-coord-x" placeholder="0.0" step="any">
+      </div>
+      <div class="coord-field">
+        <label>Y (MM)</label>
+        <input type="number" id="inp-coord-y" placeholder="0.0" step="any">
+      </div>
+      <div class="coord-field">
+        <label>Z (MM)</label>
+        <input type="number" id="inp-coord-z" placeholder="0.0" step="any">
+      </div>
+      <button id="btn-jump-coord" class="btn-jump">GOTO</button>
+    </div>
+    <div style="font-size:9px; color:#94a3b8; text-align:center; margin-top:6px;">
+      Tap point to read XYZ, or edit/enter numbers above and press <b>GOTO</b> to locate member.
+    </div>
+  </div>
+
+  <!-- Measurement Panel with Live Point Coordinates -->
   <div id="measure-panel" class="panel-bottom panel-measure hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
@@ -510,16 +636,43 @@
         <div id="val-dz" class="stat-val">0.0</div>
       </div>
     </div>
-    <div id="measure-instruction" style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
+    <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:9px; font-family:monospace; color:#38bdf8; background:rgba(2,6,23,0.5); padding:3px 6px; border-radius:4px;">
+      <span id="p1-coords-display">P1: [---, ---, ---]</span>
+      <span id="p2-coords-display">P2: [---, ---, ---]</span>
+    </div>
+    <div id="measure-instruction" style="font-size:9px; color:#94a3b8; text-align:center; margin-top:5px;">
       Hold finger for loupe, or tap point directly. Use LOCK to freeze camera.
+    </div>
+  </div>
+
+  <!-- Angle Measurement Panel (3 Points) -->
+  <div id="angle-panel" class="panel-bottom panel-angle hud-glass">
+    <div class="panel-head">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:6px; height:6px; border-radius:50%; background:#a78bfa; display:inline-block;"></span>
+        <span class="panel-title" style="color:#a78bfa;">3-Point Angle Finder</span>
+      </div>
+      <button id="btn-clear-angle" style="background:none; border:none; color:#f87171; font-size:10px; cursor:pointer; text-decoration:underline;">Reset</button>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:center; gap:12px; background:rgba(2,6,23,0.6); padding:6px; border-radius:6px; border:1px solid #1e293b;">
+      <div style="font-size:10px; color:#94a3b8; font-family:monospace;">INCLUDED ANGLE:</div>
+      <div id="val-angle-deg" style="font-size:16px; font-weight:700; color:#c084fc; font-family:monospace;">0.00&deg;</div>
+    </div>
+    <div id="angle-instruction" style="font-size:9px; color:#94a3b8; text-align:center; margin-top:6px;">
+      Tap 3 Points: 1.Arm End &rarr; 2.Vertex (Corner) &rarr; 3.Arm End
     </div>
   </div>
 
   <!-- Part Inspection Panel -->
   <div id="inspect-panel" class="panel-bottom panel-inspect hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#fbbf24;">Part Dimensions (Tap to highlight)</span>
+      <span class="panel-title" style="color:#fbbf24;">Part Dimensions & Info</span>
       <button id="btn-clear-lines" style="background:none; border:none; color:#94a3b8; font-size:10px; cursor:pointer; text-decoration:underline;">Clear Lines</button>
+    </div>
+
+    <div class="part-meta-box">
+      <div class="part-meta-item"><b>Part:</b> <span id="meta-part-name" style="color:#fde047;">None selected</span></div>
+      <div class="part-meta-item" style="text-align:right;"><b>Layer:</b> <span id="meta-part-layer" style="color:#38bdf8;">--</span></div>
     </div>
 
     <table class="dim-table">
@@ -537,7 +690,7 @@
           <td id="part-bx" style="text-align:right; font-weight:700; color:#38bdf8;">--</td>
         </tr>
         <tr class="dim-row" onclick="highlightAxisDimension('y')">
-          <td><span class="dim-badge" style="background:#4ade80;"></span> Width/Height (&Delta;Y)</td>
+          <td><span class="dim-badge" style="background:#4ade80;"></span> Width/Breadth (&Delta;Y)</td>
           <td style="color:#4ade80;">Tap for Green Line</td>
           <td id="part-by" style="text-align:right; font-weight:700; color:#4ade80;">--</td>
         </tr>
@@ -564,11 +717,14 @@
         <button id="btn-close-recent" style="background:none; border:none; color:#94a3b8; font-size:18px; cursor:pointer;">&times;</button>
       </div>
       <div id="recent-list-container" class="recent-list">
-        <!-- Injected via IndexedDB -->
       </div>
     </div>
   </div>
 
+  <!-- Version Tag Bottom Left -->
+  <div class="version-tag">V 1.0.7</div>
+
+  <!-- Footer Right -->
   <footer>
     Created by <span>Vishnu T</span>
   </footer>
@@ -579,7 +735,7 @@
   </div>
 
   <script>
-    // --- INDEXEDDB STORAGE FOR PERSISTENT RECENT 3D MODELS ---
+    // --- INDEXEDDB STORAGE ---
     const DB_NAME = 'VTSoft_3DM_Storage';
     const DB_VERSION = 1;
     const STORE_NAME = 'models';
@@ -627,7 +783,6 @@
         const store = tx.objectStore(STORE_NAME);
         const req = store.getAll();
         req.onsuccess = () => {
-          // Sort descending: Latest opened first
           const list = req.result.sort((a, b) => b.timestamp - a.timestamp);
           resolve(list);
         };
@@ -646,7 +801,6 @@
       });
     }
 
-    // --- RECENT MODAL UI RENDERER ---
     async function showRecentModal() {
       const container = document.getElementById('recent-list-container');
       container.innerHTML = '<div style="text-align:center; padding:20px; font-size:12px; color:#64748b;">Loading recent files...</div>';
@@ -674,7 +828,6 @@
           <button class="recent-del-btn" title="Remove">&times;</button>
         `;
 
-        // Click to load
         div.querySelector('.recent-item-info').addEventListener('click', () => {
           document.getElementById('recent-modal').style.display = 'none';
           document.getElementById('active-file-display').innerText = item.name.toLowerCase();
@@ -682,12 +835,10 @@
           setTimeout(() => {
             const doc = rhinoModule.File3dm.fromByteArray(new Uint8Array(item.buffer));
             loadRhinoDoc(doc);
-            // Refresh timestamp to move to top
             saveModelToStorage(item.name, item.buffer);
           }, 50);
         });
 
-        // Click delete
         div.querySelector('.recent-del-btn').addEventListener('click', async (e) => {
           e.stopPropagation();
           await deleteModelFromStorage(item.name);
@@ -698,37 +849,33 @@
       });
     }
 
-    // --- SERVICE WORKER ---
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
-          reg.onupdatefound = () => {
-            const installingWorker = reg.installing;
-            installingWorker.onstatechange = () => {
-              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                window.location.reload();
-              }
-            };
-          };
-        }).catch(console.warn);
-      });
-    }
-
-    // --- THREE.JS & RHINO VIEWER CORE ---
+    // --- THREE.JS & RHINO ENGINE ---
     let scene, camera, renderer, controls;
     let rhinoModule = null;
     let modelRoot = new THREE.Group();
     let currentMode = 'view';
     let meshList = [];
 
+    // Measurement Pins & Lines
     let measurePoints = [];
     let pinMarkers = [];
     let measureLine = null;
 
+    // Angle Pins & Lines
+    let anglePoints = [];
+    let angleMarkers = [];
+    let angleLines = [];
+
+    // Coordinates Pin
+    let coordMarker = null;
+
     let isFrozen = false;
+    let isXRay = false;
     let activePointers = new Map();
     let isInspectingLoupe = false;
     let activeSnappedVertex = null;
+    let loupePendingUpdate = false;
+    let lastLoupePointer = { x: 0, y: 0 };
 
     const loupeEl = document.getElementById('magnifier-loupe');
     const loupeCanvas = document.getElementById('loupe-canvas');
@@ -745,7 +892,6 @@
       setupModeSwitching();
       await initDB();
 
-      // Proactively show Recent Models on startup if available
       const recents = await getAllRecentModels();
       if (recents && recents.length > 0) {
         showRecentModal();
@@ -757,10 +903,11 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0e1726);
 
-      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000000);
+      // Stable near/far ratio to prevent depth-buffer jitter
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100000);
       camera.position.set(2500, 2500, 2500);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMap.enabled = true;
@@ -771,15 +918,16 @@
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
+      controls.rotateSpeed = 0.8;
+      controls.panSpeed = 0.8;
+      controls.zoomSpeed = 1.0;
+      controls.screenSpacePanning = true;
 
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
       scene.add(ambientLight);
 
       const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.75);
       dirLight1.position.set(3000, 6000, 4000);
-      dirLight1.castShadow = true;
-      dirLight1.shadow.mapSize.width = 2048;
-      dirLight1.shadow.mapSize.height = 2048;
       scene.add(dirLight1);
 
       const dirLight2 = new THREE.DirectionalLight(0xa0aec0, 0.45);
@@ -811,40 +959,49 @@
 
     function setupModeSwitching() {
       const btnView = document.getElementById('mode-view');
+      const btnCoords = document.getElementById('mode-coords');
       const btnMeasure = document.getElementById('mode-measure');
+      const btnAngle = document.getElementById('mode-angle');
       const btnInspect = document.getElementById('mode-inspect');
+
+      const coordsPanel = document.getElementById('coords-panel');
       const measurePanel = document.getElementById('measure-panel');
+      const anglePanel = document.getElementById('angle-panel');
       const inspectPanel = document.getElementById('inspect-panel');
+
+      function resetActiveModeStyles() {
+        [btnView, btnCoords, btnMeasure, btnAngle, btnInspect].forEach(b => b.className = 'mode-btn');
+        [coordsPanel, measurePanel, anglePanel, inspectPanel].forEach(p => p.style.display = 'none');
+      }
 
       function switchMode(newMode) {
         currentMode = newMode;
         clearDimensionHelper();
         hideLoupe();
-
-        btnView.className = 'mode-btn';
-        btnMeasure.className = 'mode-btn';
-        btnInspect.className = 'mode-btn';
+        resetActiveModeStyles();
+        controls.enabled = !isFrozen;
 
         if (newMode === 'view') {
           btnView.className = 'mode-btn active-view';
-          controls.enabled = !isFrozen;
-          measurePanel.style.display = 'none';
-          inspectPanel.style.display = 'none';
+        } else if (newMode === 'coords') {
+          btnCoords.className = 'mode-btn active-coords';
+          coordsPanel.style.display = 'block';
         } else if (newMode === 'measure') {
           btnMeasure.className = 'mode-btn active-measure';
-          controls.enabled = !isFrozen;
           measurePanel.style.display = 'block';
-          inspectPanel.style.display = 'none';
+        } else if (newMode === 'angle') {
+          btnAngle.className = 'mode-btn active-angle';
+          anglePanel.style.display = 'block';
         } else if (newMode === 'inspect') {
           btnInspect.className = 'mode-btn active-inspect';
-          controls.enabled = !isFrozen;
-          measurePanel.style.display = 'none';
           inspectPanel.style.display = 'block';
         }
       }
 
       btnView.addEventListener('click', () => switchMode('view'));
+      btnCoords.addEventListener('click', () => switchMode('coords'));
       btnMeasure.addEventListener('click', () => switchMode('measure'));
+      btnAngle.addEventListener('click', () => switchMode('angle'));
       btnInspect.addEventListener('click', () => switchMode('inspect'));
 
       const btnFreeze = document.getElementById('btn-freeze-orbit');
@@ -859,6 +1016,24 @@
           btnFreeze.innerText = 'LOCK';
         }
       });
+
+      const btnXray = document.getElementById('btn-toggle-xray');
+      btnXray.addEventListener('click', () => {
+        isXRay = !isXRay;
+        if (isXRay) {
+          btnXray.classList.add('active-xray');
+        } else {
+          btnXray.classList.remove('active-xray');
+        }
+        meshList.forEach(m => {
+          if (m.material) {
+            m.material.transparent = isXRay;
+            m.material.opacity = isXRay ? 0.35 : 1.0;
+            m.material.depthWrite = !isXRay;
+            m.material.needsUpdate = true;
+          }
+        });
+      });
     }
 
     function setupEvents() {
@@ -867,13 +1042,16 @@
       dom.addEventListener('pointerdown', (e) => {
         activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, time: performance.now() });
 
-        if (activePointers.size >= 1 && (isFrozen || currentMode === 'measure')) {
-          controls.enabled = false;
-        }
+        const isToolMode = (currentMode === 'measure' || currentMode === 'coords' || currentMode === 'angle');
 
-        if (currentMode === 'measure') {
+        if (isToolMode) {
+          controls.enabled = false;
           isInspectingLoupe = true;
-          updateLoupe(e.clientX, e.clientY);
+          lastLoupePointer.x = e.clientX;
+          lastLoupePointer.y = e.clientY;
+          requestLoupeUpdate();
+        } else {
+          controls.enabled = !isFrozen;
         }
       });
 
@@ -882,25 +1060,43 @@
           activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, time: activePointers.get(e.pointerId).time });
         }
 
-        if (currentMode === 'measure' && isInspectingLoupe) {
-          updateLoupe(e.clientX, e.clientY);
+        const isToolMode = (currentMode === 'measure' || currentMode === 'coords' || currentMode === 'angle');
+        if (isToolMode && isInspectingLoupe) {
+          lastLoupePointer.x = e.clientX;
+          lastLoupePointer.y = e.clientY;
+          requestLoupeUpdate();
         }
       });
 
       dom.addEventListener('pointerup', (e) => {
         const pData = activePointers.get(e.pointerId);
         const duration = pData ? performance.now() - pData.time : 999;
+        const dx = pData ? Math.abs(e.clientX - pData.x) : 0;
+        const dy = pData ? Math.abs(e.clientY - pData.y) : 0;
+        const isTap = (dx < 6 && dy < 6);
+
         activePointers.delete(e.pointerId);
 
-        if (currentMode === 'measure') {
-          if (activeSnappedVertex) {
-            registerMeasurementPoint(activeSnappedVertex);
+        // Accurate point picking (either direct vertex snap from loupe or direct raycast hit on surface)
+        let resolvedPoint = activeSnappedVertex;
+        if (!resolvedPoint || isTap) {
+          const directHit = getRaycastIntersection(e.clientX, e.clientY);
+          if (directHit) {
+            resolvedPoint = directHit;
           }
+        }
+
+        if (currentMode === 'measure') {
+          if (resolvedPoint) registerMeasurementPoint(resolvedPoint);
+          hideLoupe();
+        } else if (currentMode === 'coords') {
+          if (resolvedPoint) registerCoordinatePoint(resolvedPoint);
+          hideLoupe();
+        } else if (currentMode === 'angle') {
+          if (resolvedPoint) registerAnglePoint(resolvedPoint);
           hideLoupe();
         } else if (currentMode === 'inspect') {
-          if (duration < 350) {
-            handleInspectClick(e);
-          }
+          if (isTap && duration < 400) handleInspectClick(e);
         }
 
         if (activePointers.size === 0 && !isFrozen) {
@@ -917,11 +1113,15 @@
       document.getElementById('file-input').addEventListener('change', handleFileSelect);
       document.getElementById('btn-reset-view').addEventListener('click', () => setCameraView('iso'));
       document.getElementById('btn-clear-measure').addEventListener('click', clearMeasurements);
+      document.getElementById('btn-clear-coords').addEventListener('click', clearCoordinatePoint);
+      document.getElementById('btn-clear-angle').addEventListener('click', clearAngleMeasurement);
       document.getElementById('btn-clear-lines').addEventListener('click', clearDimensionHelper);
       document.getElementById('btn-show-recent').addEventListener('click', showRecentModal);
       document.getElementById('btn-close-recent').addEventListener('click', () => {
         document.getElementById('recent-modal').style.display = 'none';
       });
+
+      document.getElementById('btn-jump-coord').addEventListener('click', jumpToInputCoordinates);
 
       document.getElementById('btn-hide-part').addEventListener('click', () => {
         if (selectedObject) {
@@ -938,7 +1138,35 @@
       });
     }
 
-    function updateLoupe(screenX, screenY) {
+    // Direct accurate surface raycaster
+    function getRaycastIntersection(screenX, screenY) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((screenX - rect.left) / rect.width) * 2 - 1,
+        -((screenY - rect.top) / rect.height) * 2 + 1
+      );
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(meshList, false);
+      if (intersects.length > 0) {
+        return intersects[0].point.clone();
+      }
+      return null;
+    }
+
+    // High performance RAF Throttled Magnifier (Zero Lag)
+    function requestLoupeUpdate() {
+      if (loupePendingUpdate) return;
+      loupePendingUpdate = true;
+      requestAnimationFrame(() => {
+        renderLoupe(lastLoupePointer.x, lastLoupePointer.y);
+        loupePendingUpdate = false;
+      });
+    }
+
+    function renderLoupe(screenX, screenY) {
+      if (!isInspectingLoupe) return;
+
       loupeEl.style.left = `${screenX}px`;
       loupeEl.style.top = `${Math.max(screenY - 120, 80)}px`;
       loupeEl.style.display = 'block';
@@ -955,22 +1183,7 @@
 
       if (intersects.length > 0) {
         const hit = intersects[0];
-        const geom = hit.object.geometry;
-        const posAttr = geom.attributes.position;
-        let closestDist = Infinity;
-        let closestPt = null;
-
-        for (let i = 0; i < posAttr.count; i++) {
-          const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
-          hit.object.localToWorld(v);
-          const d = v.distanceTo(hit.point);
-          if (d < closestDist) {
-            closestDist = d;
-            closestPt = v.clone();
-          }
-        }
-
-        activeSnappedVertex = closestPt || hit.point;
+        activeSnappedVertex = hit.point.clone();
 
         const ptScreen = activeSnappedVertex.clone().project(camera);
         const w = renderer.domElement.width;
@@ -978,8 +1191,6 @@
         const srcX = (ptScreen.x * 0.5 + 0.5) * w - 70;
         const srcY = (-ptScreen.y * 0.5 + 0.5) * h - 70;
 
-        loupeCtx.fillStyle = '#0e1726';
-        loupeCtx.fillRect(0, 0, 140, 140);
         loupeCtx.drawImage(
           renderer.domElement,
           Math.max(0, srcX), Math.max(0, srcY), 140, 140,
@@ -996,6 +1207,70 @@
       activeSnappedVertex = null;
     }
 
+    // --- COORDINATES (PICK & JUMP FEATURE) ---
+    function registerCoordinatePoint(worldPt) {
+      clearCoordinatePoint();
+
+      const pinGeom = new THREE.SphereGeometry(3.5, 16, 16);
+      const pinMat = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false });
+      coordMarker = new THREE.Mesh(pinGeom, pinMat);
+      coordMarker.position.copy(worldPt);
+      scene.add(coordMarker);
+
+      document.getElementById('inp-coord-x').value = worldPt.x.toFixed(1);
+      document.getElementById('inp-coord-y').value = worldPt.y.toFixed(1);
+      document.getElementById('inp-coord-z').value = worldPt.z.toFixed(1);
+
+      highlightMemberNearPoint(worldPt);
+    }
+
+    function clearCoordinatePoint() {
+      if (coordMarker) {
+        scene.remove(coordMarker);
+        coordMarker = null;
+      }
+    }
+
+    function jumpToInputCoordinates() {
+      const x = parseFloat(document.getElementById('inp-coord-x').value);
+      const y = parseFloat(document.getElementById('inp-coord-y').value);
+      const z = parseFloat(document.getElementById('inp-coord-z').value);
+
+      if (isNaN(x) || isNaN(y) || isNaN(z)) {
+        alert("Please enter valid X, Y, and Z numeric coordinates.");
+        return;
+      }
+
+      const targetPt = new THREE.Vector3(x, y, z);
+      registerCoordinatePoint(targetPt);
+      controls.target.copy(targetPt);
+    }
+
+    function highlightMemberNearPoint(pt) {
+      let closestMesh = null;
+      let minDistance = Infinity;
+
+      meshList.forEach(m => {
+        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+        const bbox = m.geometry.boundingBox.clone().applyMatrix4(m.matrixWorld);
+        const dist = bbox.distanceToPoint(pt);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestMesh = m;
+        }
+      });
+
+      if (closestMesh) {
+        meshList.forEach(m => {
+          if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
+        });
+        if (closestMesh.material && closestMesh.material.emissive) {
+          closestMesh.material.emissive.setHex(0x064e3b);
+        }
+      }
+    }
+
+    // --- MEASUREMENT LOGIC ---
     function registerMeasurementPoint(worldPt) {
       if (measurePoints.length >= 2) {
         clearMeasurements();
@@ -1011,8 +1286,11 @@
       pinMarkers.push(pin);
 
       if (measurePoints.length === 1) {
+        document.getElementById('p1-coords-display').innerText = `P1: [${worldPt.x.toFixed(1)}, ${worldPt.y.toFixed(1)}, ${worldPt.z.toFixed(1)}]`;
         document.getElementById('measure-instruction').innerText = "Point 1 pinned. Tap/Hold Point 2.";
       } else if (measurePoints.length === 2) {
+        document.getElementById('p2-coords-display').innerText = `P2: [${worldPt.x.toFixed(1)}, ${worldPt.y.toFixed(1)}, ${worldPt.z.toFixed(1)}]`;
+
         const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
         const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, depthTest: false });
         measureLine = new THREE.Line(lineGeom, lineMat);
@@ -1045,9 +1323,67 @@
       document.getElementById('val-dx').innerText = '0.0';
       document.getElementById('val-dy').innerText = '0.0';
       document.getElementById('val-dz').innerText = '0.0';
+      document.getElementById('p1-coords-display').innerText = 'P1: [---, ---, ---]';
+      document.getElementById('p2-coords-display').innerText = 'P2: [---, ---, ---]';
       document.getElementById('measure-instruction').innerText = "Hold finger for loupe, or tap point directly.";
     }
 
+    // --- ANGLE MEASUREMENT (3 POINTS) ---
+    function registerAnglePoint(worldPt) {
+      if (anglePoints.length >= 3) {
+        clearAngleMeasurement();
+      }
+
+      anglePoints.push(worldPt);
+
+      const pinColors = [0x93c5fd, 0xc084fc, 0xf472b6];
+      const pinGeom = new THREE.SphereGeometry(3.5, 16, 16);
+      const pinMat = new THREE.MeshBasicMaterial({ color: pinColors[anglePoints.length - 1], depthTest: false });
+      const pin = new THREE.Mesh(pinGeom, pinMat);
+      pin.position.copy(worldPt);
+      scene.add(pin);
+      angleMarkers.push(pin);
+
+      if (anglePoints.length === 1) {
+        document.getElementById('angle-instruction').innerText = "Point 1 set. Next: Tap Point 2 (Vertex / Corner).";
+      } else if (anglePoints.length === 2) {
+        document.getElementById('angle-instruction').innerText = "Vertex set. Next: Tap Point 3 (Arm End).";
+      } else if (anglePoints.length === 3) {
+        const p1 = anglePoints[0];
+        const pV = anglePoints[1]; // Center Vertex
+        const p3 = anglePoints[2];
+
+        const g1 = new THREE.BufferGeometry().setFromPoints([pV, p1]);
+        const g2 = new THREE.BufferGeometry().setFromPoints([pV, p3]);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xc084fc, linewidth: 2, depthTest: false });
+        const l1 = new THREE.Line(g1, lineMat);
+        const l2 = new THREE.Line(g2, lineMat);
+        scene.add(l1);
+        scene.add(l2);
+        angleLines.push(l1, l2);
+
+        const vA = new THREE.Vector3().subVectors(p1, pV).normalize();
+        const vB = new THREE.Vector3().subVectors(p3, pV).normalize();
+        const dot = THREE.MathUtils.clamp(vA.dot(vB), -1, 1);
+        const rad = Math.acos(dot);
+        const deg = THREE.MathUtils.radToDeg(rad);
+
+        document.getElementById('val-angle-deg').innerText = deg.toFixed(2) + '°';
+        document.getElementById('angle-instruction').innerText = "Angle calculated. Tap to measure another angle.";
+      }
+    }
+
+    function clearAngleMeasurement() {
+      angleMarkers.forEach(p => scene.remove(p));
+      angleMarkers = [];
+      angleLines.forEach(l => scene.remove(l));
+      angleLines = [];
+      anglePoints = [];
+      document.getElementById('val-angle-deg').innerText = '0.00°';
+      document.getElementById('angle-instruction').innerText = "Tap 3 Points: 1.Arm End → 2.Vertex (Corner) → 3.Arm End";
+    }
+
+    // --- PART INSPECTION ---
     function handleInspectClick(e) {
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
@@ -1066,6 +1402,9 @@
         if (selectedObject.material.emissive) {
           selectedObject.material.emissive.setHex(0x1e293b);
         }
+
+        document.getElementById('meta-part-name').innerText = selectedObject.userData.name || 'Ship Part';
+        document.getElementById('meta-part-layer').innerText = selectedObject.userData.layerName || 'Default';
 
         selectedObject.geometry.computeBoundingBox();
         selectedLocalBox = selectedObject.geometry.boundingBox;
@@ -1100,7 +1439,7 @@
 
       function createThinLine(ptA, ptB, colorHex) {
         const g = new THREE.BufferGeometry().setFromPoints([ptA, ptB]);
-        const m = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 1.5, depthTest: false });
+        const m = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2, depthTest: false });
         return new THREE.Line(g, m);
       }
 
@@ -1119,7 +1458,7 @@
       }
     }
 
-    // --- FILE SELECT & STORAGE INTEGRATION ---
+    // --- FILE SELECT & LOADER ---
     function handleFileSelect(evt) {
       const file = evt.target.files[0];
       if (!file) return;
@@ -1136,7 +1475,6 @@
       reader.onload = async function(e) {
         try {
           const buffer = e.target.result;
-          // Save to IndexedDB Storage for instant future offline reload
           await saveModelToStorage(file.name, buffer);
 
           const doc = rhinoModule.File3dm.fromByteArray(new Uint8Array(buffer));
@@ -1162,6 +1500,8 @@
         }
         meshList = [];
         clearMeasurements();
+        clearCoordinatePoint();
+        clearAngleMeasurement();
         clearDimensionHelper();
 
         const materialColorMap = {};
@@ -1179,6 +1519,7 @@
         } catch (e) {}
 
         const layerColorMap = {};
+        const layerNameMap = {};
         const layerMaterialMap = {};
         try {
           const layers = doc.layers();
@@ -1186,6 +1527,7 @@
             for (let l = 0; l < layers.count; l++) {
               const layer = layers.get(l);
               if (layer) {
+                if (layer.name) layerNameMap[layer.index] = layer.name;
                 if (layer.color) {
                   const c = layer.color;
                   if (typeof c.r === 'number' && typeof c.g === 'number' && typeof c.b === 'number') {
@@ -1279,6 +1621,11 @@
             threeMesh.castShadow = true;
             threeMesh.receiveShadow = true;
 
+            threeMesh.userData = {
+              name: attr ? (attr.name || `Part_${i + 1}`) : `Part_${i + 1}`,
+              layerName: (attr && attr.layerIndex !== undefined) ? (layerNameMap[attr.layerIndex] || `Layer ${attr.layerIndex}`) : 'Default'
+            };
+
             try {
               const edges = new THREE.EdgesGeometry(threeGeom, 25);
               const lineMat = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1 });
@@ -1295,6 +1642,7 @@
           alert("Notice: No render meshes found in this file.");
         }
 
+        // Auto-fit camera smoothly without flipping orientation
         const bbox = new THREE.Box3().setFromObject(modelRoot);
         const center = bbox.getCenter(new THREE.Vector3());
         const size = bbox.getSize(new THREE.Vector3());
@@ -1302,7 +1650,7 @@
 
         controls.target.copy(center);
         camera.position.set(center.x + maxDim * 1.3, center.y + maxDim * 1.1, center.z + maxDim * 1.3);
-        camera.near = maxDim / 1000;
+        camera.near = Math.max(1, maxDim / 1000);
         camera.far = maxDim * 50;
         camera.updateProjectionMatrix();
 
@@ -1343,6 +1691,7 @@
       return geom;
     }
 
+    // --- ACCURATE, JITTER-FREE CAMERA VIEWS (STANDARD ORBIT PRESERVED) ---
     function setCameraView(preset) {
       const bbox = new THREE.Box3().setFromObject(modelRoot);
       const center = bbox.getCenter(new THREE.Vector3());
@@ -1350,11 +1699,20 @@
       const d = (Math.max(size.x, size.y, size.z) || 1000) * 1.8;
 
       controls.target.copy(center);
-      if (preset === 'top') camera.position.set(center.x, center.y + d, center.z);
-      else if (preset === 'side') camera.position.set(center.x + d, center.y, center.z);
-      else if (preset === 'front') camera.position.set(center.x, center.y, center.z + d);
-      else if (preset === 'iso') camera.position.set(center.x + d * 0.8, center.y + d * 0.7, center.z + d * 0.8);
+
+      if (preset === 'top') {
+        // Plan view looking down Y axis with slight offset to avoid Gimbal lock
+        camera.position.set(center.x, center.y + d, center.z + 0.0001);
+      } else if (preset === 'side') {
+        camera.position.set(center.x + d, center.y, center.z);
+      } else if (preset === 'front') {
+        camera.position.set(center.x, center.y, center.z + d);
+      } else if (preset === 'iso') {
+        camera.position.set(center.x + d * 0.8, center.y + d * 0.7, center.z + d * 0.8);
+      }
+
       camera.lookAt(center);
+      controls.update();
     }
 
     function showLoader(txt) {
