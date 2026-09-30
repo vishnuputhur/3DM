@@ -5,8 +5,7 @@
   <title>VT Soft 3DM Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   
-  <!-- Dynamic Theme Color: Starts with Warm White for Splash -->
-  <meta id="theme-color-meta" name="theme-color" content="#fdfbf7">
+  <meta name="theme-color" content="#0d131f">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
 
@@ -44,49 +43,6 @@
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
-    }
-    
-    /* Full-Screen Warm White Splash Screen (No Boxes, No Cropping) */
-    #splash-screen {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 9999;
-      background-color: #fdfbf7;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
-    }
-    #splash-screen.fade-out {
-      opacity: 0;
-      visibility: hidden;
-    }
-    .splash-logo-container {
-      width: 100%;
-      max-width: 290px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .splash-logo-wide {
-      width: 100%;
-      height: auto;
-      max-height: 110px;
-      object-fit: contain;
-      display: block;
-    }
-    .splash-app-badge {
-      margin-top: 18px;
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: #64748b;
-      font-family: monospace;
     }
 
     /* Header Bar */
@@ -246,10 +202,10 @@
     /* Bottom Panels */
     .panel-bottom {
       position: fixed;
-      bottom: 30px;
+      bottom: 28px;
       left: 10px;
       right: 10px;
-      max-width: 420px;
+      max-width: 440px;
       margin: 0 auto;
       z-index: 40;
       border-radius: 8px;
@@ -276,6 +232,36 @@
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
+
+    /* Dimension Table for Inspection */
+    .dim-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: monospace;
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+    .dim-table th {
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 9px;
+      padding: 3px 4px;
+      text-align: left;
+      border-bottom: 1px solid #334155;
+    }
+    .dim-table td {
+      padding: 5px 4px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+    }
+    .dim-badge {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -298,57 +284,6 @@
       font-weight: 600;
       color: #f1f5f9;
       margin-top: 2px;
-    }
-
-    /* Magnifier Loupe */
-    #magnifier-loupe {
-      position: absolute;
-      width: 140px;
-      height: 140px;
-      border-radius: 50%;
-      border: 2px solid #38bdf8;
-      box-shadow: 0 0 25px rgba(56, 189, 248, 0.5), inset 0 0 15px rgba(0,0,0,0.8);
-      pointer-events: none;
-      overflow: hidden;
-      display: none;
-      z-index: 100;
-      background: #0b111a;
-      transform: translate(-50%, -100%);
-    }
-    #magnifier-loupe::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 14px;
-      height: 14px;
-      transform: translate(-50%, -50%);
-      border: 1.5px solid #ef4444;
-      border-radius: 50%;
-      box-shadow: 0 0 6px #ef4444;
-      pointer-events: none;
-      z-index: 3;
-    }
-    #magnifier-loupe::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: rgba(239, 68, 68, 0.7);
-      pointer-events: none;
-      z-index: 2;
-    }
-    .crosshair-v {
-      position: absolute;
-      left: 50%;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: rgba(239, 68, 68, 0.7);
-      pointer-events: none;
-      z-index: 2;
     }
 
     /* Watermark */
@@ -394,20 +329,7 @@
 </head>
 <body>
 
-  <!-- Fullscreen Warm White Splash Screen (Wide Brand Logo Friendly) -->
-  <div id="splash-screen">
-    <div class="splash-logo-container">
-      <img src="splash_logo.png" alt="VT Soft Logo" class="splash-logo-wide" onerror="this.onerror=null; this.src='logo.png';">
-    </div>
-    <div class="splash-app-badge">3DM Marine Viewer</div>
-  </div>
-
   <div id="viewport"></div>
-
-  <div id="magnifier-loupe">
-    <div class="crosshair-v"></div>
-    <canvas id="loupe-canvas" width="140" height="140"></canvas>
-  </div>
 
   <header class="hud-glass">
     <div class="brand-wrap">
@@ -442,6 +364,7 @@
     <button onclick="setCameraView('iso')" class="view-btn iso">ISO</button>
   </div>
 
+  <!-- Caliper Measurement Panel -->
   <div id="measure-panel" class="panel-bottom panel-measure hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
@@ -469,32 +392,48 @@
       </div>
     </div>
     <div id="measure-instruction" style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
-      Hold finger for 2 sec on Point 1 to snap.
+      Tap Point 1 to place pin.
     </div>
   </div>
 
+  <!-- Color-Coded Part Inspection Panel -->
   <div id="inspect-panel" class="panel-bottom panel-inspect hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#fbbf24;">Part Inspection</span>
+      <span class="panel-title" style="color:#fbbf24;">Part Dimensions</span>
       <button id="btn-unhide-all" style="background:none; border:none; color:#38bdf8; font-size:10px; cursor:pointer; text-decoration:underline;">Show All</button>
     </div>
-    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:8px;">
-      <div class="stat-card">
-        <div class="stat-label">BOUND X</div>
-        <div id="part-bx" class="stat-val">--</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">BOUND Y</div>
-        <div id="part-by" class="stat-val">--</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">BOUND Z</div>
-        <div id="part-bz" class="stat-val">--</div>
-      </div>
-    </div>
+
+    <!-- Color-Coded Dimension Table -->
+    <table class="dim-table">
+      <thead>
+        <tr>
+          <th>AXIS & ORIENTATION</th>
+          <th>COLOR CODE</th>
+          <th style="text-align:right;">DIMENSION (MM)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="dim-badge" style="background:#38bdf8;"></span> Length (&Delta;X)</td>
+          <td style="color:#38bdf8;">Blue Line</td>
+          <td id="part-bx" style="text-align:right; font-weight:700; color:#38bdf8;">--</td>
+        </tr>
+        <tr>
+          <td><span class="dim-badge" style="background:#4ade80;"></span> Width/Height (&Delta;Y)</td>
+          <td style="color:#4ade80;">Green Line</td>
+          <td id="part-by" style="text-align:right; font-weight:700; color:#4ade80;">--</td>
+        </tr>
+        <tr>
+          <td><span class="dim-badge" style="background:#f87171;"></span> Depth/Thick (&Delta;Z)</td>
+          <td style="color:#f87171;">Red Line</td>
+          <td id="part-bz" style="text-align:right; font-weight:700; color:#f87171;">--</td>
+        </tr>
+      </tbody>
+    </table>
+
     <div style="display:flex; gap:6px;">
-      <button id="btn-hide-part" style="flex:1; padding:5px; font-size:10px; border-radius:4px; background:rgba(225,29,72,0.3); color:#fda4af; border:1px solid #9f1239; cursor:pointer;">Hide Part</button>
-      <button id="btn-isolate-part" style="flex:1; padding:5px; font-size:10px; border-radius:4px; background:rgba(217,119,6,0.3); color:#fde68a; border:1px solid #92400e; cursor:pointer;">Isolate Part</button>
+      <button id="btn-hide-part" style="flex:1; padding:6px; font-size:10px; font-weight:600; border-radius:4px; background:rgba(225,29,72,0.3); color:#fda4af; border:1px solid #9f1239; cursor:pointer;">Hide Part</button>
+      <button id="btn-isolate-part" style="flex:1; padding:6px; font-size:10px; font-weight:600; border-radius:4px; background:rgba(217,119,6,0.3); color:#fde68a; border:1px solid #92400e; cursor:pointer;">Isolate Part</button>
     </div>
   </div>
 
@@ -516,7 +455,6 @@
             const installingWorker = reg.installing;
             installingWorker.onstatechange = () => {
               if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('Update found. Reloading...');
                 window.location.reload();
               }
             };
@@ -527,46 +465,24 @@
       });
     }
 
-    // 2-Second Clean Splash Screen Handler with Mobile Theme Meta Switch
-    window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        const splash = document.getElementById('splash-screen');
-        if (splash) {
-          splash.classList.add('fade-out');
-          // Smoothly switch Status Bar from Warm White to Dark Navy
-          const themeMeta = document.getElementById('theme-color-meta');
-          if (themeMeta) {
-            themeMeta.setAttribute('content', '#0d131f');
-          }
-        }
-      }, 2000);
-    });
-
     let scene, camera, renderer, controls;
     let rhinoModule = null;
     let modelRoot = new THREE.Group();
     let currentMode = 'view';
     let meshList = [];
 
+    // Measurement States
     let measurePoints = [];
     let pinMarkers = [];
     let measureLine = null;
 
-    let holdTimer = null;
-    let lockTimer = null;
-    let isHolding = false;
-    let touchDownPos = { x: 0, y: 0 };
-    let currentPointerPos = { x: 0, y: 0 };
-    let activeSnappedVertex = null;
+    // Direct Tap Pointer States
+    let pointerDownPos = { x: 0, y: 0 };
+    let pointerDownTime = 0;
 
-    const HOLD_DURATION = 2000;
-    const LOCK_DURATION = 800;
-
-    const loupeEl = document.getElementById('magnifier-loupe');
-    const loupeCanvas = document.getElementById('loupe-canvas');
-    const loupeCtx = loupeCanvas.getContext('2d');
-
+    // Part Inspection & Color Bounding Helper
     let selectedObject = null;
+    let dimensionHelperGroup = new THREE.Group();
 
     window.addEventListener('DOMContentLoaded', () => {
       initThree();
@@ -610,6 +526,7 @@
       scene.add(dirLight2);
 
       scene.add(modelRoot);
+      scene.add(dimensionHelperGroup);
 
       const grid = new THREE.GridHelper(10000, 50, 0x334155, 0x1e293b);
       grid.position.y = -0.5;
@@ -640,7 +557,7 @@
 
       function switchMode(newMode) {
         currentMode = newMode;
-        cancelHold();
+        clearDimensionHelper();
 
         btnView.className = 'mode-btn';
         btnMeasure.className = 'mode-btn';
@@ -672,59 +589,35 @@
     function setupEvents() {
       const dom = renderer.domElement;
 
+      // Track pointer down time and position to differentiate between Tap and Orbit Drag
       dom.addEventListener('pointerdown', (e) => {
-        if (currentMode !== 'measure') {
-          if (currentMode === 'inspect') handleInspectClick(e);
-          return;
-        }
-
-        touchDownPos = { x: e.clientX, y: e.clientY };
-        currentPointerPos = { x: e.clientX, y: e.clientY };
-
-        lockTimer = setTimeout(() => {
-          controls.enabled = false;
-        }, LOCK_DURATION);
-
-        holdTimer = setTimeout(() => {
-          isHolding = true;
-          controls.enabled = false;
-          updateLoupePosition(currentPointerPos.x, currentPointerPos.y);
-          loupeEl.style.display = 'block';
-          findNearestVertexUnderPointer(currentPointerPos.x, currentPointerPos.y);
-        }, HOLD_DURATION);
+        pointerDownPos = { x: e.clientX, y: e.clientY };
+        pointerDownTime = performance.now();
       });
 
-      dom.addEventListener('pointermove', (e) => {
-        currentPointerPos = { x: e.clientX, y: e.clientY };
+      dom.addEventListener('pointerup', (e) => {
+        const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+        const tapDuration = performance.now() - pointerDownTime;
 
-        if (!isHolding && holdTimer) {
-          const distMoved = Math.hypot(e.clientX - touchDownPos.x, e.clientY - touchDownPos.y);
-          if (distMoved > 8) {
-            cancelHold();
+        // If moved less than 6px and released under 300ms, it's a Clean Direct Tap
+        if (moveDist < 6 && tapDuration < 300) {
+          if (currentMode === 'measure') {
+            handleDirectMeasureTap(e);
+          } else if (currentMode === 'inspect') {
+            handleInspectClick(e);
           }
         }
-
-        if (isHolding) {
-          updateLoupePosition(e.clientX, e.clientY);
-          findNearestVertexUnderPointer(e.clientX, e.clientY);
-        }
       });
-
-      window.addEventListener('pointerup', () => {
-        if (isHolding && activeSnappedVertex) {
-          registerMeasurementPoint(activeSnappedVertex);
-        }
-        cancelHold();
-      });
-
-      window.addEventListener('pointercancel', cancelHold);
 
       document.getElementById('file-input').addEventListener('change', handleFileSelect);
       document.getElementById('btn-reset-view').addEventListener('click', () => setCameraView('iso'));
       document.getElementById('btn-clear-measure').addEventListener('click', clearMeasurements);
 
       document.getElementById('btn-hide-part').addEventListener('click', () => {
-        if (selectedObject) selectedObject.visible = false;
+        if (selectedObject) {
+          selectedObject.visible = false;
+          clearDimensionHelper();
+        }
       });
       document.getElementById('btn-isolate-part').addEventListener('click', () => {
         if (!selectedObject) return;
@@ -735,25 +628,12 @@
       });
     }
 
-    function cancelHold() {
-      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
-      if (lockTimer) { clearTimeout(lockTimer); lockTimer = null; }
-      isHolding = false;
-      loupeEl.style.display = 'none';
-      activeSnappedVertex = null;
-      controls.enabled = true;
-    }
-
-    function updateLoupePosition(x, y) {
-      loupeEl.style.left = `${x}px`;
-      loupeEl.style.top = `${Math.max(y - 130, 80)}px`;
-    }
-
-    function findNearestVertexUnderPointer(screenX, screenY) {
+    // Direct Instant Tap Measurement
+    function handleDirectMeasureTap(e) {
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
-        ((screenX - rect.left) / rect.width) * 2 - 1,
-        -((screenY - rect.top) / rect.height) * 2 + 1
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
       );
 
       const raycaster = new THREE.Raycaster();
@@ -765,44 +645,32 @@
         const geom = hit.object.geometry;
         const posAttr = geom.attributes.position;
         let closestDist = Infinity;
-        let closestPt = null;
+        let snappedPt = hit.point;
 
+        // Fast vertex snapping
         for (let i = 0; i < posAttr.count; i++) {
           const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
           hit.object.localToWorld(v);
           const d = v.distanceTo(hit.point);
           if (d < closestDist) {
             closestDist = d;
-            closestPt = v.clone();
+            snappedPt = v.clone();
           }
         }
 
-        activeSnappedVertex = closestPt || hit.point;
-        renderLoupeView(activeSnappedVertex);
+        registerMeasurementPoint(snappedPt);
       }
     }
 
-    function renderLoupeView(targetWorldPt) {
-      const ptScreen = targetWorldPt.clone().project(camera);
-      const w = renderer.domElement.width;
-      const h = renderer.domElement.height;
-      const srcX = (ptScreen.x * 0.5 + 0.5) * w - 70;
-      const srcY = (-ptScreen.y * 0.5 + 0.5) * h - 70;
-
-      loupeCtx.fillStyle = '#0e1726';
-      loupeCtx.fillRect(0, 0, 140, 140);
-
-      loupeCtx.drawImage(
-        renderer.domElement,
-        Math.max(0, srcX), Math.max(0, srcY), 140, 140,
-        0, 0, 140, 140
-      );
-    }
-
     function registerMeasurementPoint(worldPt) {
+      if (measurePoints.length >= 2) {
+        clearMeasurements();
+      }
+
       measurePoints.push(worldPt);
 
-      const pinGeom = new THREE.SphereGeometry(3, 16, 16);
+      // Pinpoint screen-space marker
+      const pinGeom = new THREE.SphereGeometry(3.5, 16, 16);
       const pinMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false });
       const pin = new THREE.Mesh(pinGeom, pinMat);
       pin.position.copy(worldPt);
@@ -810,7 +678,7 @@
       pinMarkers.push(pin);
 
       if (measurePoints.length === 1) {
-        document.getElementById('measure-instruction').innerText = "Hold finger for 2 sec on Point 2 to complete.";
+        document.getElementById('measure-instruction').innerText = "Tap Point 2 to calculate distance.";
       } else if (measurePoints.length === 2) {
         const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
         const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, depthTest: false });
@@ -828,7 +696,7 @@
         document.getElementById('val-dx').innerText = dx.toFixed(1);
         document.getElementById('val-dy').innerText = dy.toFixed(1);
         document.getElementById('val-dz').innerText = dz.toFixed(1);
-        document.getElementById('measure-instruction').innerText = "Measurement complete. Tap 'Reset Pins' to re-measure.";
+        document.getElementById('measure-instruction').innerText = "Measurement complete. Tap any point to re-measure.";
       }
     }
 
@@ -844,9 +712,10 @@
       document.getElementById('val-dx').innerText = '0.0';
       document.getElementById('val-dy').innerText = '0.0';
       document.getElementById('val-dz').innerText = '0.0';
-      document.getElementById('measure-instruction').innerText = "Hold finger for 2 sec on Point 1 to snap.";
+      document.getElementById('measure-instruction').innerText = "Tap Point 1 to place pin.";
     }
 
+    // Inspect Part & Render Color-Coded Dimension Wireframe Box
     function handleInspectClick(e) {
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
@@ -863,17 +732,75 @@
           if (m.material.emissive) m.material.emissive.setHex(0x000000);
         });
         if (selectedObject.material.emissive) {
-          selectedObject.material.emissive.setHex(0x334155);
+          selectedObject.material.emissive.setHex(0x1e293b);
         }
 
+        // Compute Bounding Box
         selectedObject.geometry.computeBoundingBox();
-        const bbox = selectedObject.geometry.boundingBox;
+        const localBox = selectedObject.geometry.boundingBox;
         const size = new THREE.Vector3();
-        bbox.getSize(size);
+        localBox.getSize(size);
 
+        // Update Color-Coded Dimension Table
         document.getElementById('part-bx').innerText = size.x.toFixed(1);
         document.getElementById('part-by').innerText = size.y.toFixed(1);
         document.getElementById('part-bz').innerText = size.z.toFixed(1);
+
+        // Build 3D Color-Coded Dimension Lines directly on object
+        renderColorDimensionBox(selectedObject, localBox);
+      }
+    }
+
+    // Color-Coded 3D Box around Part (Blue = Length X, Green = Width Y, Red = Depth Z)
+    function renderColorDimensionBox(object, box) {
+      clearDimensionHelper();
+
+      const min = box.min;
+      const max = box.max;
+
+      // 8 Corners of the bounding box
+      const p = [
+        new THREE.Vector3(min.x, min.y, min.z), // 0
+        new THREE.Vector3(max.x, min.y, min.z), // 1
+        new THREE.Vector3(max.x, max.y, min.z), // 2
+        new THREE.Vector3(min.x, max.y, min.z), // 3
+        new THREE.Vector3(min.x, min.y, max.z), // 4
+        new THREE.Vector3(max.x, min.y, max.z), // 5
+        new THREE.Vector3(max.x, max.y, max.z), // 6
+        new THREE.Vector3(min.x, max.y, max.z)  // 7
+      ];
+
+      // Transform corners to World Space
+      p.forEach(pt => object.localToWorld(pt));
+
+      function createLineSegment(ptA, ptB, colorHex) {
+        const g = new THREE.BufferGeometry().setFromPoints([ptA, ptB]);
+        const m = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 3, depthTest: false });
+        return new THREE.Line(g, m);
+      }
+
+      // X-Axis Edges: Bright Blue (#38bdf8) -> Length
+      const xEdges = [
+        [p[0], p[1]], [p[3], p[2]], [p[7], p[6]], [p[4], p[5]]
+      ];
+      xEdges.forEach(pair => dimensionHelperGroup.add(createLineSegment(pair[0], pair[1], 0x38bdf8)));
+
+      // Y-Axis Edges: Bright Green (#4ade80) -> Width/Height
+      const yEdges = [
+        [p[0], p[3]], [p[1], p[2]], [p[5], p[6]], [p[4], p[7]]
+      ];
+      yEdges.forEach(pair => dimensionHelperGroup.add(createLineSegment(pair[0], pair[1], 0x4ade80)));
+
+      // Z-Axis Edges: Bright Red (#f87171) -> Depth/Thickness
+      const zEdges = [
+        [p[0], p[4]], [p[1], p[5]], [p[2], p[6]], [p[3], p[7]]
+      ];
+      zEdges.forEach(pair => dimensionHelperGroup.add(createLineSegment(pair[0], pair[1], 0xf87171)));
+    }
+
+    function clearDimensionHelper() {
+      while (dimensionHelperGroup.children.length > 0) {
+        dimensionHelperGroup.remove(dimensionHelperGroup.children[0]);
       }
     }
 
@@ -918,6 +845,7 @@
         }
         meshList = [];
         clearMeasurements();
+        clearDimensionHelper();
 
         const materialColorMap = {};
         try {
@@ -931,9 +859,7 @@
               }
             }
           }
-        } catch (e) {
-          console.warn("Materials reading skipped:", e);
-        }
+        } catch (e) {}
 
         const layerColorMap = {};
         const layerMaterialMap = {};
@@ -955,9 +881,7 @@
               }
             }
           }
-        } catch (e) {
-          console.warn("Layer reading skipped:", e);
-        }
+        } catch (e) {}
 
         const objects = doc.objects();
         const count = objects ? objects.count : 0;
