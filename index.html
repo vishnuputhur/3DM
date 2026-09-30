@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>VT Soft 3DM Viewer</title>
+  <title>3DM Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   
   <meta name="theme-color" content="#0d131f">
@@ -81,9 +81,9 @@
       flex: 1;
     }
     .app-name {
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       color: #f8fafc;
       white-space: nowrap;
@@ -173,11 +173,11 @@
       color: #fff;
     }
 
-    /* Marine Views Preset */
+    /* Freeze / Lock Button & Marine Views */
     .views-bar {
       position: fixed;
       right: 10px;
-      top: 110px;
+      top: 108px;
       z-index: 30;
       display: flex;
       flex-direction: column;
@@ -197,6 +197,67 @@
     .view-btn.iso {
       color: #38bdf8;
       border-color: #0284c7;
+    }
+    .btn-freeze {
+      border-color: #eab308;
+      color: #facc15;
+    }
+    .btn-freeze.active-freeze {
+      background: #eab308;
+      color: #000;
+      font-weight: 700;
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.5);
+    }
+
+    /* Magnifier Loupe */
+    #magnifier-loupe {
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 2px solid #38bdf8;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.5), inset 0 0 15px rgba(0,0,0,0.8);
+      pointer-events: none;
+      overflow: hidden;
+      display: none;
+      z-index: 100;
+      background: #0b111a;
+      transform: translate(-50%, -100%);
+    }
+    #magnifier-loupe::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      transform: translate(-50%, -50%);
+      border: 1.5px solid #ef4444;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #ef4444;
+      pointer-events: none;
+      z-index: 3;
+    }
+    #magnifier-loupe::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(239, 68, 68, 0.7);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .crosshair-v {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(239, 68, 68, 0.7);
+      pointer-events: none;
+      z-index: 2;
     }
 
     /* Bottom Panels */
@@ -233,7 +294,7 @@
       text-transform: uppercase;
     }
 
-    /* Dimension Table for Inspection */
+    /* Interactive Dimension Table */
     .dim-table {
       width: 100%;
       border-collapse: collapse;
@@ -249,8 +310,15 @@
       text-align: left;
       border-bottom: 1px solid #334155;
     }
+    .dim-row {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .dim-row:hover, .dim-row.active-row {
+      background: rgba(255, 255, 255, 0.06);
+    }
     .dim-table td {
-      padding: 5px 4px;
+      padding: 6px 4px;
       border-bottom: 1px solid rgba(51, 65, 85, 0.4);
     }
     .dim-badge {
@@ -286,7 +354,6 @@
       margin-top: 2px;
     }
 
-    /* Watermark */
     footer {
       position: fixed;
       bottom: 6px;
@@ -301,7 +368,6 @@
       font-weight: 500;
     }
 
-    /* Loader Modal */
     #loader {
       position: fixed;
       inset: 0;
@@ -331,11 +397,18 @@
 
   <div id="viewport"></div>
 
+  <!-- Magnifier Loupe Container -->
+  <div id="magnifier-loupe">
+    <div class="crosshair-v"></div>
+    <canvas id="loupe-canvas" width="140" height="140"></canvas>
+  </div>
+
+  <!-- Header -->
   <header class="hud-glass">
     <div class="brand-wrap">
       <img src="logo.png" alt="Logo" class="brand-logo-img" onerror="this.src='icon-192.png'">
       <div class="title-box">
-        <div class="app-name">VT Soft 3DM Viewer</div>
+        <div class="app-name">3DM Viewer</div>
         <div id="active-file-display" class="file-name">no file loaded</div>
       </div>
     </div>
@@ -351,20 +424,23 @@
     </div>
   </header>
 
+  <!-- Modes -->
   <div class="mode-bar hud-glass">
     <button id="mode-view" class="mode-btn active-view">View</button>
     <button id="mode-measure" class="mode-btn">Measure</button>
     <button id="mode-inspect" class="mode-btn">Inspect Part</button>
   </div>
 
+  <!-- Views & Controls (Vertical on Right) -->
   <div class="views-bar">
+    <button id="btn-freeze-orbit" class="view-btn btn-freeze" title="Freeze 3D Movement">LOCK</button>
     <button onclick="setCameraView('top')" class="view-btn">PLAN</button>
     <button onclick="setCameraView('side')" class="view-btn">SIDE</button>
     <button onclick="setCameraView('front')" class="view-btn">SECT</button>
     <button onclick="setCameraView('iso')" class="view-btn iso">ISO</button>
   </div>
 
-  <!-- Caliper Measurement Panel -->
+  <!-- Measurement Panel -->
   <div id="measure-panel" class="panel-bottom panel-measure hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
@@ -392,40 +468,39 @@
       </div>
     </div>
     <div id="measure-instruction" style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
-      Tap Point 1 to place pin.
+      Hold finger to inspect loupe, or tap point directly. Use LOCK button to freeze camera.
     </div>
   </div>
 
-  <!-- Color-Coded Part Inspection Panel -->
+  <!-- Part Inspection Panel with Click-To-Show Dimension Lines -->
   <div id="inspect-panel" class="panel-bottom panel-inspect hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#fbbf24;">Part Dimensions</span>
-      <button id="btn-unhide-all" style="background:none; border:none; color:#38bdf8; font-size:10px; cursor:pointer; text-decoration:underline;">Show All</button>
+      <span class="panel-title" style="color:#fbbf24;">Part Dimensions (Tap row to highlight)</span>
+      <button id="btn-clear-lines" style="background:none; border:none; color:#94a3b8; font-size:10px; cursor:pointer; text-decoration:underline;">Clear Lines</button>
     </div>
 
-    <!-- Color-Coded Dimension Table -->
     <table class="dim-table">
       <thead>
         <tr>
-          <th>AXIS & ORIENTATION</th>
+          <th>AXIS / MEASURE</th>
           <th>COLOR CODE</th>
           <th style="text-align:right;">DIMENSION (MM)</th>
         </tr>
       </thead>
       <tbody>
-        <tr>
+        <tr class="dim-row" onclick="highlightAxisDimension('x')">
           <td><span class="dim-badge" style="background:#38bdf8;"></span> Length (&Delta;X)</td>
-          <td style="color:#38bdf8;">Blue Line</td>
+          <td style="color:#38bdf8;">Tap for Blue Line</td>
           <td id="part-bx" style="text-align:right; font-weight:700; color:#38bdf8;">--</td>
         </tr>
-        <tr>
+        <tr class="dim-row" onclick="highlightAxisDimension('y')">
           <td><span class="dim-badge" style="background:#4ade80;"></span> Width/Height (&Delta;Y)</td>
-          <td style="color:#4ade80;">Green Line</td>
+          <td style="color:#4ade80;">Tap for Green Line</td>
           <td id="part-by" style="text-align:right; font-weight:700; color:#4ade80;">--</td>
         </tr>
-        <tr>
+        <tr class="dim-row" onclick="highlightAxisDimension('z')">
           <td><span class="dim-badge" style="background:#f87171;"></span> Depth/Thick (&Delta;Z)</td>
-          <td style="color:#f87171;">Red Line</td>
+          <td style="color:#f87171;">Tap for Red Line</td>
           <td id="part-bz" style="text-align:right; font-weight:700; color:#f87171;">--</td>
         </tr>
       </tbody>
@@ -434,6 +509,7 @@
     <div style="display:flex; gap:6px;">
       <button id="btn-hide-part" style="flex:1; padding:6px; font-size:10px; font-weight:600; border-radius:4px; background:rgba(225,29,72,0.3); color:#fda4af; border:1px solid #9f1239; cursor:pointer;">Hide Part</button>
       <button id="btn-isolate-part" style="flex:1; padding:6px; font-size:10px; font-weight:600; border-radius:4px; background:rgba(217,119,6,0.3); color:#fde68a; border:1px solid #92400e; cursor:pointer;">Isolate Part</button>
+      <button id="btn-unhide-all" style="padding:6px 10px; font-size:10px; font-weight:600; border-radius:4px; background:rgba(2,132,199,0.3); color:#7dd3fc; border:1px solid #0284c7; cursor:pointer;">Show All</button>
     </div>
   </div>
 
@@ -471,18 +547,25 @@
     let currentMode = 'view';
     let meshList = [];
 
-    // Measurement States
+    // Measurement & Pins
     let measurePoints = [];
     let pinMarkers = [];
     let measureLine = null;
 
-    // Direct Tap Pointer States
-    let pointerDownPos = { x: 0, y: 0 };
-    let pointerDownTime = 0;
+    // Freeze & Touch Tracking
+    let isFrozen = false;
+    let activePointers = new Map();
+    let isInspectingLoupe = false;
+    let activeSnappedVertex = null;
 
-    // Part Inspection & Color Bounding Helper
+    const loupeEl = document.getElementById('magnifier-loupe');
+    const loupeCanvas = document.getElementById('loupe-canvas');
+    const loupeCtx = loupeCanvas.getContext('2d');
+
+    // Part Inspection & Dimension Helper
     let selectedObject = null;
-    let dimensionHelperGroup = new THREE.Group();
+    let selectedLocalBox = null;
+    let dimensionLinesGroup = new THREE.Group();
 
     window.addEventListener('DOMContentLoaded', () => {
       initThree();
@@ -526,7 +609,7 @@
       scene.add(dirLight2);
 
       scene.add(modelRoot);
-      scene.add(dimensionHelperGroup);
+      scene.add(dimensionLinesGroup);
 
       const grid = new THREE.GridHelper(10000, 50, 0x334155, 0x1e293b);
       grid.position.y = -0.5;
@@ -558,6 +641,7 @@
       function switchMode(newMode) {
         currentMode = newMode;
         clearDimensionHelper();
+        hideLoupe();
 
         btnView.className = 'mode-btn';
         btnMeasure.className = 'mode-btn';
@@ -565,17 +649,17 @@
 
         if (newMode === 'view') {
           btnView.className = 'mode-btn active-view';
-          controls.enabled = true;
+          controls.enabled = !isFrozen;
           measurePanel.style.display = 'none';
           inspectPanel.style.display = 'none';
         } else if (newMode === 'measure') {
           btnMeasure.className = 'mode-btn active-measure';
-          controls.enabled = true;
+          controls.enabled = !isFrozen;
           measurePanel.style.display = 'block';
           inspectPanel.style.display = 'none';
         } else if (newMode === 'inspect') {
           btnInspect.className = 'mode-btn active-inspect';
-          controls.enabled = true;
+          controls.enabled = !isFrozen;
           measurePanel.style.display = 'none';
           inspectPanel.style.display = 'block';
         }
@@ -584,34 +668,83 @@
       btnView.addEventListener('click', () => switchMode('view'));
       btnMeasure.addEventListener('click', () => switchMode('measure'));
       btnInspect.addEventListener('click', () => switchMode('inspect'));
+
+      // Freeze Button Logic
+      const btnFreeze = document.getElementById('btn-freeze-orbit');
+      btnFreeze.addEventListener('click', () => {
+        isFrozen = !isFrozen;
+        controls.enabled = !isFrozen;
+        if (isFrozen) {
+          btnFreeze.classList.add('active-freeze');
+          btnFreeze.innerText = 'LOCKED';
+        } else {
+          btnFreeze.classList.remove('active-freeze');
+          btnFreeze.innerText = 'LOCK';
+        }
+      });
     }
 
     function setupEvents() {
       const dom = renderer.domElement;
 
-      // Track pointer down time and position to differentiate between Tap and Orbit Drag
+      // Multi-Touch & Precision Snap Handlers
       dom.addEventListener('pointerdown', (e) => {
-        pointerDownPos = { x: e.clientX, y: e.clientY };
-        pointerDownTime = performance.now();
+        activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, time: performance.now() });
+
+        // If one finger is already touching, freeze orbit automatically to prevent wobble
+        if (activePointers.size >= 1 && (isFrozen || currentMode === 'measure')) {
+          controls.enabled = false;
+        }
+
+        if (currentMode === 'measure') {
+          isInspectingLoupe = true;
+          updateLoupe(e.clientX, e.clientY);
+        }
+      });
+
+      dom.addEventListener('pointermove', (e) => {
+        if (activePointers.has(e.pointerId)) {
+          activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, time: activePointers.get(e.pointerId).time });
+        }
+
+        if (currentMode === 'measure' && isInspectingLoupe) {
+          updateLoupe(e.clientX, e.clientY);
+        }
       });
 
       dom.addEventListener('pointerup', (e) => {
-        const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
-        const tapDuration = performance.now() - pointerDownTime;
+        const pData = activePointers.get(e.pointerId);
+        const duration = pData ? performance.now() - pData.time : 999;
+        activePointers.delete(e.pointerId);
 
-        // If moved less than 6px and released under 300ms, it's a Clean Direct Tap
-        if (moveDist < 6 && tapDuration < 300) {
-          if (currentMode === 'measure') {
-            handleDirectMeasureTap(e);
-          } else if (currentMode === 'inspect') {
+        if (currentMode === 'measure') {
+          // If we had a snapped vertex under finger, place marker
+          if (activeSnappedVertex) {
+            registerMeasurementPoint(activeSnappedVertex);
+          }
+          hideLoupe();
+        } else if (currentMode === 'inspect') {
+          if (duration < 350) {
             handleInspectClick(e);
           }
         }
+
+        // Restore orbit controls if un-frozen
+        if (activePointers.size === 0 && !isFrozen) {
+          controls.enabled = true;
+        }
+      });
+
+      dom.addEventListener('pointercancel', () => {
+        activePointers.clear();
+        hideLoupe();
+        if (!isFrozen) controls.enabled = true;
       });
 
       document.getElementById('file-input').addEventListener('change', handleFileSelect);
       document.getElementById('btn-reset-view').addEventListener('click', () => setCameraView('iso'));
       document.getElementById('btn-clear-measure').addEventListener('click', clearMeasurements);
+      document.getElementById('btn-clear-lines').addEventListener('click', clearDimensionHelper);
 
       document.getElementById('btn-hide-part').addEventListener('click', () => {
         if (selectedObject) {
@@ -628,12 +761,16 @@
       });
     }
 
-    // Direct Instant Tap Measurement
-    function handleDirectMeasureTap(e) {
+    // Live Loupe Update with High-Precision Vertex Snapping
+    function updateLoupe(screenX, screenY) {
+      loupeEl.style.left = `${screenX}px`;
+      loupeEl.style.top = `${Math.max(screenY - 120, 80)}px`;
+      loupeEl.style.display = 'block';
+
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1
+        ((screenX - rect.left) / rect.width) * 2 - 1,
+        -((screenY - rect.top) / rect.height) * 2 + 1
       );
 
       const raycaster = new THREE.Raycaster();
@@ -645,23 +782,46 @@
         const geom = hit.object.geometry;
         const posAttr = geom.attributes.position;
         let closestDist = Infinity;
-        let snappedPt = hit.point;
+        let closestPt = null;
 
-        // Fast vertex snapping
         for (let i = 0; i < posAttr.count; i++) {
           const v = new THREE.Vector3().fromBufferAttribute(posAttr, i);
           hit.object.localToWorld(v);
           const d = v.distanceTo(hit.point);
           if (d < closestDist) {
             closestDist = d;
-            snappedPt = v.clone();
+            closestPt = v.clone();
           }
         }
 
-        registerMeasurementPoint(snappedPt);
+        activeSnappedVertex = closestPt || hit.point;
+
+        // Render live magnified 2D view
+        const ptScreen = activeSnappedVertex.clone().project(camera);
+        const w = renderer.domElement.width;
+        const h = renderer.domElement.height;
+        const srcX = (ptScreen.x * 0.5 + 0.5) * w - 70;
+        const srcY = (-ptScreen.y * 0.5 + 0.5) * h - 70;
+
+        loupeCtx.fillStyle = '#0e1726';
+        loupeCtx.fillRect(0, 0, 140, 140);
+        loupeCtx.drawImage(
+          renderer.domElement,
+          Math.max(0, srcX), Math.max(0, srcY), 140, 140,
+          0, 0, 140, 140
+        );
+      } else {
+        activeSnappedVertex = null;
       }
     }
 
+    function hideLoupe() {
+      isInspectingLoupe = false;
+      loupeEl.style.display = 'none';
+      activeSnappedVertex = null;
+    }
+
+    // Place Small Constant-Sized Pin Markers
     function registerMeasurementPoint(worldPt) {
       if (measurePoints.length >= 2) {
         clearMeasurements();
@@ -669,7 +829,7 @@
 
       measurePoints.push(worldPt);
 
-      // Pinpoint screen-space marker
+      // Distinct Pin Marker Dot
       const pinGeom = new THREE.SphereGeometry(3.5, 16, 16);
       const pinMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false });
       const pin = new THREE.Mesh(pinGeom, pinMat);
@@ -678,7 +838,7 @@
       pinMarkers.push(pin);
 
       if (measurePoints.length === 1) {
-        document.getElementById('measure-instruction').innerText = "Tap Point 2 to calculate distance.";
+        document.getElementById('measure-instruction').innerText = "Point 1 pinned. Tap/Hold Point 2.";
       } else if (measurePoints.length === 2) {
         const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
         const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, depthTest: false });
@@ -696,7 +856,7 @@
         document.getElementById('val-dx').innerText = dx.toFixed(1);
         document.getElementById('val-dy').innerText = dy.toFixed(1);
         document.getElementById('val-dz').innerText = dz.toFixed(1);
-        document.getElementById('measure-instruction').innerText = "Measurement complete. Tap any point to re-measure.";
+        document.getElementById('measure-instruction').innerText = "Distance calculated. Tap anywhere to start new measure.";
       }
     }
 
@@ -712,10 +872,10 @@
       document.getElementById('val-dx').innerText = '0.0';
       document.getElementById('val-dy').innerText = '0.0';
       document.getElementById('val-dz').innerText = '0.0';
-      document.getElementById('measure-instruction').innerText = "Tap Point 1 to place pin.";
+      document.getElementById('measure-instruction').innerText = "Hold finger to inspect loupe, or tap point directly.";
     }
 
-    // Inspect Part & Render Color-Coded Dimension Wireframe Box
+    // Inspect Part Handler
     function handleInspectClick(e) {
       const rect = renderer.domElement.getBoundingClientRect();
       const mouse = new THREE.Vector2(
@@ -735,72 +895,57 @@
           selectedObject.material.emissive.setHex(0x1e293b);
         }
 
-        // Compute Bounding Box
         selectedObject.geometry.computeBoundingBox();
-        const localBox = selectedObject.geometry.boundingBox;
+        selectedLocalBox = selectedObject.geometry.boundingBox;
         const size = new THREE.Vector3();
-        localBox.getSize(size);
+        selectedLocalBox.getSize(size);
 
-        // Update Color-Coded Dimension Table
         document.getElementById('part-bx').innerText = size.x.toFixed(1);
         document.getElementById('part-by').innerText = size.y.toFixed(1);
         document.getElementById('part-bz').innerText = size.z.toFixed(1);
 
-        // Build 3D Color-Coded Dimension Lines directly on object
-        renderColorDimensionBox(selectedObject, localBox);
+        // Clear existing lines - Do NOT draw all lines automatically
+        clearDimensionHelper();
       }
     }
 
-    // Color-Coded 3D Box around Part (Blue = Length X, Green = Width Y, Red = Depth Z)
-    function renderColorDimensionBox(object, box) {
+    // Show ONLY the specific tapped dimension line (Thin & Non-Intrusive)
+    function highlightAxisDimension(axis) {
+      if (!selectedObject || !selectedLocalBox) return;
+
       clearDimensionHelper();
 
-      const min = box.min;
-      const max = box.max;
+      const min = selectedLocalBox.min;
+      const max = selectedLocalBox.max;
 
-      // 8 Corners of the bounding box
-      const p = [
-        new THREE.Vector3(min.x, min.y, min.z), // 0
-        new THREE.Vector3(max.x, min.y, min.z), // 1
-        new THREE.Vector3(max.x, max.y, min.z), // 2
-        new THREE.Vector3(min.x, max.y, min.z), // 3
-        new THREE.Vector3(min.x, min.y, max.z), // 4
-        new THREE.Vector3(max.x, min.y, max.z), // 5
-        new THREE.Vector3(max.x, max.y, max.z), // 6
-        new THREE.Vector3(min.x, max.y, max.z)  // 7
-      ];
+      const p0 = new THREE.Vector3(min.x, min.y, min.z);
+      const pX = new THREE.Vector3(max.x, min.y, min.z);
+      const pY = new THREE.Vector3(min.x, max.y, min.z);
+      const pZ = new THREE.Vector3(min.x, min.y, max.z);
 
-      // Transform corners to World Space
-      p.forEach(pt => object.localToWorld(pt));
+      selectedObject.localToWorld(p0);
+      selectedObject.localToWorld(pX);
+      selectedObject.localToWorld(pY);
+      selectedObject.localToWorld(pZ);
 
-      function createLineSegment(ptA, ptB, colorHex) {
+      function createThinLine(ptA, ptB, colorHex) {
         const g = new THREE.BufferGeometry().setFromPoints([ptA, ptB]);
-        const m = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 3, depthTest: false });
+        const m = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 1.5, depthTest: false });
         return new THREE.Line(g, m);
       }
 
-      // X-Axis Edges: Bright Blue (#38bdf8) -> Length
-      const xEdges = [
-        [p[0], p[1]], [p[3], p[2]], [p[7], p[6]], [p[4], p[5]]
-      ];
-      xEdges.forEach(pair => dimensionHelperGroup.add(createLineSegment(pair[0], pair[1], 0x38bdf8)));
-
-      // Y-Axis Edges: Bright Green (#4ade80) -> Width/Height
-      const yEdges = [
-        [p[0], p[3]], [p[1], p[2]], [p[5], p[6]], [p[4], p[7]]
-      ];
-      yEdges.forEach(pair => dimensionHelperGroup.add(createLineSegment(pair[0], pair[1], 0x4ade80)));
-
-      // Z-Axis Edges: Bright Red (#f87171) -> Depth/Thickness
-      const zEdges = [
-        [p[0], p[4]], [p[1], p[5]], [p[2], p[6]], [p[3], p[7]]
-      ];
-      zEdges.forEach(pair => dimensionHelperGroup.add(createLineSegment(pair[0], pair[1], 0xf87171)));
+      if (axis === 'x') {
+        dimensionLinesGroup.add(createThinLine(p0, pX, 0x38bdf8)); // Blue Length
+      } else if (axis === 'y') {
+        dimensionLinesGroup.add(createThinLine(p0, pY, 0x4ade80)); // Green Width
+      } else if (axis === 'z') {
+        dimensionLinesGroup.add(createThinLine(p0, pZ, 0xf87171)); // Red Depth
+      }
     }
 
     function clearDimensionHelper() {
-      while (dimensionHelperGroup.children.length > 0) {
-        dimensionHelperGroup.remove(dimensionHelperGroup.children[0]);
+      while (dimensionLinesGroup.children.length > 0) {
+        dimensionLinesGroup.remove(dimensionLinesGroup.children[0]);
       }
     }
 
@@ -809,7 +954,7 @@
       if (!file) return;
 
       if (!rhinoModule) {
-        alert("Rhino3dm engine still loading or missing offline files.");
+        alert("Rhino engine loading or offline files missing.");
         return;
       }
 
@@ -821,9 +966,7 @@
         try {
           const buffer = new Uint8Array(e.target.result);
           const doc = rhinoModule.File3dm.fromByteArray(buffer);
-          if (!doc) {
-            throw new Error("Unable to parse 3DM format.");
-          }
+          if (!doc) throw new Error("Unable to parse 3DM format.");
           loadRhinoDoc(doc);
         } catch (err) {
           console.error("3DM parsing error:", err);
