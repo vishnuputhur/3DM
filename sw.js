@@ -1,46 +1,38 @@
 const CACHE_VERSION = 'v1.0.7';
 const CACHE_NAME = `vtsoft-3dm-${CACHE_VERSION}`;
 
-// നിർബന്ധമായും കാഷെ ചെയ്യേണ്ട പ്രധാന ഫയലുകൾ
-const ESSENTIAL_FILES = [
+// കാഷെ ചെയ്യേണ്ട ഫയലുകൾ
+const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
   './three.min.js',
   './OrbitControls.js',
   './rhino3dm.min.js',
-  './rhino3dm.wasm'
-];
-
-// ഉണ്ടെങ്കിൽ മാത്രം കാഷെ ചെയ്യേണ്ട ഇമേജ് ഫയലുകൾ (ഇതിൽ ഒന്ന് മിസ്സായാലും ആപ്പ് തടസ്സപ്പെടില്ല)
-const OPTIONAL_FILES = [
+  './rhino3dm.wasm',
   './logo.png',
   './splash_logo.png',
   './icon-192.png',
   './icon-512.png'
 ];
 
-// Fail-safe Install Step
+// 1. ഫെയിൽ-സേഫ് ഇൻസ്റ്റാൾ (ഒറ്റ ഫയലും ബ്രേക്ക് ഉണ്ടാക്കില്ല)
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      // 1. മെയിൻ ഫയലുകൾ ഉറപ്പായും കാഷെ ചെയ്യുന്നു
-      await cache.addAll(ESSENTIAL_FILES);
-      
-      // 2. ഇമേജുകൾ ഓരോന്നായി സുരക്ഷിതമായി കാഷെ ചെയ്യുന്നു
-      for (const file of OPTIONAL_FILES) {
-        try {
-          await cache.add(file);
-        } catch (e) {
-          console.warn(`Optional asset skipped: ${file}`);
-        }
-      }
-    })
+    caches.open(CACHE_NAME).then((cache) => {
+      // addAll ഒഴിവാക്കി, ഓരോ ഫയലും സുരക്ഷിതമായി ക്യാഷ് ചെയ്യുന്നു
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn(`File skipped or not found: ${url}`, err);
+          })
+        )
+      );
+    }).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// പഴയ കാഷെ ക്ലീൻ ചെയ്യുക
+// 2. പഴയ കാഷെ ഡിലീറ്റ് ചെയ്യുക
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -51,22 +43,34 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// 100% ഓഫ്‌ലൈൻ ആക്സസ് തരുന്ന Fetch തന്ത്രം (Cache First, Network Fallback)
+// 3. പക്കാ ഓഫ്‌ലൈൻ Fetch (Desktop + Mobile Compatible)
 self.addEventListener('fetch', (event) => {
+  // http / https അല്ലാത്ത റിക്വസ്റ്റുകൾ ഒഴിവാക്കുക (chrome-extension മുതലായവ)
+  if (!event.request.url.startsWith('http')) return;
+
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request).catch(() => {
-        // ഓഫ്‌ലൈനിൽ മെയിൻ പേജിലേക്ക് തിരിച്ചുവിടുന്നു
+
+      // കാഷെയിൽ ഇല്ലെങ്കിൽ മാത്രം നെറ്റിൽ നിന്ന് എടുക്കുക
+      return fetch(event.request).then((networkResponse) => {
+        // ലഭിച്ച പുതിയ ഫയൽ കൂടി ഭാവിയിലേക്ക് കാഷെ ചെയ്യുന്നു
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const resClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+        }
+        return networkResponse;
+      }).catch(async () => {
+        // ഡെസ്ക്ടോപ്പ് PWA ഓഫ്‌ലൈൻ ഓപ്പൺ ചെയ്യുമ്പോൾ ഹോം പേജ് നൽകുക
         if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
+          const indexPage = await caches.match('./index.html') || await caches.match('./');
+          if (indexPage) return indexPage;
         }
       });
     })
