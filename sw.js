@@ -1,7 +1,6 @@
-const CACHE_VERSION = 'v1.0.7';
+const CACHE_VERSION = 'v1.0.9';
 const CACHE_NAME = `vtsoft-3dm-${CACHE_VERSION}`;
 
-// കാഷെ ചെയ്യേണ്ട ഫയലുകൾ
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,28 +10,29 @@ const ASSETS_TO_CACHE = [
   './rhino3dm.min.js',
   './rhino3dm.wasm',
   './logo.png',
-  './splash_logo.png',
-  './icon-192.png',
-  './icon-512.png'
+  './icon-192.png'
 ];
 
-// 1. ഫെയിൽ-സേഫ് ഇൻസ്റ്റാൾ (ഒറ്റ ഫയലും ബ്രേക്ക് ഉണ്ടാക്കില്ല)
+// 1. ഇൻസ്റ്റാളേഷൻ ഘട്ടം
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      // addAll ഒഴിവാക്കി, ഓരോ ഫയലും സുരക്ഷിതമായി ക്യാഷ് ചെയ്യുന്നു
-      return Promise.allSettled(
-        ASSETS_TO_CACHE.map((url) =>
-          cache.add(url).catch((err) => {
-            console.warn(`File skipped or not found: ${url}`, err);
-          })
-        )
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // ഓരോ ഫയലും നിർബന്ധമായും കാഷെ ചെയ്യുന്നു
+      await Promise.allSettled(
+        ASSETS_TO_CACHE.map(async (url) => {
+          try {
+            const res = await fetch(url, { cache: 'no-cache' });
+            if (res.ok) await cache.put(url, res);
+          } catch (e) {
+            console.warn(`Asset caching failed for: ${url}`, e);
+          }
+        })
       );
     }).then(() => self.skipWaiting())
   );
 });
 
-// 2. പഴയ കാഷെ ഡിലീറ്റ് ചെയ്യുക
+// 2. ആക്റ്റിവേഷൻ ഘട്ടം (പഴയ വേർഷനുകൾ ക്ലീൻ ചെയ്യുന്നു)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -47,32 +47,44 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 3. പക്കാ ഓഫ്‌ലൈൻ Fetch (Desktop + Mobile Compatible)
+// 3. പക്കാ ഓഫ്‌ലൈൻ Fetch സ്ട്രാറ്റജി (Cache-First)
 self.addEventListener('fetch', (event) => {
-  // http / https അല്ലാത്ത റിക്വസ്റ്റുകൾ ഒഴിവാക്കുക (chrome-extension മുതലായവ)
   if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+
+      // (A) ആദ്യം ഡയറക്റ്റ് കാഷെയിൽ നോക്കുന്നു
+      let cached = await cache.match(event.request, { ignoreSearch: true });
+      if (cached) return cached;
+
+      // (B) റിലേറ്റീവ് ഫയൽ നെയിം വെച്ച് വീണ്ടും നോക്കുന്നു (ഡെസ്ക്ടോപ്പ് പാത്ത് ഫിക്സ്)
+      const url = new URL(event.request.url);
+      const filename = './' + url.pathname.split('/').pop();
+      cached = await cache.match(filename, { ignoreSearch: true });
+      if (cached) return cached;
+
+      // (C) മെയിൻ പേജ് നാവിഗേഷൻ ആണെങ്കിൽ index.html നൽകുന്നു
+      if (event.request.mode === 'navigate') {
+        const indexPage = await cache.match('./index.html') || await cache.match('./');
+        if (indexPage) return indexPage;
       }
 
-      // കാഷെയിൽ ഇല്ലെങ്കിൽ മാത്രം നെറ്റിൽ നിന്ന് എടുക്കുക
-      return fetch(event.request).then((networkResponse) => {
-        // ലഭിച്ച പുതിയ ഫയൽ കൂടി ഭാവിയിലേക്ക് കാഷെ ചെയ്യുന്നു
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-          const resClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+      // (D) കാഷെയിൽ ഇല്ലാത്തവ മാത്രം നെറ്റ് വഴി എടുക്കാൻ നോക്കുന്നു
+      try {
+        const netRes = await fetch(event.request);
+        if (netRes && netRes.status === 200 && netRes.type === 'basic') {
+          cache.put(event.request, netRes.clone());
         }
-        return networkResponse;
-      }).catch(async () => {
-        // ഡെസ്ക്ടോപ്പ് PWA ഓഫ്‌ലൈൻ ഓപ്പൺ ചെയ്യുമ്പോൾ ഹോം പേജ് നൽകുക
+        return netRes;
+      } catch (err) {
+        // നെറ്റും ഇല്ലെങ്കിൽ അവസാന ശ്രമമായി index.html നൽകുന്നു
         if (event.request.mode === 'navigate') {
-          const indexPage = await caches.match('./index.html') || await caches.match('./');
-          if (indexPage) return indexPage;
+          return await cache.match('./index.html') || await cache.match('./');
         }
-      });
-    })
+        throw err;
+      }
+    })()
   );
 });
