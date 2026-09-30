@@ -41,7 +41,7 @@
             border: 1px solid var(--border-line);
             color: #e2e8f0;
             border-radius: 28px;
-            padding: 35px 24px;
+            padding: 38px 24px;
             max-width: 400px;
             width: 100%;
             margin: auto;
@@ -81,7 +81,7 @@
         }
 
         h2 {
-            font-size: 1.4rem;
+            font-size: 1.45rem;
             font-weight: 700;
             color: #f8fafc;
             margin-bottom: 4px;
@@ -97,10 +97,10 @@
         }
 
         .desc-text {
-            font-size: 0.84rem;
+            font-size: 0.86rem;
             color: #94a3b8;
-            line-height: 1.5;
-            margin-bottom: 24px;
+            line-height: 1.55;
+            margin-bottom: 26px;
             text-align: center;
         }
 
@@ -125,8 +125,8 @@
 
         .status-container {
             display: none;
-            padding: 15px 10px;
-            border-radius: 12px;
+            padding: 16px 10px;
+            border-radius: 14px;
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.05);
             margin-top: 10px;
@@ -165,22 +165,8 @@
             margin: 0 auto 8px;
         }
 
-        .skip-link {
-            display: block;
-            margin-top: 22px;
-            color: #64748b;
-            text-decoration: none;
-            font-size: 13px;
-            transition: color 0.2s;
-        }
-
-        .skip-link:hover {
-            color: #94a3b8;
-            text-decoration: underline;
-        }
-
         .footer-tag {
-            margin-top: 25px;
+            margin-top: 28px;
             font-size: 0.78rem;
             color: #475569;
             font-weight: 500;
@@ -190,33 +176,33 @@
 <body>
 
     <div class="install-card">
-        <span class="badge">OFFICIAL SHIPBUILDING APP</span>
+        <span class="badge">3D CAD UTILITY</span>
         
         <div class="logo-wrap">
             <img src="logo.png" class="logo-img" alt="3DM Viewer Logo" onerror="this.onerror=null; this.src='icon-192.png';">
         </div>
         
         <h2>3DM Viewer</h2>
-        <div class="sub-tag">Ship & Hull Engineering Tool</div>
+        <div class="sub-tag">3D Model Inspector & Caliper</div>
         
         <p class="desc-text">
-            View 3D models, inspect block geometry, take accurate shipyard measurements, and plan structural fabrication directly on your device — 100% offline.
+            View and analyze 3D models, inspect individual components, take precise measurements, and plan structural work directly on your device — 100% offline.
         </p>
         
         <!-- Install Trigger Button -->
         <button id="installBtn" class="btn-install" style="display: none;">Install Application</button>
         <div id="waitMsg" style="color: #64748b; font-size: 13px;">Checking system readiness...</div>
 
-        <!-- Dynamic Installing & Success Progress Box -->
+        <!-- Installing & Success Progress Box -->
         <div id="statusBox" class="status-container">
-            <!-- Phase 1: Installing State -->
+            <!-- Phase 1: Installing State (5 seconds) -->
             <div id="installingState">
                 <div class="spinner"></div>
                 <div class="status-title">Installing Application...</div>
-                <div class="status-sub">Configuring offline CAD engine & storage</div>
+                <div class="status-sub">Preparing offline CAD engine & storage</div>
             </div>
 
-            <!-- Phase 2: Success State -->
+            <!-- Phase 2: Success State (4 seconds countdown) -->
             <div id="successState" style="display: none;">
                 <svg class="success-icon" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -225,8 +211,6 @@
                 <div class="status-sub" id="redirectMsg">Redirecting to VT Soft in 4s...</div>
             </div>
         </div>
-
-        <a href="index.html" class="skip-link">Launch Web Version Directly &rarr;</a>
         
         <div class="footer-tag">Created by Vishnu T | VT Soft</div>
     </div>
@@ -242,12 +226,12 @@
 
         const REDIRECT_TARGET = "https://vtsoft.onrender.com";
 
-        // Register Service Worker for PWA
+        // Register Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').catch(console.warn);
         }
 
-        // Catch PWA Install Prompt
+        // PWA Install Event
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
@@ -255,7 +239,7 @@
             waitMsg.style.display = 'none';
         });
 
-        // Fallback for browsers that already installed or don't support beforeinstallprompt
+        // Fallback for browsers
         setTimeout(() => {
             if (!deferredPrompt && installBtn.style.display === 'none') {
                 installBtn.style.display = 'block';
@@ -264,7 +248,7 @@
             }
         }, 1200);
 
-        // Click Handler: Triggers Prompt + 5s Installing + 4s Countdown Redirect
+        // Click Trigger -> 5s Installing -> 4s Countdown -> Redirect
         installBtn.addEventListener('click', async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
@@ -275,19 +259,18 @@
                 }
             }
 
-            // Start Installation UI Sequence
             installBtn.style.display = 'none';
             waitMsg.style.display = 'none';
             statusBox.style.display = 'block';
             installingState.style.display = 'block';
             successState.style.display = 'none';
 
-            // Step 1: Wait 5 Seconds (Installing Phase)
+            // 5 Seconds Installing Animation
             setTimeout(() => {
                 installingState.style.display = 'none';
                 successState.style.display = 'block';
 
-                // Step 2: 4 Seconds Countdown & Redirect
+                // 4 Seconds Countdown before redirect
                 let countdown = 4;
                 redirectMsg.innerText = `Redirecting to VT Soft in ${countdown}s...`;
 
@@ -304,7 +287,7 @@
             }, 5000);
         });
 
-        // If opened already in installed Standalone Mode, redirect directly to index.html
+        // If launched in standalone mode, open the viewer directly
         if (window.matchMedia('(display-mode: standalone)').matches) {
             window.location.href = 'index.html';
         }
