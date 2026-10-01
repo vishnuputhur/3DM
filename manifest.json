@@ -4,21 +4,21 @@
   "description": "Offline 3DM CAD Viewer for Shipbuilding and Marine Engineering",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#fdfbf7",
-  "theme_color": "#fdfbf7",
+  "background_color": "#0d131f",
+  "theme_color": "#0d131f",
   "orientation": "any",
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "splash_logo.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
