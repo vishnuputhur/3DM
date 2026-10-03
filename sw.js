@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1.1.6';
+const CACHE_VERSION = 'v1.1.8';
 const CACHE_NAME = `vtsoft-3dm-${CACHE_VERSION}`;
 
 const ASSETS_TO_CACHE = [
