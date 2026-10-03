@@ -28,6 +28,15 @@
       color: #e2e8f0;
     }
     #viewport { width: 100%; height: 100%; display: block; }
+    
+    /* Netlify Badge & Feedback Hiding Rule */
+    [data-netlify-deploy-id], .netlify-badge, #netlify-identity-widget, iframe[src*="netlify"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
     .hud-glass {
       background: rgba(13, 19, 35, 0.90);
       backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
@@ -219,7 +228,7 @@
     .dim-table td { padding: 6px 4px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
     .dim-badge { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
 
-    /* Section Slider Style */
+    /* Section Slider & Input Style */
     .axis-selector-btn {
       flex: 1; padding: 6px 4px; font-size: 11px; font-family: monospace; font-weight: 700;
       border-radius: 5px; background: #1e293b; color: #cbd5e1; border: 1px solid #334155; cursor: pointer;
@@ -229,8 +238,18 @@
       background: #06b6d4; color: #082f49; border-color: #22d3ee; font-weight: 800;
     }
     .cut-slider-range {
-      width: 100%; accent-color: #06b6d4; cursor: pointer; height: 6px;
+      flex: 1; accent-color: #06b6d4; cursor: pointer; height: 6px;
     }
+    .cut-input-box {
+      width: 75px; background: #020617; border: 1px solid #334155; border-radius: 4px;
+      color: #38bdf8; font-family: monospace; font-size: 12px; font-weight: 700;
+      padding: 4px 6px; text-align: right; outline: none;
+    }
+    .btn-cut-go {
+      background: #06b6d4; color: #082f49; border: none; border-radius: 4px;
+      padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer;
+    }
+    .btn-cut-go:hover { background: #22d3ee; }
 
     .version-tag {
       position: fixed; bottom: 8px; left: 12px; z-index: 30;
@@ -451,7 +470,7 @@
     </div>
   </div>
 
-  <!-- SECTION CUTTER PANEL WITH MILLIMETER READOUT -->
+  <!-- SECTION CUTTER PANEL WITH INPUT BOX & GO BUTTON -->
   <div id="section-panel" class="panel-bottom panel-section hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
@@ -470,12 +489,14 @@
       <button id="btn-cut-flip" class="btn-action" style="padding:5px 8px; font-size:10.5px; border-color:#0891b2; color:#38bdf8;">Flip Side</button>
     </div>
 
-    <div style="display:flex; align-items:center; gap:10px; background:rgba(2,6,23,0.6); padding:8px 12px; border-radius:6px; border:1px solid #1e293b;">
+    <!-- Slider with Input box & GO Button -->
+    <div style="display:flex; align-items:center; gap:8px; background:rgba(2,6,23,0.6); padding:8px 10px; border-radius:6px; border:1px solid #1e293b;">
       <input type="range" id="cut-slider" class="cut-slider-range" min="0" max="100" value="100">
-      <span id="cut-val-display" style="font-family:monospace; font-size:12px; font-weight:700; color:#38bdf8; min-width:85px; text-align:right;">100%</span>
+      <input type="number" id="cut-manual-input" class="cut-input-box" placeholder="0.0" step="any">
+      <button id="btn-cut-go" class="btn-cut-go">GO</button>
     </div>
     <div style="font-size:9.5px; color:#94a3b8; text-align:center; margin-top:6px;">
-      Slide bar to cut. You can switch to Linear/Coords tools while keeping cut active!
+      Slide bar or enter exact coordinate (mm) & press <b>GO</b> to place section plane.
     </div>
   </div>
 
@@ -536,7 +557,7 @@
     </div>
   </div>
 
-  <div class="version-tag">V 1.1.5</div>
+  <div class="version-tag">V 1.1.6</div>
 
   <footer>
     Created by <span>Vishnu T</span>
@@ -911,13 +932,15 @@
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  SECTION CUT CONTROLS WITH MILLIMETER READOUT
+    //  SECTION CUT WITH MANUAL INPUT & GO BUTTON
     // ═══════════════════════════════════════════════════════════
     function setupSectionCutControls() {
       const cutX = document.getElementById('cut-axis-x');
       const cutY = document.getElementById('cut-axis-y');
       const cutZ = document.getElementById('cut-axis-z');
       const slider = document.getElementById('cut-slider');
+      const inputVal = document.getElementById('cut-manual-input');
+      const btnGo = document.getElementById('btn-cut-go');
       const flipBtn = document.getElementById('btn-cut-flip');
       const resetCutBtn = document.getElementById('btn-reset-cut');
 
@@ -942,8 +965,25 @@
         updateClipPlane();
       });
 
+      // Jump to Manual Input Coordinate on GO
+      btnGo.addEventListener('click', () => {
+        const val = parseFloat(inputVal.value);
+        if (isNaN(val)) {
+          alert("Please enter a valid numeric millimeter value.");
+          return;
+        }
+        setCutToExactCoordinate(val);
+      });
+
+      inputVal.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          btnGo.click();
+        }
+      });
+
       resetCutBtn.addEventListener('click', () => {
         slider.value = 100;
+        inputVal.value = '';
         cutInvert = -1;
         updateClipPlane();
         enableClipping(false);
@@ -951,11 +991,43 @@
       });
     }
 
+    function setCutToExactCoordinate(exactCoord) {
+      enableClipping(true);
+
+      const min = modelBBox.min;
+      const max = modelBBox.max;
+      let minVal = 0, maxVal = 0;
+
+      if (currentCutAxis === 'x') { minVal = min.x; maxVal = max.x; }
+      else if (currentCutAxis === 'y') { minVal = min.y; maxVal = max.y; }
+      else { minVal = min.z; maxVal = max.z; }
+
+      // Clamp target within model boundaries
+      let clamped = Math.max(minVal, Math.min(maxVal, exactCoord));
+      let percent = ((clamped - minVal) / (maxVal - minVal)) * 100;
+
+      document.getElementById('cut-slider').value = percent;
+      document.getElementById('cut-manual-input').value = clamped.toFixed(1);
+
+      let normal = new THREE.Vector3();
+      if (currentCutAxis === 'x') normal.set(cutInvert, 0, 0);
+      else if (currentCutAxis === 'y') normal.set(0, cutInvert, 0);
+      else normal.set(0, 0, cutInvert);
+
+      let constant = (cutInvert < 0) ? clamped : -clamped;
+      clipPlane.normal.copy(normal);
+      clipPlane.constant = constant;
+
+      if (currentCutAxis === 'x') document.getElementById('cut-axis-x').innerText = `X: ${clamped.toFixed(0)}`;
+      else if (currentCutAxis === 'y') document.getElementById('cut-axis-y').innerText = `Y: ${clamped.toFixed(0)}`;
+      else document.getElementById('cut-axis-z').innerText = `Z: ${clamped.toFixed(0)}`;
+    }
+
     function resetAxisButtonLabels() {
       document.getElementById('cut-axis-x').innerText = 'X-Cut';
       document.getElementById('cut-axis-y').innerText = 'Y-Cut';
       document.getElementById('cut-axis-z').innerText = 'Z-Cut';
-      document.getElementById('cut-val-display').innerText = '100%';
+      document.getElementById('cut-manual-input').value = '';
     }
 
     function updateClipPlane() {
@@ -982,17 +1054,13 @@
       const percent = sliderVal / 100;
       let targetCoord = minVal + (maxVal - minVal) * percent;
 
-      // Mathematical plane constant offset
       let constant = (cutInvert < 0) ? targetCoord : -targetCoord;
-
       clipPlane.normal.copy(normal);
       clipPlane.constant = constant;
 
-      // Update Millimeter values on selected button & display
-      const coordStr = `${targetCoord >= 0 ? '+' : ''}${targetCoord.toFixed(1)} mm`;
-      document.getElementById('cut-val-display').innerText = coordStr;
+      // Realtime refresh in input box
+      document.getElementById('cut-manual-input').value = targetCoord.toFixed(1);
 
-      const axisPrefix = currentCutAxis.toUpperCase();
       if (currentCutAxis === 'x') {
         document.getElementById('cut-axis-x').innerText = `X: ${targetCoord.toFixed(0)}`;
       } else if (currentCutAxis === 'y') {
@@ -1005,7 +1073,6 @@
     function enableClipping(enabled) {
       isClippingActive = enabled;
 
-      // Clip solid parts
       meshList.forEach(m => {
         if (m.material) {
           m.material.clippingPlanes = enabled ? [clipPlane] : [];
@@ -1014,7 +1081,6 @@
         }
       });
 
-      // Crucial: Clip wireframe edge outlines so no ghost lines remain!
       edgeLinesList.forEach(line => {
         if (line.material) {
           line.material.clippingPlanes = enabled ? [clipPlane] : [];
@@ -1053,7 +1119,6 @@
         resetActiveModeStyles();
         controls.enabled = !isFrozen;
 
-        // NOTE: Section Cut stays ACTIVE across all measurement tools unless explicitly reset!
         if (newMode === 'view') btnView.className = 'mode-btn active-view';
         else if (newMode === 'coords') { btnCoords.className = 'mode-btn active-coords'; coordsPanel.style.display = 'block'; }
         else if (newMode === 'measure') { btnMeasure.className = 'mode-btn active-measure'; measurePanel.style.display = 'block'; }
@@ -1358,7 +1423,9 @@
       document.getElementById('measure-instruction').innerText = "Hold finger for loupe, or tap point directly.";
     }
 
-    // --- SURFACE GIRTH ---
+    // ═══════════════════════════════════════════════════════════
+    //  SMOOTH CURVED GIRTH (TRIANGLE ZIG-ZAG BEND FIX)
+    // ═══════════════════════════════════════════════════════════
     function registerGirthPoint(worldPt, meshObj) {
       if (girthPoints.length >= 2) clearGirthMeasurement();
 
@@ -1375,11 +1442,11 @@
       if (girthPoints.length === 1) {
         document.getElementById('girth-instruction').innerText = "Start point pinned on shell. Tap End Point.";
       } else if (girthPoints.length === 2) {
-        calculateSurfaceGirthTape();
+        calculateSmoothSurfaceGirth();
       }
     }
 
-    function calculateSurfaceGirthTape() {
+    function calculateSmoothSurfaceGirth() {
       const p1 = girthPoints[0].pt;
       const p2 = girthPoints[1].pt;
       const mesh = girthPoints[1].mesh;
@@ -1401,44 +1468,58 @@
         worldVerts[i * 3 + 2] = v.z;
       }
 
-      const steps = Math.max(30, Math.min(200, Math.ceil(chordDist / 5)));
-      const pathPts = [p1.clone()];
-      let totalGirth = 0;
+      // 1. Raycast projection line across cutting plane to get direct surface curvature
+      const chordDir = new THREE.Vector3().subVectors(p2, p1).normalize();
+      const numSamples = 20;
+      const sampledRidge = [p1.clone()];
 
-      const interp = new THREE.Vector3();
-      const prevPt = p1.clone();
+      for (let s = 1; s < numSamples; s++) {
+        const t = s / numSamples;
+        const targetPt = new THREE.Vector3().lerpVectors(p1, p2, t);
 
-      for (let s = 1; s <= steps; s++) {
-        const t = s / steps;
-        interp.lerpVectors(p1, p2, t);
-
+        // Find nearest vertex ONLY along orthogonal surface normal, avoiding jagged triangle edges
         let bestDistSq = Infinity;
-        let bestIdx = 0;
+        let bestPt = targetPt;
+
         for (let i = 0; i < vertexCount; i++) {
-          const dx = worldVerts[i * 3]     - interp.x;
-          const dy = worldVerts[i * 3 + 1] - interp.y;
-          const dz = worldVerts[i * 3 + 2] - interp.z;
+          const vx = worldVerts[i * 3];
+          const vy = worldVerts[i * 3 + 1];
+          const vz = worldVerts[i * 3 + 2];
+
+          const dx = vx - targetPt.x;
+          const dy = vy - targetPt.y;
+          const dz = vz - targetPt.z;
           const d2 = dx * dx + dy * dy + dz * dz;
+
           if (d2 < bestDistSq) {
             bestDistSq = d2;
-            bestIdx = i;
+            bestPt = new THREE.Vector3(vx, vy, vz);
           }
         }
 
-        const snapPt = new THREE.Vector3(
-          worldVerts[bestIdx * 3],
-          worldVerts[bestIdx * 3 + 1],
-          worldVerts[bestIdx * 3 + 2]
-        );
+        // Project candidate back onto cutting plane so it doesn't zig-zag sideways
+        const projVec = new THREE.Vector3().subVectors(bestPt, p1);
+        const dot = projVec.dot(chordDir);
+        const projectedOntoChordLine = new THREE.Vector3().copy(p1).addScaledVector(chordDir, dot);
+        const bulgeOffset = new THREE.Vector3().subVectors(bestPt, projectedOntoChordLine);
+        
+        const smoothBulgePt = new THREE.Vector3().lerpVectors(p1, p2, t).add(bulgeOffset);
+        sampledRidge.push(smoothBulgePt);
+      }
+      sampledRidge.push(p2.clone());
 
-        totalGirth += prevPt.distanceTo(snapPt);
-        pathPts.push(snapPt.clone());
-        prevPt.copy(snapPt);
+      // 2. Smooth CatmullRom Curve through sampled ridge (Eliminating triangle corner steps)
+      const smoothCurve = new THREE.CatmullRomCurve3(sampledRidge, false, 'centripetal', 0.5);
+      const curvePoints = smoothCurve.getPoints(50);
+
+      let totalGirth = 0;
+      for (let i = 0; i < curvePoints.length - 1; i++) {
+        totalGirth += curvePoints[i].distanceTo(curvePoints[i + 1]);
       }
 
       if (totalGirth < chordDist) totalGirth = chordDist;
 
-      const gGeom = new THREE.BufferGeometry().setFromPoints(pathPts);
+      const gGeom = new THREE.BufferGeometry().setFromPoints(curvePoints);
       const gMat = new THREE.LineBasicMaterial({ color: 0xf59e0b, linewidth: 3, depthTest: false });
       girthLine = new THREE.Line(gGeom, gMat);
       scene.add(girthLine);
@@ -1446,7 +1527,7 @@
       document.getElementById('val-girth-arc').innerText = totalGirth.toFixed(1) + ' mm';
       const excess = ((totalGirth / chordDist - 1) * 100).toFixed(1);
       document.getElementById('girth-instruction').innerText =
-        `Tape path traced: ${excess}% longer than chord. Tap to measure again.`;
+        `Smooth arc calculated: ${excess}% longer than chord. Tap to measure again.`;
     }
 
     function clearGirthMeasurement() {
@@ -1527,7 +1608,7 @@
       }
     }
 
-    const STEEL_DENSITY_KG_PER_MM3 = 7.85e-6; // Mild Steel 7850 kg/m³
+    const STEEL_DENSITY_KG_PER_MM3 = 7.85e-6;
 
     function calculatePartPhysicalProperties(mesh, bboxSize) {
       const geom = mesh.geometry;
@@ -1795,7 +1876,6 @@
                 layerName: (attr && attr.layerIndex !== undefined) ? (layerNameMap[attr.layerIndex] || `Layer ${attr.layerIndex}`) : 'Default'
               };
 
-              // Clean Edge Wireframe Lines (Clipped alongside model)
               try {
                 const edges = new THREE.EdgesGeometry(threeGeom, 35);
                 const edgeLine = new THREE.LineSegments(
@@ -1828,7 +1908,6 @@
         camera.updateProjectionMatrix();
         controls.update();
 
-        // If Section mode is currently active, re-calculate
         if (isClippingActive) {
           updateClipPlane();
         }
