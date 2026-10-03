@@ -5,7 +5,7 @@
   <title>3DM Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   
-  <meta name="theme-color" content="#0a0f1d">
+  <meta name="theme-color" content="#f1f5f9">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
 
@@ -22,14 +22,14 @@
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body, html {
       width: 100%; height: 100%; overflow: hidden;
-      background-color: #0a0f1d;
+      background-color: #f1f5f9;
       user-select: none; -webkit-user-select: none; touch-action: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: #e2e8f0;
+      color: #0f172a;
+      transition: background-color 0.25s ease, color 0.25s ease;
     }
     #viewport { width: 100%; height: 100%; display: block; }
     
-    /* Netlify Badge & Feedback Hiding Rule */
     [data-netlify-deploy-id], .netlify-badge, #netlify-identity-widget, iframe[src*="netlify"] {
       display: none !important;
       visibility: hidden !important;
@@ -37,48 +37,50 @@
       pointer-events: none !important;
     }
 
+    /* Light Theme Base UI */
     .hud-glass {
-      background: rgba(13, 19, 35, 0.90);
+      background: rgba(255, 255, 255, 0.88);
       backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 10px 36px 0 rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.08);
+      color: #0f172a;
     }
     header {
       position: fixed; top: 0; left: 0; right: 0; height: calc(52px * var(--ui-scale)); z-index: 40;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 10px; border-bottom: 1px solid #1e293b;
+      padding: 0 10px; border-bottom: 1px solid #cbd5e1;
     }
     .brand-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; overflow: hidden; }
     
     .brand-logo-img {
       display: none;
       width: calc(30px * var(--ui-scale)); height: calc(30px * var(--ui-scale)); border-radius: 6px; object-fit: contain;
-      background: #ffffff; padding: 2px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      background: #ffffff; padding: 2px; flex-shrink: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.15);
     }
 
     .title-box { min-width: 0; flex: 1; overflow: hidden; }
     .app-title-row { display: flex; align-items: center; gap: 4px; }
     .app-name {
-      font-size: calc(13px * var(--ui-scale)); font-weight: 700; letter-spacing: 0.03em;
-      text-transform: uppercase; color: #f8fafc; white-space: nowrap;
+      font-size: calc(13px * var(--ui-scale)); font-weight: 800; letter-spacing: 0.03em;
+      text-transform: uppercase; color: #0f172a; white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis; line-height: 1.1;
     }
     
     .pro-badge {
-      display: none; background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: #000; font-size: calc(6.5px * var(--ui-scale)); font-weight: 900;
-      padding: 1px 3px; border-radius: 3px; letter-spacing: 0.04em; vertical-align: middle; flex-shrink: 0;
+      display: none; background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff; font-size: calc(6.5px * var(--ui-scale)); font-weight: 900;
+      padding: 2px 4px; border-radius: 3px; letter-spacing: 0.04em; vertical-align: middle; flex-shrink: 0;
       line-height: 1;
     }
     
     .csl-subtext {
-      font-size: 9px;
-      color: #38bdf8;
+      font-size: 9.5px;
+      color: #0284c7;
       letter-spacing: 0.03em;
       line-height: 1.1;
       display: block;
       margin-top: 2px;
-      font-weight: 600;
+      font-weight: 700;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .file-name {
@@ -88,27 +90,28 @@
     }
     .actions-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; margin-left: 6px; }
     .btn-action {
-      background: #1e293b; color: #cbd5e1; border: 1px solid #334155;
+      background: #ffffff; color: #334155; border: 1px solid #cbd5e1;
       padding: 5px 8px; border-radius: 6px; cursor: pointer;
       display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-    .btn-action:hover { background: #334155; color: #ffffff; }
-    .btn-open { background: #2563eb; color: #ffffff; border-color: #3b82f6; cursor: pointer; }
-    .btn-open:hover { background: #1d4ed8; }
+    .btn-action:hover { background: #f8fafc; color: #0f172a; border-color: #94a3b8; }
+    .btn-open { background: #0284c7; color: #ffffff; border-color: #0284c7; cursor: pointer; }
+    .btn-open:hover { background: #0369a1; }
 
     .btn-quality {
       font-weight: 800; font-size: 10px;
       padding: 4px 6px; border-radius: 5px; cursor: pointer;
     }
-    .mode-pro { background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fbbf24; }
-    .mode-lite { background: rgba(148, 163, 184, 0.2); border: 1px solid #64748b; color: #94a3b8; }
+    .mode-pro { background: #e0f2fe; border: 1px solid #38bdf8; color: #0369a1; }
+    .mode-lite { background: #f1f5f9; border: 1px solid #cbd5e1; color: #64748b; }
     
     .font-ctrl-wrap { display: none; }
     .btn-font {
-      background: none; border: none; color: #cbd5e1;
+      background: none; border: none; color: #334155;
       padding: 4px 7px; font-size: 11px; font-weight: 700; cursor: pointer;
     }
-    .btn-font:hover { color: #38bdf8; }
+    .btn-font:hover { color: #0284c7; }
 
     .mode-bar {
       position: fixed; top: calc(60px * var(--ui-scale)); left: 50%; transform: translateX(-50%);
@@ -117,17 +120,17 @@
     }
     .mode-btn {
       flex: 1; min-width: 50px; padding: calc(6px * var(--ui-scale)) 2px;
-      font-size: calc(11px * var(--ui-scale)); font-weight: 600;
-      text-align: center; color: #94a3b8; border-radius: 6px;
+      font-size: calc(11px * var(--ui-scale)); font-weight: 700;
+      text-align: center; color: #64748b; border-radius: 6px;
       border: none; background: transparent; cursor: pointer;
       white-space: nowrap; transition: all 0.2s;
     }
-    .mode-btn.active-view { background: #2563eb; color: #ffffff; }
-    .mode-btn.active-coords { background: #10b981; color: #ffffff; }
+    .mode-btn.active-view { background: #0284c7; color: #ffffff; }
+    .mode-btn.active-coords { background: #059669; color: #ffffff; }
     .mode-btn.active-measure { background: #0891b2; color: #ffffff; }
-    .mode-btn.active-girth { background: #f59e0b; color: #ffffff; }
-    .mode-btn.active-angle { background: #8b5cf6; color: #ffffff; }
-    .mode-btn.active-section { background: #06b6d4; color: #ffffff; }
+    .mode-btn.active-girth { background: #d97706; color: #ffffff; }
+    .mode-btn.active-angle { background: #7c3aed; color: #ffffff; }
+    .mode-btn.active-section { background: #0d9488; color: #ffffff; }
     .mode-btn.active-inspect { background: #e11d48; color: #ffffff; }
 
     .views-bar {
@@ -137,26 +140,27 @@
     .view-btn {
       min-width: calc(48px * var(--ui-scale)); padding: calc(7px * var(--ui-scale)) calc(9px * var(--ui-scale));
       font-size: calc(11px * var(--ui-scale)); font-family: monospace; font-weight: 700;
-      border-radius: 6px; color: #cbd5e1; border: 1px solid #334155;
-      background: rgba(13, 19, 35, 0.90); cursor: pointer; text-align: center;
+      border-radius: 6px; color: #1e293b; border: 1px solid #cbd5e1;
+      background: rgba(255, 255, 255, 0.92); cursor: pointer; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
-    .view-btn.iso { color: #38bdf8; border-color: #0284c7; }
-    .btn-freeze { border-color: #eab308; color: #facc15; }
+    .view-btn.iso { color: #0284c7; border-color: #38bdf8; font-weight: 800; }
+    .btn-freeze { border-color: #f59e0b; color: #b45309; }
     .btn-freeze.active-freeze {
-      background: #eab308; color: #000000; font-weight: 800;
-      box-shadow: 0 0 12px rgba(234, 179, 8, 0.6);
+      background: #f59e0b; color: #ffffff; font-weight: 800;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
     }
     .btn-xray.active-xray {
-      background: #6366f1; color: #ffffff; border-color: #818cf8;
-      box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+      background: #6366f1; color: #ffffff; border-color: #6366f1;
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
     }
 
     #magnifier-loupe {
       position: absolute; width: 140px; height: 140px; border-radius: 50%;
-      border: 2px solid #38bdf8;
-      box-shadow: 0 0 25px rgba(56, 189, 248, 0.5), inset 0 0 15px rgba(0,0,0,0.8);
+      border: 2px solid #0284c7;
+      box-shadow: 0 0 25px rgba(2, 132, 199, 0.4), inset 0 0 15px rgba(0,0,0,0.2);
       pointer-events: none; overflow: hidden; display: none; z-index: 100;
-      background: #0b111a; transform: translate(-50%, -100%);
+      background: #f8fafc; transform: translate(-50%, -100%);
     }
     #magnifier-loupe::after {
       content: ''; position: absolute; top: 50%; left: 50%;
@@ -179,42 +183,42 @@
       max-width: calc(480px * var(--ui-scale)); margin: 0 auto; z-index: 40;
       border-radius: 8px; padding: calc(10px * var(--ui-scale)); display: none;
     }
-    .panel-coords { border: 1px solid rgba(16, 185, 129, 0.5); }
-    .panel-measure { border: 1px solid rgba(6, 182, 212, 0.5); }
-    .panel-girth { border: 1px solid rgba(245, 158, 11, 0.5); }
-    .panel-angle { border: 1px solid rgba(139, 92, 246, 0.5); }
-    .panel-section { border: 1px solid rgba(6, 182, 212, 0.5); }
-    .panel-inspect { border: 1px solid rgba(225, 29, 72, 0.5); }
+    .panel-coords { border: 1px solid rgba(5, 150, 105, 0.4); }
+    .panel-measure { border: 1px solid rgba(8, 145, 178, 0.4); }
+    .panel-girth { border: 1px solid rgba(217, 119, 6, 0.4); }
+    .panel-angle { border: 1px solid rgba(124, 58, 237, 0.4); }
+    .panel-section { border: 1px solid rgba(13, 148, 136, 0.4); }
+    .panel-inspect { border: 1px solid rgba(225, 29, 72, 0.4); }
     .panel-head {
       display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+      border-bottom: 1px solid #e2e8f0;
       padding-bottom: 6px; margin-bottom: 6px;
     }
-    .panel-title { font-size: calc(11px * var(--ui-scale)); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+    .panel-title { font-size: calc(11px * var(--ui-scale)); font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
 
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-family: monospace; text-align: center; }
-    .stat-card { background: rgba(2, 6, 23, 0.65); padding: 5px; border-radius: 4px; border: 1px solid #1e293b; }
-    .stat-label { font-size: calc(8px * var(--ui-scale)); color: #94a3b8; }
-    .stat-val { font-size: calc(12px * var(--ui-scale)); font-weight: 700; color: #f1f5f9; margin-top: 2px; }
+    .stat-card { background: #f8fafc; padding: 5px; border-radius: 4px; border: 1px solid #cbd5e1; }
+    .stat-label { font-size: calc(8px * var(--ui-scale)); color: #64748b; font-weight: 700; }
+    .stat-val { font-size: calc(12px * var(--ui-scale)); font-weight: 800; color: #0f172a; margin-top: 2px; }
 
     .coords-input-grid {
       display: grid; grid-template-columns: repeat(3, 1fr) auto;
       gap: 6px; margin-top: 6px; align-items: center;
     }
-    .coord-field { background: #020617; border: 1px solid #334155; border-radius: 4px; padding: 4px 6px; }
-    .coord-field label { display: block; font-size: calc(8px * var(--ui-scale)); font-family: monospace; color: #10b981; margin-bottom: 1px; }
+    .coord-field { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 6px; }
+    .coord-field label { display: block; font-size: calc(8px * var(--ui-scale)); font-family: monospace; color: #059669; font-weight: 800; margin-bottom: 1px; }
     .coord-field input {
-      width: 100%; background: transparent; border: none; color: #ffffff;
-      font-family: monospace; font-size: calc(12px * var(--ui-scale)); font-weight: 600; outline: none;
+      width: 100%; background: transparent; border: none; color: #0f172a;
+      font-family: monospace; font-size: calc(12px * var(--ui-scale)); font-weight: 700; outline: none;
     }
     .btn-jump {
-      background: #10b981; color: #022c22; border: none; border-radius: 4px;
-      padding: 8px 10px; font-size: calc(11px * var(--ui-scale)); font-weight: 700; cursor: pointer; height: 100%;
+      background: #059669; color: #ffffff; border: none; border-radius: 4px;
+      padding: 8px 10px; font-size: calc(11px * var(--ui-scale)); font-weight: 800; cursor: pointer; height: 100%;
     }
-    .btn-jump:hover { background: #34d399; }
+    .btn-jump:hover { background: #047857; }
 
     .part-meta-box {
-      background: rgba(2, 6, 23, 0.7); border: 1px solid #1e293b;
+      background: #f8fafc; border: 1px solid #cbd5e1;
       border-radius: 4px; padding: 6px 8px; margin-bottom: 8px;
       font-family: monospace; font-size: calc(11px * var(--ui-scale)); display: grid; grid-template-columns: 1.2fr 1fr;
       gap: 4px;
@@ -222,91 +226,175 @@
     .part-meta-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .dim-table { width: 100%; border-collapse: collapse; font-family: monospace; font-size: calc(11px * var(--ui-scale)); margin-bottom: 8px; }
-    .dim-table th { color: #94a3b8; font-weight: 600; font-size: calc(9px * var(--ui-scale)); padding: 4px 4px; text-align: left; border-bottom: 1px solid #334155; }
+    .dim-table th { color: #64748b; font-weight: 700; font-size: calc(9px * var(--ui-scale)); padding: 4px 4px; text-align: left; border-bottom: 1px solid #cbd5e1; }
     .dim-row { cursor: pointer; }
-    .dim-row:hover { background: rgba(255, 255, 255, 0.08); }
-    .dim-table td { padding: 6px 4px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
+    .dim-row:hover { background: rgba(0, 0, 0, 0.04); }
+    .dim-table td { padding: 6px 4px; border-bottom: 1px solid #e2e8f0; }
     .dim-badge { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
 
-    /* Section Slider & Input Style */
     .axis-selector-btn {
       flex: 1; padding: 6px 4px; font-size: 11px; font-family: monospace; font-weight: 700;
-      border-radius: 5px; background: #1e293b; color: #cbd5e1; border: 1px solid #334155; cursor: pointer;
+      border-radius: 5px; background: #ffffff; color: #334155; border: 1px solid #cbd5e1; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
     }
     .axis-selector-btn.active-axis {
-      background: #06b6d4; color: #082f49; border-color: #22d3ee; font-weight: 800;
+      background: #0d9488; color: #ffffff; border-color: #0d9488; font-weight: 800;
     }
     .cut-slider-range {
-      flex: 1; accent-color: #06b6d4; cursor: pointer; height: 6px;
+      flex: 1; accent-color: #0d9488; cursor: pointer; height: 6px;
     }
     .cut-input-box {
-      width: 75px; background: #020617; border: 1px solid #334155; border-radius: 4px;
-      color: #38bdf8; font-family: monospace; font-size: 12px; font-weight: 700;
+      width: 75px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px;
+      color: #0d9488; font-family: monospace; font-size: 12px; font-weight: 800;
       padding: 4px 6px; text-align: right; outline: none;
     }
     .btn-cut-go {
-      background: #06b6d4; color: #082f49; border: none; border-radius: 4px;
+      background: #0d9488; color: #ffffff; border: none; border-radius: 4px;
       padding: 4px 8px; font-size: 11px; font-weight: 800; cursor: pointer;
     }
-    .btn-cut-go:hover { background: #22d3ee; }
+    .btn-cut-go:hover { background: #0f766e; }
 
-    .version-tag {
-      position: fixed; bottom: 8px; left: 12px; z-index: 30;
-      font-size: calc(9.5px * var(--ui-scale)); font-family: monospace; font-weight: 700; color: #38bdf8;
-      background: rgba(13, 19, 35, 0.85); padding: 3px 8px; border-radius: 4px;
-      border: 1px solid rgba(56, 189, 248, 0.3); pointer-events: none;
+    /* ═══════════════════════════════════════════════════════════
+       THEME TOGGLE BUTTON & IN-PLACE INFO PILL
+       ═══════════════════════════════════════════════════════════ */
+    .btn-theme-circle {
+      position: fixed; bottom: 12px; right: 48px; z-index: 50;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #ffffff; border: 1px solid #cbd5e1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.2s ease; user-select: none;
     }
-    footer {
-      position: fixed; bottom: 8px; right: 14px; z-index: 30;
-      font-size: calc(10.5px * var(--ui-scale)); color: #94a3b8; pointer-events: none;
-      background: rgba(13, 19, 35, 0.85); padding: 3px 10px; border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+    .btn-theme-circle:hover { transform: scale(1.08); }
+
+    .info-pill-container {
+      position: fixed; bottom: 12px; right: 12px; z-index: 50;
+      display: flex; align-items: center;
+      background: #ffffff; border: 1px solid #cbd5e1;
+      height: 28px; border-radius: 14px;
+      padding: 0 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
     }
-    footer span { color: #38bdf8; font-weight: 700; }
+    .info-pill-icon {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #e0f2fe; color: #0284c7;
+      display: flex; align-items: center; justify-content: center;
+      font-family: serif; font-style: italic; font-weight: bold; font-size: 13px;
+      flex-shrink: 0;
+    }
+    .info-pill-text {
+      max-width: 0; opacity: 0; white-space: nowrap;
+      font-size: 11px; color: #334155; font-weight: 600;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      padding: 0; overflow: hidden;
+    }
+    .info-pill-text span {
+      color: #0284c7; font-weight: 700;
+    }
+    .info-pill-container.expanded {
+      padding: 0 10px 0 4px;
+      border-color: #0284c7;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+    }
+    .info-pill-container.expanded .info-pill-text {
+      max-width: 250px; opacity: 1; padding-left: 6px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       DARK MODE OVERRIDES
+       ═══════════════════════════════════════════════════════════ */
+    body.dark-mode {
+      background-color: #0a0f1d !important;
+      color: #e2e8f0 !important;
+    }
+    body.dark-mode .hud-glass {
+      background: rgba(13, 19, 35, 0.90) !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55) !important;
+      color: #e2e8f0 !important;
+    }
+    body.dark-mode header { border-bottom-color: #1e293b !important; }
+    body.dark-mode .app-name { color: #f8fafc !important; }
+    body.dark-mode .btn-action {
+      background: #1e293b !important; color: #cbd5e1 !important; border-color: #334155 !important;
+    }
+    body.dark-mode .btn-action:hover { background: #334155 !important; color: #ffffff !important; }
+    body.dark-mode .btn-open { background: #0284c7 !important; color: #ffffff !important; }
+    body.dark-mode .view-btn,
+    body.dark-mode .axis-selector-btn {
+      background: rgba(13, 19, 35, 0.92) !important; color: #cbd5e1 !important; border-color: #334155 !important;
+    }
+    body.dark-mode .stat-card,
+    body.dark-mode .part-meta-box,
+    body.dark-mode .coord-field,
+    body.dark-mode #measure-panel > div:nth-child(3),
+    body.dark-mode #girth-panel > div:nth-child(2),
+    body.dark-mode #angle-panel > div:nth-child(2),
+    body.dark-mode #section-panel > div:nth-child(3) {
+      background: rgba(2, 6, 23, 0.75) !important; border-color: #1e293b !important;
+    }
+    body.dark-mode .stat-val,
+    body.dark-mode .coord-field input,
+    body.dark-mode .cut-input-box { color: #f1f5f9 !important; }
+    body.dark-mode .cut-input-box { background: #020617 !important; border-color: #334155 !important; }
+    body.dark-mode .info-pill-container,
+    body.dark-mode .btn-theme-circle {
+      background: #1e293b !important; border-color: #334155 !important; box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+    }
+    body.dark-mode .info-pill-text { color: #cbd5e1 !important; }
+    body.dark-mode .dim-table th { border-bottom-color: #334155 !important; color: #94a3b8 !important; }
+    body.dark-mode .dim-table td { border-bottom-color: rgba(51, 65, 85, 0.4) !important; }
+    body.dark-mode .dim-row:hover { background: rgba(255, 255, 255, 0.05) !important; }
+    body.dark-mode .recent-box { background: #0f172a !important; border-color: #334155 !important; }
+    body.dark-mode .recent-header { border-bottom-color: #1e293b !important; }
+    body.dark-mode .recent-item { background: #1e293b !important; border-color: #334155 !important; }
+    body.dark-mode .recent-item-title { color: #f8fafc !important; }
 
     #recent-modal {
       position: fixed; inset: 0; z-index: 90;
-      background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);
-      display: flex; flex-direction: column; align-items: center;
+      background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(6px);
+      display: none; flex-direction: column; align-items: center;
       justify-content: center; padding: 20px;
     }
     .recent-box {
       width: 100%; max-width: 440px; max-height: 80vh; border-radius: 16px;
-      background: #0f172a; border: 1px solid #334155;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      background: #ffffff; border: 1px solid #cbd5e1;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.15);
       display: flex; flex-direction: column; overflow: hidden;
     }
     .recent-header {
-      padding: 14px 16px; border-bottom: 1px solid #1e293b;
+      padding: 14px 16px; border-bottom: 1px solid #e2e8f0;
       display: flex; justify-content: space-between; align-items: center;
     }
     .recent-list { padding: 10px 14px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
     .recent-item {
       display: flex; align-items: center; justify-content: space-between;
-      background: #1e293b; border: 1px solid #334155;
+      background: #f8fafc; border: 1px solid #e2e8f0;
       padding: 10px 12px; border-radius: 10px; cursor: pointer;
       transition: all 0.15s ease;
     }
-    .recent-item:hover { background: #27354f; border-color: #38bdf8; transform: translateY(-1px); }
+    .recent-item:hover { background: #f1f5f9; border-color: #0284c7; transform: translateY(-1px); }
     .recent-item-info { min-width: 0; flex: 1; text-align: left; }
     .recent-item-title {
-      font-size: 12px; font-weight: 600; color: #f8fafc;
+      font-size: 12px; font-weight: 700; color: #0f172a;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace;
     }
-    .recent-item-meta { font-size: 10px; color: #94a3b8; margin-top: 3px; }
+    .recent-item-meta { font-size: 10px; color: #64748b; margin-top: 3px; }
     .recent-del-btn { background: none; border: none; color: #ef4444; padding: 6px; cursor: pointer; opacity: 0.7; }
     .recent-del-btn:hover { opacity: 1; }
 
     #loader {
       position: fixed; inset: 0; z-index: 100;
-      background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);
+      background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(6px);
       display: none; flex-direction: column; align-items: center; justify-content: center;
     }
     .spinner {
       width: 40px; height: 40px;
-      border: 3px solid rgba(56, 189, 248, 0.2);
-      border-top-color: #38bdf8; border-radius: 50%;
+      border: 3px solid rgba(2, 132, 199, 0.2);
+      border-top-color: #0284c7; border-radius: 50%;
       animation: spin 0.8s linear infinite; margin-bottom: 12px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -318,7 +406,7 @@
       .actions-wrap { gap: 8px; }
       .font-ctrl-wrap { 
         display: flex; 
-        background: #1e293b; border-radius: 6px; border: 1px solid #334155; 
+        background: #ffffff; border-radius: 6px; border: 1px solid #cbd5e1; 
       }
       .app-name { font-size: calc(14px * var(--ui-scale)); }
       .csl-subtext { font-size: calc(10px * var(--ui-scale)); }
@@ -358,11 +446,13 @@
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>Recent</span>
       </button>
+
       <label id="btn-open-label" class="btn-action btn-open">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
         <span id="open-label-text">Open</span>
-        <input type="file" id="file-input" accept=".3dm" style="display:none;">
+        <input type="file" id="file-input" accept=".3dm,.vts" style="display:none;">
       </label>
+      
       <button id="btn-reset-view" class="btn-action" title="Reset View">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.038 8.038 0 01-15.357-2m15.357 2H15"/></svg>
       </button>
@@ -391,10 +481,10 @@
   <div id="coords-panel" class="panel-bottom panel-coords hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
-        <span style="width:7px; height:7px; border-radius:50%; background:#10b981; display:inline-block;"></span>
-        <span class="panel-title" style="color:#10b981;">Point Coordinate Finder & Editor</span>
+        <span style="width:7px; height:7px; border-radius:50%; background:#059669; display:inline-block;"></span>
+        <span class="panel-title" style="color:#059669;">Point Coordinate Finder</span>
       </div>
-      <button id="btn-clear-coords" style="background:none; border:none; color:#f87171; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Pin</button>
+      <button id="btn-clear-coords" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Pin</button>
     </div>
     <div class="coords-input-grid">
       <div class="coord-field"><label>X (MM)</label><input type="number" id="inp-coord-x" placeholder="0.0" step="any"></div>
@@ -402,30 +492,30 @@
       <div class="coord-field"><label>Z (MM)</label><input type="number" id="inp-coord-z" placeholder="0.0" step="any"></div>
       <button id="btn-jump-coord" class="btn-jump">GOTO</button>
     </div>
-    <div style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
-      Tap point to read XYZ, or edit/enter numbers above and press <b>GOTO</b> to locate member.
+    <div style="font-size:10px; color:#64748b; text-align:center; margin-top:6px;">
+      Tap point to read XYZ, or edit/enter numbers above and press <b>GOTO</b>.
     </div>
   </div>
 
   <div id="measure-panel" class="panel-bottom panel-measure hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
-        <span style="width:7px; height:7px; border-radius:50%; background:#22d3ee; display:inline-block;"></span>
-        <span class="panel-title" style="color:#22d3ee;">Linear Caliper Measurement</span>
+        <span style="width:7px; height:7px; border-radius:50%; background:#0891b2; display:inline-block;"></span>
+        <span class="panel-title" style="color:#0891b2;">Linear Caliper Measurement</span>
       </div>
-      <button id="btn-clear-measure" style="background:none; border:none; color:#f87171; font-size:11px; cursor:pointer; text-decoration:underline;">Reset Pins</button>
+      <button id="btn-clear-measure" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Reset Pins</button>
     </div>
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-label">DIST (MM)</div><div id="val-dist" class="stat-val" style="color:#fde047;">0.0</div></div>
+      <div class="stat-card"><div class="stat-label">DIST (MM)</div><div id="val-dist" class="stat-val" style="color:#0284c7;">0.0</div></div>
       <div class="stat-card"><div class="stat-label">&Delta;X</div><div id="val-dx" class="stat-val">0.0</div></div>
       <div class="stat-card"><div class="stat-label">&Delta;Y</div><div id="val-dy" class="stat-val">0.0</div></div>
       <div class="stat-card"><div class="stat-label">&Delta;Z</div><div id="val-dz" class="stat-val">0.0</div></div>
     </div>
-    <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:10px; font-family:monospace; color:#38bdf8; background:rgba(2,6,23,0.6); padding:4px 8px; border-radius:4px;">
+    <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:10px; font-family:monospace; color:#0284c7; background:#f8fafc; padding:4px 8px; border-radius:4px; border:1px solid #cbd5e1;">
       <span id="p1-coords-display">P1: [---, ---, ---]</span>
       <span id="p2-coords-display">P2: [---, ---, ---]</span>
     </div>
-    <div id="measure-instruction" style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
+    <div id="measure-instruction" style="font-size:10px; color:#64748b; text-align:center; margin-top:6px;">
       Hold finger for loupe, or tap point directly. Use LOCK to freeze camera.
     </div>
   </div>
@@ -433,51 +523,50 @@
   <div id="girth-panel" class="panel-bottom panel-girth hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
-        <span style="width:7px; height:7px; border-radius:50%; background:#f59e0b; display:inline-block;"></span>
-        <span class="panel-title" style="color:#f59e0b;">Shell Surface Girth (Tape Measure)</span>
+        <span style="width:7px; height:7px; border-radius:50%; background:#d97706; display:inline-block;"></span>
+        <span class="panel-title" style="color:#d97706;">Shell Surface Girth (Smooth Arc)</span>
       </div>
-      <button id="btn-clear-girth" style="background:none; border:none; color:#f87171; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Path</button>
+      <button id="btn-clear-girth" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Path</button>
     </div>
-    <div style="display:flex; align-items:center; justify-content:space-around; background:rgba(2,6,23,0.65); padding:10px; border-radius:6px; border:1px solid #1e293b;">
+    <div style="display:flex; align-items:center; justify-content:space-around; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #cbd5e1;">
       <div style="text-align:center;">
-        <div style="font-size:9px; color:#94a3b8; font-family:monospace;">SURFACE GIRTH (ARC)</div>
-        <div id="val-girth-arc" style="font-size:17px; font-weight:700; color:#fbbf24; font-family:monospace;">0.0 mm</div>
+        <div style="font-size:9px; color:#64748b; font-family:monospace; font-weight:700;">SURFACE GIRTH (ARC)</div>
+        <div id="val-girth-arc" style="font-size:17px; font-weight:800; color:#d97706; font-family:monospace;">0.0 mm</div>
       </div>
-      <div style="text-align:center; border-left:1px solid #334155; padding-left:14px;">
-        <div style="font-size:9px; color:#94a3b8; font-family:monospace;">STRAIGHT CHORD</div>
-        <div id="val-girth-chord" style="font-size:13px; font-weight:600; color:#cbd5e1; font-family:monospace;">0.0 mm</div>
+      <div style="text-align:center; border-left:1px solid #cbd5e1; padding-left:14px;">
+        <div style="font-size:9px; color:#64748b; font-family:monospace; font-weight:700;">STRAIGHT CHORD</div>
+        <div id="val-girth-chord" style="font-size:13px; font-weight:700; color:#334155; font-family:monospace;">0.0 mm</div>
       </div>
     </div>
-    <div id="girth-instruction" style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
-      Tap Point 1 & Point 2 on curved shell plate to trace tape path over mesh.
+    <div id="girth-instruction" style="font-size:10px; color:#64748b; text-align:center; margin-top:6px;">
+      Tap Point 1 & Point 2 on curved shell plate to trace continuous smooth arc.
     </div>
   </div>
 
   <div id="angle-panel" class="panel-bottom panel-angle hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
-        <span style="width:7px; height:7px; border-radius:50%; background:#a78bfa; display:inline-block;"></span>
-        <span class="panel-title" style="color:#a78bfa;">3-Point Angle Finder</span>
+        <span style="width:7px; height:7px; border-radius:50%; background:#7c3aed; display:inline-block;"></span>
+        <span class="panel-title" style="color:#7c3aed;">3-Point Angle Finder</span>
       </div>
-      <button id="btn-clear-angle" style="background:none; border:none; color:#f87171; font-size:11px; cursor:pointer; text-decoration:underline;">Reset</button>
+      <button id="btn-clear-angle" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Reset</button>
     </div>
-    <div style="display:flex; align-items:center; justify-content:center; gap:14px; background:rgba(2,6,23,0.65); padding:8px; border-radius:6px; border:1px solid #1e293b;">
-      <div style="font-size:11px; color:#94a3b8; font-family:monospace;">INCLUDED ANGLE:</div>
-      <div id="val-angle-deg" style="font-size:17px; font-weight:700; color:#c084fc; font-family:monospace;">0.00&deg;</div>
+    <div style="display:flex; align-items:center; justify-content:center; gap:14px; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+      <div style="font-size:11px; color:#64748b; font-family:monospace; font-weight:700;">INCLUDED ANGLE:</div>
+      <div id="val-angle-deg" style="font-size:17px; font-weight:800; color:#7c3aed; font-family:monospace;">0.00&deg;</div>
     </div>
-    <div id="angle-instruction" style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px;">
+    <div id="angle-instruction" style="font-size:10px; color:#64748b; text-align:center; margin-top:6px;">
       Tap 3 Points: 1.Arm End &rarr; 2.Vertex (Corner) &rarr; 3.Arm End
     </div>
   </div>
 
-  <!-- SECTION CUTTER PANEL WITH INPUT BOX & GO BUTTON -->
   <div id="section-panel" class="panel-bottom panel-section hud-glass">
     <div class="panel-head">
       <div style="display:flex; align-items:center; gap:6px;">
-        <span style="width:7px; height:7px; border-radius:50%; background:#06b6d4; display:inline-block;"></span>
-        <span class="panel-title" style="color:#06b6d4;">Cross Section Cutter (Dynamic Cut)</span>
+        <span style="width:7px; height:7px; border-radius:50%; background:#0d9488; display:inline-block;"></span>
+        <span class="panel-title" style="color:#0d9488;">Cross Section Cutter</span>
       </div>
-      <button id="btn-reset-cut" style="background:none; border:none; color:#f87171; font-size:11px; cursor:pointer; text-decoration:underline;">Reset Cut</button>
+      <button id="btn-reset-cut" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Reset Cut</button>
     </div>
 
     <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:10px;">
@@ -486,31 +575,30 @@
         <button id="cut-axis-y" class="axis-selector-btn">Y-Cut</button>
         <button id="cut-axis-z" class="axis-selector-btn active-axis">Z-Cut</button>
       </div>
-      <button id="btn-cut-flip" class="btn-action" style="padding:5px 8px; font-size:10.5px; border-color:#0891b2; color:#38bdf8;">Flip Side</button>
+      <button id="btn-cut-flip" class="btn-action" style="padding:5px 8px; font-size:10.5px; border-color:#0d9488; color:#0d9488;">Flip Side</button>
     </div>
 
-    <!-- Slider with Input box & GO Button -->
-    <div style="display:flex; align-items:center; gap:8px; background:rgba(2,6,23,0.6); padding:8px 10px; border-radius:6px; border:1px solid #1e293b;">
+    <div style="display:flex; align-items:center; gap:8px; background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
       <input type="range" id="cut-slider" class="cut-slider-range" min="0" max="100" value="100">
       <input type="number" id="cut-manual-input" class="cut-input-box" placeholder="0.0" step="any">
       <button id="btn-cut-go" class="btn-cut-go">GO</button>
     </div>
-    <div style="font-size:9.5px; color:#94a3b8; text-align:center; margin-top:6px;">
-      Slide bar or enter exact coordinate (mm) & press <b>GO</b> to place section plane.
+    <div style="font-size:9.5px; color:#64748b; text-align:center; margin-top:6px;">
+      Slide bar or enter exact coordinate (mm) & press <b>GO</b>.
     </div>
   </div>
 
   <div id="inspect-panel" class="panel-bottom panel-inspect hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#fb7185;">Part Dimensions, Girth & Weight</span>
-      <button id="btn-clear-lines" style="background:none; border:none; color:#94a3b8; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Lines</button>
+      <span class="panel-title" style="color:#e11d48;">Part Dimensions, Girth & Weight</span>
+      <button id="btn-clear-lines" style="background:none; border:none; color:#64748b; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Lines</button>
     </div>
 
     <div class="part-meta-box">
-      <div class="part-meta-item"><b>Part:</b> <span id="meta-part-name" style="color:#fde047;">None</span></div>
-      <div class="part-meta-item" style="text-align:right;"><b>Layer:</b> <span id="meta-part-layer" style="color:#38bdf8;">--</span></div>
-      <div class="part-meta-item"><b>MS Weight:</b> <span id="meta-part-weight" style="color:#4ade80; font-weight:700;">--</span></div>
-      <div class="part-meta-item" style="text-align:right;"><b>Girth/Perim:</b> <span id="meta-part-perim" style="color:#f59e0b; font-weight:700;">--</span></div>
+      <div class="part-meta-item"><b>Part:</b> <span id="meta-part-name" style="color:#0284c7;">None</span></div>
+      <div class="part-meta-item" style="text-align:right;"><b>Layer:</b> <span id="meta-part-layer" style="color:#0f172a;">--</span></div>
+      <div class="part-meta-item"><b>MS Weight:</b> <span id="meta-part-weight" style="color:#059669; font-weight:800;">--</span></div>
+      <div class="part-meta-item" style="text-align:right;"><b>Girth/Perim:</b> <span id="meta-part-perim" style="color:#d97706; font-weight:800;">--</span></div>
     </div>
 
     <table class="dim-table">
@@ -523,74 +611,72 @@
       </thead>
       <tbody>
         <tr class="dim-row" onclick="highlightAxisDimension('x')">
-          <td><span class="dim-badge" style="background:#38bdf8;"></span> Length (&Delta;X)</td>
-          <td style="color:#38bdf8;">Tap for Blue Line</td>
-          <td id="part-bx" style="text-align:right; font-weight:700; color:#38bdf8;">--</td>
+          <td><span class="dim-badge" style="background:#0284c7;"></span> Length (&Delta;X)</td>
+          <td style="color:#0284c7;">Tap for Blue Line</td>
+          <td id="part-bx" style="text-align:right; font-weight:800; color:#0284c7;">--</td>
         </tr>
         <tr class="dim-row" onclick="highlightAxisDimension('y')">
-          <td><span class="dim-badge" style="background:#4ade80;"></span> Breadth (&Delta;Y)</td>
-          <td style="color:#4ade80;">Tap for Green Line</td>
-          <td id="part-by" style="text-align:right; font-weight:700; color:#4ade80;">--</td>
+          <td><span class="dim-badge" style="background:#059669;"></span> Breadth (&Delta;Y)</td>
+          <td style="color:#059669;">Tap for Green Line</td>
+          <td id="part-by" style="text-align:right; font-weight:800; color:#059669;">--</td>
         </tr>
         <tr class="dim-row" onclick="highlightAxisDimension('z')">
-          <td><span class="dim-badge" style="background:#f87171;"></span> Depth/Thk (&Delta;Z)</td>
-          <td style="color:#f87171;">Tap for Red Line</td>
-          <td id="part-bz" style="text-align:right; font-weight:700; color:#f87171;">--</td>
+          <td><span class="dim-badge" style="background:#e11d48;"></span> Depth/Thk (&Delta;Z)</td>
+          <td style="color:#e11d48;">Tap for Red Line</td>
+          <td id="part-bz" style="text-align:right; font-weight:800; color:#e11d48;">--</td>
         </tr>
       </tbody>
     </table>
 
     <div style="display:flex; gap:8px;">
-      <button id="btn-hide-part" style="flex:1; padding:7px; font-size:11px; font-weight:600; border-radius:4px; background:rgba(225,29,72,0.3); color:#fda4af; border:1px solid #9f1239; cursor:pointer;">Hide Part</button>
-      <button id="btn-isolate-part" style="flex:1; padding:7px; font-size:11px; font-weight:600; border-radius:4px; background:rgba(217,119,6,0.3); color:#fde68a; border:1px solid #92400e; cursor:pointer;">Isolate Part</button>
-      <button id="btn-unhide-all" style="padding:7px 12px; font-size:11px; font-weight:600; border-radius:4px; background:rgba(2,132,199,0.3); color:#7dd3fc; border:1px solid #0284c7; cursor:pointer;">Show All</button>
+      <button id="btn-hide-part" style="flex:1; padding:7px; font-size:11px; font-weight:700; border-radius:4px; background:#ffe4e6; color:#e11d48; border:1px solid #fecdd3; cursor:pointer;">Hide Part</button>
+      <button id="btn-isolate-part" style="flex:1; padding:7px; font-size:11px; font-weight:700; border-radius:4px; background:#fef3c7; color:#d97706; border:1px solid #fde68a; cursor:pointer;">Isolate Part</button>
+      <button id="btn-unhide-all" style="padding:7px 12px; font-size:11px; font-weight:700; border-radius:4px; background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; cursor:pointer;">Show All</button>
     </div>
   </div>
 
   <div id="recent-modal" style="display:none;">
     <div class="recent-box">
       <div class="recent-header">
-        <div style="font-size:14px; font-weight:700; color:#f8fafc; letter-spacing:0.04em;">RECENT 3D MODELS</div>
-        <button id="btn-close-recent" style="background:none; border:none; color:#94a3b8; font-size:20px; cursor:pointer;">&times;</button>
+        <div style="font-size:14px; font-weight:800; color:#0f172a; letter-spacing:0.04em;">RECENT 3D MODELS</div>
+        <button id="btn-close-recent" style="background:none; border:none; color:#64748b; font-size:20px; cursor:pointer;">&times;</button>
       </div>
       <div id="recent-list-container" class="recent-list"></div>
     </div>
   </div>
 
-  <div class="version-tag">V 1.1.6</div>
+  <!-- Theme Toggle Floating Sun/Moon Button -->
+  <button id="btn-theme-toggle" class="btn-theme-circle" title="Toggle White/Dark Theme">
+    <span id="theme-icon">☀️</span>
+  </button>
 
-  <footer>
-    Created by <span>Vishnu T</span>
-  </footer>
+  <!-- Expanding In-Place Info Pill -->
+  <div id="info-pill" class="info-pill-container" title="Click for details">
+    <div class="info-pill-icon">i</div>
+    <div class="info-pill-text">Created by <span>Vishnu Puthoor</span> • V 1.2.3</div>
+  </div>
 
   <div id="loader" style="display:none;">
     <div class="spinner"></div>
-    <div id="loader-msg" style="font-size:12px; font-family:monospace; color:#cbd5e1;">Reading CAD file...</div>
+    <div id="loader-msg" style="font-size:12px; font-family:monospace; color:#334155; font-weight:600;">Reading CAD file...</div>
   </div>
 
   <script>
     let rhinoReady = false;
 
-    // --- HARDWARE PROFILE DETECTION (PRO vs LITE) ---
     function detectBestProfile() {
       const saved = localStorage.getItem('vt_viewer_profile');
       if (saved === 'PRO' || saved === 'LITE') return saved;
-
-      const cores = navigator.hardwareConcurrency || 2;
-      const ram = navigator.deviceMemory || 2;
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-      if ((isMobile && (ram < 4 || cores < 6)) || ram < 3 || cores < 4) {
-        return 'LITE';
-      }
       return 'PRO';
     }
 
     let activeProfile = detectBestProfile();
 
-    // --- INDEXEDDB STORAGE ---
+    // ═══════════════════════════════════════════════════════════
+    //  INDEXEDDB STORAGE (Saves native compressed .vts)
+    // ═══════════════════════════════════════════════════════════
     const DB_NAME = 'VTSoft_3DM_Storage';
-    const DB_VERSION = 1;
+    const DB_VERSION = 3;
     const STORE_NAME = 'models';
     let db = null;
 
@@ -609,14 +695,17 @@
       });
     }
 
-    async function saveModelToStorage(name, buffer) {
+    async function saveModelToStorage(name, binaryVtsBuffer) {
       if (!db) await initDB();
       return new Promise((resolve, reject) => {
         const tx = db.transaction([STORE_NAME], 'readwrite');
         const store = tx.objectStore(STORE_NAME);
+        
+        const vtsName = name.replace(/\.[^/.]+$/, "") + ".vts";
         const item = {
-          name: name, buffer: buffer,
-          size: (buffer.byteLength / (1024 * 1024)).toFixed(2) + ' MB',
+          name: vtsName,
+          buffer: binaryVtsBuffer,
+          size: (binaryVtsBuffer.byteLength / (1024 * 1024)).toFixed(2) + ' MB',
           timestamp: Date.now()
         };
         store.put(item);
@@ -657,7 +746,7 @@
 
       if (!items || items.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding:30px 10px; color:#64748b; font-size:12px;">
-            No recently opened 3D models found.<br>Click <b>Open</b> to load a .3dm file.
+            No recently opened 3D models found.<br>Click <b>Open</b> to load a file.
           </div>`;
         return;
       }
@@ -676,27 +765,28 @@
         `;
 
         div.querySelector('.recent-item-info').addEventListener('click', () => {
-          if (!rhinoReady || !rhinoModule) {
-            alert('Rhino engine is initializing. Please wait a moment...');
-            return;
-          }
-
           document.getElementById('recent-modal').style.display = 'none';
           document.getElementById('active-file-display').innerText = item.name.toLowerCase();
-          showLoader(`Loading ${item.name}...`);
+          showLoader(`Instantly loading ${item.name}...`);
 
           setTimeout(() => {
             try {
-              const doc = rhinoModule.File3dm.fromByteArray(new Uint8Array(item.buffer));
-              if (!doc) throw new Error('Could not parse stored file.');
-              loadRhinoDoc(doc);
-              saveModelToStorage(item.name, item.buffer);
+              const u8 = new Uint8Array(item.buffer);
+              if (u8.length >= 4 && u8[0] === 0x56 && u8[1] === 0x54 && u8[2] === 0x53 && u8[3] === 0x31) {
+                loadBinaryVTSBuffer(item.buffer);
+              } else if (rhinoReady && rhinoModule) {
+                const doc = rhinoModule.File3dm.fromByteArray(u8);
+                if (doc) loadRhinoDoc(doc, item.name);
+                else throw new Error("Could not parse cached model data.");
+              } else {
+                throw new Error("Model format requires Rhino engine initialization.");
+              }
             } catch (err) {
               console.error('Recent load error:', err);
               hideLoader();
-              alert('Failed to open recent file:\n' + err.message);
+              alert('Failed to open cached model:\n' + err.message);
             }
-          }, 50);
+          }, 30);
         });
 
         div.querySelector('.recent-del-btn').addEventListener('click', async (e) => {
@@ -709,38 +799,32 @@
       });
     }
 
-    // --- THREE.JS & RHINO ENGINE ---
     let scene, camera, renderer, controls;
     let rhinoModule = null;
     let modelRoot = new THREE.Group();
     let currentMode = 'view';
     let meshList = [];
     let edgeLinesList = [];
-    let dirLight1, hemiLight, dirLight2;
+    let dirLight1, hemiLight, dirLight2, ambientLight;
 
-    // SECTION CUTTING (CLIPPING PLANE)
     let clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
     let currentCutAxis = 'z';
     let cutInvert = -1;
     let modelBBox = new THREE.Box3();
     let isClippingActive = false;
 
-    // Linear Pins
     let measurePoints = [];
     let pinMarkers = [];
     let measureLine = null;
 
-    // Girth (Curved Shell Tape)
     let girthPoints = [];
     let girthMarkers = [];
     let girthLine = null;
 
-    // Angle Pins
     let anglePoints = [];
     let angleMarkers = [];
     let angleLines = [];
 
-    // Coordinates Pin
     let coordMarker = null;
 
     let isFrozen = false;
@@ -768,6 +852,8 @@
       setupModeSwitching();
       setupSectionCutControls();
       setupFontScaling();
+      setupExpandingInfoPill();
+      setupThemeToggle();
       registerServiceWorker();
 
       try {
@@ -787,6 +873,58 @@
           navigator.serviceWorker.register('./sw.js').catch(console.warn);
         });
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  THEME TOGGLE LOGIC (SUN ☀️ <-> MOON 🌙)
+    // ═══════════════════════════════════════════════════════════
+    let isDarkMode = false;
+
+    function setupThemeToggle() {
+      const btnToggle = document.getElementById('btn-theme-toggle');
+      const savedTheme = localStorage.getItem('vt_viewer_theme');
+      if (savedTheme === 'dark') {
+        applyTheme(true);
+      }
+
+      btnToggle.addEventListener('click', () => {
+        isDarkMode = !isDarkMode;
+        applyTheme(isDarkMode);
+        localStorage.setItem('vt_viewer_theme', isDarkMode ? 'dark' : 'light');
+      });
+    }
+
+    function applyTheme(dark) {
+      isDarkMode = dark;
+      const icon = document.getElementById('theme-icon');
+      
+      if (dark) {
+        document.body.classList.add('dark-mode');
+        icon.innerText = '🌙';
+        if (scene) scene.background = new THREE.Color(0x0a0f1d);
+        if (ambientLight) ambientLight.intensity = 0.55;
+        if (dirLight1) dirLight1.intensity = 0.95;
+      } else {
+        document.body.classList.remove('dark-mode');
+        icon.innerText = '☀️';
+        if (scene) scene.background = new THREE.Color(0xf1f5f9);
+        if (ambientLight) ambientLight.intensity = 0.75;
+        if (dirLight1) dirLight1.intensity = 0.85;
+      }
+    }
+
+    function setupExpandingInfoPill() {
+      const pill = document.getElementById('info-pill');
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pill.classList.toggle('expanded');
+      });
+
+      window.addEventListener('click', (e) => {
+        if (!pill.contains(e.target)) {
+          pill.classList.remove('expanded');
+        }
+      });
     }
 
     let currentScale = window.innerWidth >= 768 ? 1.25 : 1.0;
@@ -837,11 +975,11 @@
       meshList.forEach(m => {
         if (m.material) {
           if (profile === 'LITE') {
-            m.material.roughness = 0.6;
+            m.material.roughness = 0.5;
             m.material.metalness = 0.1;
           } else {
-            m.material.roughness = 0.35;
-            m.material.metalness = 0.30;
+            m.material.roughness = 0.3;
+            m.material.metalness = 0.25;
           }
           m.material.needsUpdate = true;
         }
@@ -851,7 +989,7 @@
     function initThree() {
       const container = document.getElementById('viewport');
       scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0f1d);
+      scene.background = new THREE.Color(0xf1f5f9);
 
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000000);
       camera.position.set(3000, 3000, 3000);
@@ -862,12 +1000,11 @@
         powerPreference: 'high-performance'
       });
 
-      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
       if (THREE.sRGBEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
       
       renderer.localClippingEnabled = true;
-
       container.appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -879,22 +1016,25 @@
       controls.screenSpacePanning = true;
       controls.target.set(0, 0, 0);
 
-      hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.7);
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+      scene.add(ambientLight);
+
+      hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.45);
       hemiLight.position.set(0, 5000, 0);
       scene.add(hemiLight);
 
-      dirLight1 = new THREE.DirectionalLight(0xffffff, 0.9);
-      dirLight1.position.set(4000, 7000, 4000);
+      dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
+      dirLight1.position.set(5000, 8000, 5000);
       scene.add(dirLight1);
 
       dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.4);
-      dirLight2.position.set(-4000, -3000, -4000);
+      dirLight2.position.set(-5000, -3000, -5000);
       scene.add(dirLight2);
 
       scene.add(modelRoot);
       scene.add(dimensionLinesGroup);
 
-      const grid = new THREE.GridHelper(15000, 60, 0x334155, 0x1e293b);
+      const grid = new THREE.GridHelper(15000, 60, 0x94a3b8, 0xcbd5e1);
       grid.position.y = -0.5;
       scene.add(grid);
 
@@ -925,14 +1065,159 @@
           rhinoModule = m;
           rhinoReady = true;
           document.getElementById('open-label-text').innerText = 'Open';
-        }).catch(finalErr => {
-          console.error('Rhino startup error:', finalErr);
-        });
+        }).catch(console.warn);
       });
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  SECTION CUT WITH MANUAL INPUT & GO BUTTON
+    //  MEMORY-ALIGNED BINARY VTS ENCODER / DECODER
+    // ═══════════════════════════════════════════════════════════
+    function pad4(n) {
+      return (4 - (n % 4)) % 4;
+    }
+
+    function encodeModelToBinaryVTS() {
+      let totalBytes = 8;
+      const partPayloads = [];
+
+      meshList.forEach(m => {
+        const pos = m.geometry.attributes.position.array;
+        const nameBytes = new TextEncoder().encode(m.userData.name || 'Part');
+        const layerBytes = new TextEncoder().encode(m.userData.layerName || 'Default');
+        const color = m.material.color.getHex();
+
+        const namePad = pad4(nameBytes.length);
+        const layerPad = pad4(layerBytes.length);
+
+        const byteLen = 4 + nameBytes.length + namePad +
+                        4 + layerBytes.length + layerPad +
+                        4 + 
+                        4 + 
+                        (pos.length * 4);
+
+        totalBytes += byteLen;
+
+        partPayloads.push({
+          nameBytes, namePad,
+          layerBytes, layerPad,
+          color, pos
+        });
+      });
+
+      const buffer = new ArrayBuffer(totalBytes);
+      const view = new DataView(buffer);
+      const uint8 = new Uint8Array(buffer);
+
+      uint8[0] = 0x56; uint8[1] = 0x54; uint8[2] = 0x53; uint8[3] = 0x31;
+      view.setUint32(4, partPayloads.length, true);
+
+      let offset = 8;
+      partPayloads.forEach(p => {
+        view.setUint32(offset, p.nameBytes.length, true); offset += 4;
+        uint8.set(p.nameBytes, offset); offset += p.nameBytes.length + p.namePad;
+
+        view.setUint32(offset, p.layerBytes.length, true); offset += 4;
+        uint8.set(p.layerBytes, offset); offset += p.layerBytes.length + p.layerPad;
+
+        view.setUint32(offset, p.color, true); offset += 4;
+
+        view.setUint32(offset, p.pos.length, true); offset += 4;
+        
+        const floatDest = new Float32Array(buffer, offset, p.pos.length);
+        floatDest.set(p.pos);
+        offset += p.pos.length * 4;
+      });
+
+      return buffer;
+    }
+
+    function loadBinaryVTSBuffer(buffer) {
+      const uint8 = new Uint8Array(buffer);
+      if (uint8[0] !== 0x56 || uint8[1] !== 0x54 || uint8[2] !== 0x53 || uint8[3] !== 0x31) {
+        throw new Error("Invalid .vts signature.");
+      }
+
+      while (modelRoot.children.length > 0) modelRoot.remove(modelRoot.children[0]);
+      meshList = [];
+      edgeLinesList = [];
+      clearMeasurements();
+      clearGirthMeasurement();
+      clearCoordinatePoint();
+      clearAngleMeasurement();
+      clearDimensionHelper();
+
+      const view = new DataView(buffer);
+      const partCount = view.getUint32(4, true);
+      let offset = 8;
+
+      const decoder = new TextDecoder();
+
+      for (let i = 0; i < partCount; i++) {
+        const nameLen = view.getUint32(offset, true); offset += 4;
+        const name = decoder.decode(new Uint8Array(buffer, offset, nameLen));
+        offset += nameLen + pad4(nameLen);
+
+        const layerLen = view.getUint32(offset, true); offset += 4;
+        const layer = decoder.decode(new Uint8Array(buffer, offset, layerLen));
+        offset += layerLen + pad4(layerLen);
+
+        const color = view.getUint32(offset, true); offset += 4;
+
+        const floatCount = view.getUint32(offset, true); offset += 4;
+
+        const floatData = new Float32Array(buffer.slice(offset, offset + floatCount * 4));
+        offset += floatCount * 4;
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(floatData, 3));
+        geom.computeVertexNormals();
+
+        const mat = new THREE.MeshStandardMaterial({
+          color: color,
+          roughness: 0.3,
+          metalness: 0.25,
+          side: THREE.DoubleSide
+        });
+
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.userData = { name, layerName: layer };
+
+        try {
+          const edges = new THREE.EdgesGeometry(geom, 35);
+          const edgeLine = new THREE.LineSegments(
+            edges,
+            new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.85 })
+          );
+          mesh.add(edgeLine);
+          edgeLinesList.push(edgeLine);
+        } catch (e) {}
+
+        modelRoot.add(mesh);
+        meshList.push(mesh);
+      }
+
+      calibrateModelView();
+    }
+
+    function calibrateModelView() {
+      modelBBox.setFromObject(modelRoot);
+      const center = modelBBox.getCenter(new THREE.Vector3());
+      const size = modelBBox.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1000;
+
+      controls.target.copy(center);
+      camera.position.set(center.x + maxDim * 1.2, center.y + maxDim * 1.0, center.z + maxDim * 1.2);
+      camera.near = Math.max(0.1, maxDim / 1000);
+      camera.far = maxDim * 50;
+      camera.updateProjectionMatrix();
+      controls.update();
+
+      if (isClippingActive) updateClipPlane();
+      hideLoader();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  SECTION CUT CONTROLS
     // ═══════════════════════════════════════════════════════════
     function setupSectionCutControls() {
       const cutX = document.getElementById('cut-axis-x');
@@ -965,7 +1250,6 @@
         updateClipPlane();
       });
 
-      // Jump to Manual Input Coordinate on GO
       btnGo.addEventListener('click', () => {
         const val = parseFloat(inputVal.value);
         if (isNaN(val)) {
@@ -976,9 +1260,7 @@
       });
 
       inputVal.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          btnGo.click();
-        }
+        if (e.key === 'Enter') btnGo.click();
       });
 
       resetCutBtn.addEventListener('click', () => {
@@ -1002,7 +1284,6 @@
       else if (currentCutAxis === 'y') { minVal = min.y; maxVal = max.y; }
       else { minVal = min.z; maxVal = max.z; }
 
-      // Clamp target within model boundaries
       let clamped = Math.max(minVal, Math.min(maxVal, exactCoord));
       let percent = ((clamped - minVal) / (maxVal - minVal)) * 100;
 
@@ -1058,7 +1339,6 @@
       clipPlane.normal.copy(normal);
       clipPlane.constant = constant;
 
-      // Realtime refresh in input box
       document.getElementById('cut-manual-input').value = targetCoord.toFixed(1);
 
       if (currentCutAxis === 'x') {
@@ -1085,7 +1365,7 @@
         if (line.material) {
           line.material.clippingPlanes = enabled ? [clipPlane] : [];
           line.material.transparent = true;
-          line.material.opacity = enabled ? 0.35 : 0.8;
+          line.material.opacity = enabled ? 0.35 : 0.85;
           line.material.needsUpdate = true;
         }
       });
@@ -1320,12 +1600,11 @@
       activeSnappedMesh = null;
     }
 
-    // --- COORDINATES ---
     function registerCoordinatePoint(worldPt) {
       clearCoordinatePoint();
       const pin = new THREE.Mesh(
         new THREE.SphereGeometry(3.5, 16, 16),
-        new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false })
+        new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false })
       );
       pin.position.copy(worldPt);
       scene.add(pin);
@@ -1372,19 +1651,18 @@
           if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
         });
         if (closestMesh.material && closestMesh.material.emissive) {
-          closestMesh.material.emissive.setHex(0x064e3b);
+          closestMesh.material.emissive.setHex(0x0284c7);
         }
       }
     }
 
-    // --- LINEAR MEASURE ---
     function registerMeasurementPoint(worldPt) {
       if (measurePoints.length >= 2) clearMeasurements();
       measurePoints.push(worldPt);
 
       const pin = new THREE.Mesh(
         new THREE.SphereGeometry(3.5, 16, 16),
-        new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false })
+        new THREE.MeshBasicMaterial({ color: 0x0284c7, depthTest: false })
       );
       pin.position.copy(worldPt);
       scene.add(pin);
@@ -1396,7 +1674,7 @@
       } else if (measurePoints.length === 2) {
         document.getElementById('p2-coords-display').innerText = `P2: [${worldPt.x.toFixed(1)}, ${worldPt.y.toFixed(1)}, ${worldPt.z.toFixed(1)}]`;
         const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, depthTest: false });
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x0284c7, linewidth: 2, depthTest: false });
         measureLine = new THREE.Line(lineGeom, lineMat);
         scene.add(measureLine);
 
@@ -1423,9 +1701,6 @@
       document.getElementById('measure-instruction').innerText = "Hold finger for loupe, or tap point directly.";
     }
 
-    // ═══════════════════════════════════════════════════════════
-    //  SMOOTH CURVED GIRTH (TRIANGLE ZIG-ZAG BEND FIX)
-    // ═══════════════════════════════════════════════════════════
     function registerGirthPoint(worldPt, meshObj) {
       if (girthPoints.length >= 2) clearGirthMeasurement();
 
@@ -1433,7 +1708,7 @@
 
       const pin = new THREE.Mesh(
         new THREE.SphereGeometry(3.5, 16, 16),
-        new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false })
+        new THREE.MeshBasicMaterial({ color: 0xd97706, depthTest: false })
       );
       pin.position.copy(worldPt);
       scene.add(pin);
@@ -1468,7 +1743,6 @@
         worldVerts[i * 3 + 2] = v.z;
       }
 
-      // 1. Raycast projection line across cutting plane to get direct surface curvature
       const chordDir = new THREE.Vector3().subVectors(p2, p1).normalize();
       const numSamples = 20;
       const sampledRidge = [p1.clone()];
@@ -1477,7 +1751,6 @@
         const t = s / numSamples;
         const targetPt = new THREE.Vector3().lerpVectors(p1, p2, t);
 
-        // Find nearest vertex ONLY along orthogonal surface normal, avoiding jagged triangle edges
         let bestDistSq = Infinity;
         let bestPt = targetPt;
 
@@ -1497,7 +1770,6 @@
           }
         }
 
-        // Project candidate back onto cutting plane so it doesn't zig-zag sideways
         const projVec = new THREE.Vector3().subVectors(bestPt, p1);
         const dot = projVec.dot(chordDir);
         const projectedOntoChordLine = new THREE.Vector3().copy(p1).addScaledVector(chordDir, dot);
@@ -1508,7 +1780,6 @@
       }
       sampledRidge.push(p2.clone());
 
-      // 2. Smooth CatmullRom Curve through sampled ridge (Eliminating triangle corner steps)
       const smoothCurve = new THREE.CatmullRomCurve3(sampledRidge, false, 'centripetal', 0.5);
       const curvePoints = smoothCurve.getPoints(50);
 
@@ -1520,7 +1791,7 @@
       if (totalGirth < chordDist) totalGirth = chordDist;
 
       const gGeom = new THREE.BufferGeometry().setFromPoints(curvePoints);
-      const gMat = new THREE.LineBasicMaterial({ color: 0xf59e0b, linewidth: 3, depthTest: false });
+      const gMat = new THREE.LineBasicMaterial({ color: 0xd97706, linewidth: 3, depthTest: false });
       girthLine = new THREE.Line(gGeom, gMat);
       scene.add(girthLine);
 
@@ -1540,12 +1811,11 @@
       document.getElementById('girth-instruction').innerText = "Tap Point 1 & Point 2 on curved shell plate to trace tape path over mesh.";
     }
 
-    // --- ANGLE MEASURE ---
     function registerAnglePoint(worldPt) {
       if (anglePoints.length >= 3) clearAngleMeasurement();
       anglePoints.push(worldPt);
 
-      const pinColors = [0x93c5fd, 0xc084fc, 0xf472b6];
+      const pinColors = [0x38bdf8, 0x7c3aed, 0xf43f5e];
       const pin = new THREE.Mesh(
         new THREE.SphereGeometry(3.5, 16, 16),
         new THREE.MeshBasicMaterial({ color: pinColors[anglePoints.length - 1], depthTest: false })
@@ -1560,7 +1830,7 @@
         document.getElementById('angle-instruction').innerText = "Vertex set. Next: Tap Point 3 (Arm End).";
       } else if (anglePoints.length === 3) {
         const [p1, pV, p3] = anglePoints;
-        const lineMat = new THREE.LineBasicMaterial({ color: 0xc084fc, linewidth: 2, depthTest: false });
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x7c3aed, linewidth: 2, depthTest: false });
         const l1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pV, p1]), lineMat);
         const l2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pV, p3]), lineMat);
         scene.add(l1); scene.add(l2);
@@ -1584,13 +1854,12 @@
       document.getElementById('angle-instruction').innerText = "Tap 3 Points: 1.Arm End → 2.Vertex (Corner) → 3.Arm End";
     }
 
-    // --- PART INSPECTION & WEIGHT ---
     function handleInspectClick(e) {
       const hit = getRaycastIntersectionDetails(e.clientX, e.clientY);
       if (hit) {
         selectedObject = hit.object;
         meshList.forEach(m => { if (m.material.emissive) m.material.emissive.setHex(0x000000); });
-        if (selectedObject.material.emissive) selectedObject.material.emissive.setHex(0x27272a);
+        if (selectedObject.material.emissive) selectedObject.material.emissive.setHex(0x38bdf8);
 
         document.getElementById('meta-part-name').innerText = selectedObject.userData.name || 'Ship Member';
         document.getElementById('meta-part-layer').innerText = selectedObject.userData.layerName || 'Default';
@@ -1719,9 +1988,9 @@
           new THREE.LineBasicMaterial({ color, linewidth: 2, depthTest: false })
         );
       }
-      if (axis === 'x') dimensionLinesGroup.add(makeLine(p0, pX, 0x38bdf8));
-      else if (axis === 'y') dimensionLinesGroup.add(makeLine(p0, pY, 0x4ade80));
-      else if (axis === 'z') dimensionLinesGroup.add(makeLine(p0, pZ, 0xf87171));
+      if (axis === 'x') dimensionLinesGroup.add(makeLine(p0, pX, 0x0284c7));
+      else if (axis === 'y') dimensionLinesGroup.add(makeLine(p0, pY, 0x059669));
+      else if (axis === 'z') dimensionLinesGroup.add(makeLine(p0, pZ, 0xe11d48));
     }
 
     function clearDimensionHelper() {
@@ -1730,33 +1999,33 @@
       }
     }
 
-    // --- FILE LOADING ---
     function handleFileSelect(evt) {
       const file = evt.target.files[0];
       if (!file) return;
 
-      if (!rhinoReady || !rhinoModule) {
-        alert("Rhino engine initializing. Please wait a moment...");
-        return;
-      }
-
-      document.getElementById('active-file-display').innerText = file.name.toLowerCase();
-      showLoader("Reading CAD file...");
+      const fileName = file.name.toLowerCase();
+      document.getElementById('active-file-display').innerText = fileName;
+      showLoader("Reading file...");
 
       const reader = new FileReader();
       reader.onerror = () => { hideLoader(); alert("Failed to read file."); };
       reader.onload = async function(e) {
         try {
           const buffer = e.target.result;
-          try { await saveModelToStorage(file.name, buffer); } catch (dbErr) {}
 
-          const doc = rhinoModule.File3dm.fromByteArray(new Uint8Array(buffer));
-          if (!doc) throw new Error("Unable to parse 3DM format.");
-          loadRhinoDoc(doc);
+          if (fileName.endsWith('.vts')) {
+            loadBinaryVTSBuffer(buffer);
+            await saveModelToStorage(file.name, buffer);
+          } else {
+            if (!rhinoReady || !rhinoModule) throw new Error("Rhino engine initializing. Please wait...");
+            const doc = rhinoModule.File3dm.fromByteArray(new Uint8Array(buffer));
+            if (!doc) throw new Error("Unable to parse 3DM format.");
+            loadRhinoDoc(doc, file.name);
+          }
         } catch (err) {
-          console.error("3DM parsing error:", err);
+          console.error("Parsing error:", err);
           hideLoader();
-          alert("Error opening 3DM file:\n" + err.message);
+          alert("Error opening file:\n" + err.message);
         } finally {
           evt.target.value = '';
         }
@@ -1764,7 +2033,7 @@
       reader.readAsArrayBuffer(file);
     }
 
-    function loadRhinoDoc(doc) {
+    function loadRhinoDoc(doc, originalFileName) {
       try {
         while (modelRoot.children.length > 0) modelRoot.remove(modelRoot.children[0]);
         meshList = [];
@@ -1861,12 +2130,12 @@
               if (!resolvedColor && attr && attr.layerIndex !== undefined && layerColorMap[attr.layerIndex]) {
                 resolvedColor = layerColorMap[attr.layerIndex].clone();
               }
-              if (!resolvedColor) resolvedColor = new THREE.Color(0x64748b);
+              if (!resolvedColor) resolvedColor = new THREE.Color(0x3b82f6);
 
               const material = new THREE.MeshStandardMaterial({
                 color: resolvedColor,
-                roughness: (activeProfile === 'PRO') ? 0.35 : 0.6,
-                metalness: (activeProfile === 'PRO') ? 0.30 : 0.1,
+                roughness: 0.3,
+                metalness: 0.25,
                 side: THREE.DoubleSide
               });
               const threeMesh = new THREE.Mesh(threeGeom, material);
@@ -1880,7 +2149,7 @@
                 const edges = new THREE.EdgesGeometry(threeGeom, 35);
                 const edgeLine = new THREE.LineSegments(
                   edges,
-                  new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.8 })
+                  new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.85 })
                 );
                 threeMesh.add(edgeLine);
                 edgeLinesList.push(edgeLine);
@@ -1895,28 +2164,24 @@
         }
 
         if (meshList.length === 0) alert("No render meshes found in this file.");
+        calibrateModelView();
 
-        modelBBox.setFromObject(modelRoot);
-        const center = modelBBox.getCenter(new THREE.Vector3());
-        const size = modelBBox.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z) || 1000;
-
-        controls.target.copy(center);
-        camera.position.set(center.x + maxDim * 1.2, center.y + maxDim * 1.0, center.z + maxDim * 1.2);
-        camera.near = Math.max(0.1, maxDim / 1000);
-        camera.far = maxDim * 50;
-        camera.updateProjectionMatrix();
-        controls.update();
-
-        if (isClippingActive) {
-          updateClipPlane();
+        if (originalFileName) {
+          setTimeout(async () => {
+            try {
+              const binaryBuffer = encodeModelToBinaryVTS();
+              await saveModelToStorage(originalFileName, binaryBuffer);
+              console.log("Cached model converted into compact binary .vts successfully.");
+            } catch (saveErr) {
+              console.warn("Auto-cache .vts error:", saveErr);
+            }
+          }, 100);
         }
 
       } catch (err) {
         console.error("Rendering failed:", err);
-        alert("Render error:\n" + err.message);
-      } finally {
         hideLoader();
+        alert("Render error:\n" + err.message);
       }
     }
 
