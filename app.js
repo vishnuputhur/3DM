@@ -8,10 +8,10 @@ let rhinoModule = null;
 
 let scene, camera, renderer, controls;
 const modelRoot = new THREE.Group();
-let currentMode = 'view';
 let meshList = [];
 let edgeLinesList = [];
 let dirLight1, dirLight2, hemiLight, ambientLight;
+let floorGrid = null; // Z-1000 Baseline Grid
 
 const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
 let currentCutAxis = 'z';
@@ -212,7 +212,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION (ORIGINAL ENGINE CONFIG)
+// 3. THREE.JS INITIALIZATION (Z-UP SHIP SYSTEM & NATURAL ROTATION FIX)
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -221,8 +221,11 @@ function initThree() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf1f5f9);
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000000);
-  camera.position.set(3000, 3000, 3000);
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000000);
+  
+  // Z-UP SYSTEM: കപ്പൽ നിർമ്മാണത്തിന് അനുയോജ്യമായ Z-Up ആക്സിസ്
+  camera.up.set(0, 0, 1);
+  camera.position.set(4000, -4000, 3000);
 
   renderer = new THREE.WebGLRenderer({
     antialias: true, alpha: false, powerPreference: 'high-performance'
@@ -235,40 +238,58 @@ function initThree() {
 
   controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.06;
-  controls.rotateSpeed = 0.55;
+  controls.dampingFactor = 0.08;
+  
+  // NATURAL ROTATION FIX: വിരൽ നീക്കുന്ന അതേ ദിശയിൽ കൃത്യമായി തിരിയാൻ
+  controls.rotateSpeed = 0.65;
   controls.zoomSpeed = 1.1;
   controls.panSpeed = 0.8;
   controls.screenSpacePanning = true;
-  controls.minPolarAngle = 0.02;
-  controls.maxPolarAngle = Math.PI - 0.02;
 
+  // കൺട്രോൾസ് തലതിരിഞ്ഞ് സ്റ്റക്കാവുന്നത് തടയുന്നു (Gimbal lock prevention)
+  controls.minPolarAngle = 0.05;
+  controls.maxPolarAngle = Math.PI - 0.05;
+
+  // ലൈറ്റുകൾ (Z-Up അനുസരിച്ച് സജ്ജീകരിച്ചത്)
   ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
   scene.add(ambientLight);
 
   hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.45);
-  hemiLight.position.set(0, 5000, 0);
+  hemiLight.position.set(0, 0, 5000);
   scene.add(hemiLight);
 
   dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
-  dirLight1.position.set(5000, 8000, 5000);
+  dirLight1.position.set(5000, -5000, 8000);
   scene.add(dirLight1);
 
-  dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.4);
-  dirLight2.position.set(-5000, -3000, -5000);
+  dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.45);
+  dirLight2.position.set(-5000, 5000, -3000);
   scene.add(dirLight2);
 
   scene.add(modelRoot);
   scene.add(dimensionLinesGroup);
   scene.add(pointMarkersGroup);
 
-  const grid = new THREE.GridHelper(15000, 60, 0x94a3b8, 0xcbd5e1);
-  grid.position.y = -0.5;
-  scene.add(grid);
+  // Baseline Grid (തറ പോലെ XY പ്ലെയിനിൽ Z ആക്സിസിൽ വരുന്നത്)
+  createOrUpdateBaselineGrid(0);
 
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 100));
   animate();
+}
+
+// തറ പോലെയുള്ള മെഷ്: Z-1000 mm താഴെ സ്ഥാപിക്കുന്നു
+function createOrUpdateBaselineGrid(baseZ) {
+  if (floorGrid) scene.remove(floorGrid);
+
+  const gridSize = 25000;
+  const gridDivisions = 50;
+  floorGrid = new THREE.GridHelper(gridSize, gridDivisions, 0x0284c7, 0xcbd5e1);
+  
+  // Z-Up സിസ്റ്റത്തിലേക്ക് ഗ്രിഡിനെ തിരിക്കുന്നു
+  floorGrid.rotation.x = Math.PI / 2;
+  floorGrid.position.set(0, 0, baseZ - 1000); // കൃത്യമായി Z-ൽ നിന്ന് 1000mm താഴെ തറയായി നിൽക്കുന്നു
+  scene.add(floorGrid);
 }
 
 function initRhino() {
@@ -307,7 +328,7 @@ function onWindowResize() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 4. RHINO DOC LOADER (RESTORED COMPLETE COLOR LOGIC & SKINS)
+// 4. MODEL LIFECYCLE & AUTOMATIC ISOMETRIC DEFAULT VIEW
 // ═══════════════════════════════════════════════════════════
 function clearModelScene() {
   while (modelRoot.children.length > 0) modelRoot.remove(modelRoot.children[0]);
@@ -326,14 +347,13 @@ function calibrateModelView() {
   modelBBox.setFromObject(modelRoot);
   const center = modelBBox.getCenter(new THREE.Vector3());
   const size = modelBBox.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z) || 1000;
+  const minZ = modelBBox.min.z;
 
-  controls.target.copy(center);
-  camera.position.set(center.x + maxDim * 1.2, center.y + maxDim * 1.0, center.z + maxDim * 1.2);
-  camera.near = Math.max(0.1, maxDim / 1000);
-  camera.far = maxDim * 50;
-  camera.updateProjectionMatrix();
-  controls.update();
+  // മോഡലിന്റെ അടിത്തറയിൽ നിന്നും കൃത്യമായി 1000mm താഴെ മെഷ് കൊണ്ടുവരുന്നു
+  createOrUpdateBaselineGrid(minZ);
+
+  // ഓപ്പൺ ആകുമ്പോൾത്തന്നെ നേരിട്ട് ISO വ്യൂവിലേക്ക് സെറ്റാകുന്നു
+  setCameraView('iso');
 
   if (isClippingActive) updateClipPlane();
   hideLoader();
@@ -343,7 +363,6 @@ function loadRhinoDoc(doc, originalFileName) {
   try {
     clearModelScene();
 
-    // 1. Material Color Palette Map
     const materialColorMap = {};
     try {
       const materials = doc.materials();
@@ -358,7 +377,6 @@ function loadRhinoDoc(doc, originalFileName) {
       }
     } catch (e) {}
 
-    // 2. Layer Color & Attribute Map
     const layerColorMap = {}, layerNameMap = {}, layerMaterialMap = {};
     try {
       const layers = doc.layers();
@@ -406,7 +424,6 @@ function loadRhinoDoc(doc, originalFileName) {
           const threeGeom = convertRhinoMeshToThree(mesh);
           threeGeom.computeVertexNormals();
 
-          // 3. Complete Color Resolution Architecture (From Original Code)
           let resolvedColor = null;
           if (attr && attr.materialIndex !== undefined && attr.materialIndex >= 0 && materialColorMap[attr.materialIndex]) {
             resolvedColor = materialColorMap[attr.materialIndex].clone();
@@ -430,7 +447,6 @@ function loadRhinoDoc(doc, originalFileName) {
           }
           if (!resolvedColor) resolvedColor = new THREE.Color(0x3b82f6);
 
-          // 4. Realistic Metallic Steel Plate Material
           const material = new THREE.MeshStandardMaterial({
             color: resolvedColor, roughness: 0.3, metalness: 0.25, side: THREE.DoubleSide
           });
@@ -444,7 +460,6 @@ function loadRhinoDoc(doc, originalFileName) {
             originalColor: resolvedColor.getHex()
           };
 
-          // 5. Crisp Contour Edge Lines
           try {
             const edges = new THREE.EdgesGeometry(threeGeom, edgeThreshold);
             const edgeLine = new THREE.LineSegments(
@@ -473,15 +488,12 @@ function loadRhinoDoc(doc, originalFileName) {
     applyCurrentProfileToMeshes();
     populateColorPalette();
 
-    // Auto-cache to IndexedDB as compact .vts
     if (originalFileName) {
       setTimeout(async () => {
         try {
           const buf = encodeModelToBinaryVTS();
           await saveModelToStorage(originalFileName, buf);
-        } catch (e) {
-          console.warn('Auto-cache failed:', e);
-        }
+        } catch (e) {}
       }, 150);
     }
   } catch (err) {
@@ -512,7 +524,38 @@ function convertRhinoMeshToThree(rMesh) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 5. CONSTANT 1MM SCREEN PINS & MAGNETIC SNAP
+// 5. CAMERA PRESETS & PERFECT ISOMETRIC ALIGNMENT
+// ═══════════════════════════════════════════════════════════
+function setCameraView(preset) {
+  const bbox = new THREE.Box3().setFromObject(modelRoot);
+  if (bbox.isEmpty()) return;
+
+  const center = bbox.getCenter(new THREE.Vector3());
+  const size = bbox.getSize(new THREE.Vector3());
+  const d = (Math.max(size.x, size.y, size.z) || 1000) * 1.8;
+
+  controls.target.copy(center);
+
+  if (preset === 'top') { // Z-View (Plan View looking down Z axis)
+    camera.position.set(center.x, center.y, center.z + d);
+    camera.up.set(0, 1, 0);
+  } else if (preset === 'side') { // Y-View (Looking along Y)
+    camera.position.set(center.x, center.y - d, center.z);
+    camera.up.set(0, 0, 1);
+  } else if (preset === 'front') { // X-View (Looking along X)
+    camera.position.set(center.x + d, center.y, center.z);
+    camera.up.set(0, 0, 1);
+  } else if (preset === 'iso') { // CSL Standard 3D Isometric View
+    camera.up.set(0, 0, 1);
+    camera.position.set(center.x + d * 0.85, center.y - d * 0.85, center.z + d * 0.75);
+  }
+
+  camera.lookAt(center);
+  controls.update();
+}
+
+// ═══════════════════════════════════════════════════════════
+// 6. CONSTANT 1MM SCREEN PINS & MAGNETIC SNAP
 // ═══════════════════════════════════════════════════════════
 function createScreenSpacePin(worldPos, colorHex = 0x0284c7) {
   const geom = new THREE.BufferGeometry();
@@ -520,8 +563,8 @@ function createScreenSpacePin(worldPos, colorHex = 0x0284c7) {
   
   const mat = new THREE.PointsMaterial({
     color: colorHex,
-    size: 9, // Exactly 1mm / 8-9px screen-space
-    sizeAttenuation: false, // Never scales on zoom
+    size: 9,
+    sizeAttenuation: false,
     depthTest: false
   });
   const point = new THREE.Points(geom, mat);
@@ -578,7 +621,7 @@ function findMagneticSnapPoint(screenX, screenY) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 6. COLOR PALETTE CONTROLLER
+// 7. COLOR PALETTE CONTROLLER
 // ═══════════════════════════════════════════════════════════
 function populateColorPalette() {
   const dotsContainer = document.getElementById('model-color-dots');
@@ -627,7 +670,7 @@ function setupColorPaletteEvents() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 7. PROFILE & GRAPHICS QUALITY
+// 8. PROFILE & GRAPHICS QUALITY
 // ═══════════════════════════════════════════════════════════
 function applyQualityProfile(profile) {
   activeProfile = profile;
@@ -681,7 +724,7 @@ function applyCurrentProfileToMeshes() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 8. MEASUREMENT & GOTO LOGIC
+// 9. MEASUREMENT & GOTO LOGIC
 // ═══════════════════════════════════════════════════════════
 function registerMeasurementPoint(worldPt) {
   if (measurePoints.length >= 2) clearMeasurements();
@@ -751,7 +794,7 @@ function jumpToInputCoordinates() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 9. GIRTH & ANGLE FINDER
+// 10. GIRTH & ANGLE FINDER
 // ═══════════════════════════════════════════════════════════
 function registerGirthPoint(worldPt, meshObj) {
   if (girthPoints.length >= 2) clearGirthMeasurement();
@@ -780,7 +823,8 @@ function calculateSmoothSurfaceGirth() {
   const worldVerts = new Float32Array(vertexCount * 3);
   const v = new THREE.Vector3();
   for (let i = 0; i < vertexCount; i++) {
-    v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld);
+    v.fromBufferAttribute(pos, i);
+    v.applyMatrix4(mesh.matrixWorld);
     worldVerts[i * 3] = v.x;
     worldVerts[i * 3 + 1] = v.y;
     worldVerts[i * 3 + 2] = v.z;
@@ -874,7 +918,7 @@ function clearAngleMeasurement() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 10. INSPECT & WEIGHT CALCULATOR
+// 11. INSPECT & WEIGHT CALCULATOR
 // ═══════════════════════════════════════════════════════════
 const STEEL_DENSITY = 7.85e-6;
 
@@ -938,7 +982,7 @@ function clearDimensionHelper() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 11. SECTION CUTTER LOGIC
+// 12. SECTION CUTTER LOGIC
 // ═══════════════════════════════════════════════════════════
 function setupSectionCutControls() {
   const cutX = document.getElementById('cut-axis-x');
@@ -1020,54 +1064,6 @@ function enableClipping(enabled) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 12. CAMERA PRESETS & MODES
-// ═══════════════════════════════════════════════════════════
-function setCameraView(preset) {
-  const bbox = new THREE.Box3().setFromObject(modelRoot);
-  if (bbox.isEmpty()) return;
-
-  const center = bbox.getCenter(new THREE.Vector3());
-  const size = bbox.getSize(new THREE.Vector3());
-  const d = (Math.max(size.x, size.y, size.z) || 1000) * 1.8;
-
-  controls.target.copy(center);
-
-  if (preset === 'top') {
-    camera.position.set(center.x, center.y, center.z + d);
-    camera.up.set(0, 1, 0);
-  } else if (preset === 'side') {
-    camera.position.set(center.x, center.y + d, center.z);
-    camera.up.set(0, 0, 1);
-  } else if (preset === 'front') {
-    camera.position.set(center.x + d, center.y, center.z);
-    camera.up.set(0, 0, 1);
-  } else if (preset === 'iso') {
-    camera.position.set(center.x + d * 0.8, center.y - d * 0.8, center.z + d * 0.7);
-    camera.up.set(0, 0, 1);
-  }
-
-  camera.lookAt(center);
-  controls.update();
-}
-
-function switchMode(newMode) {
-  currentMode = newMode;
-  clearDimensionHelper();
-  document.querySelectorAll('.mode-btn').forEach(b => b.className = 'mode-btn');
-  document.querySelectorAll('.panel-bottom').forEach(p => p.style.display = 'none');
-  controls.enabled = !isFrozen;
-
-  const activeBtn = document.getElementById(`mode-${newMode}`);
-  if (activeBtn) activeBtn.classList.add(`active-${newMode}`);
-
-  const activePanel = document.getElementById(`${newMode}-panel`);
-  if (activePanel) activePanel.style.display = 'block';
-
-  if (newMode === 'section') updateClipPlane();
-  snapCursorEl.style.display = 'none';
-}
-
-// ═══════════════════════════════════════════════════════════
 // 13. RECENT MODELS MODAL UI
 // ═══════════════════════════════════════════════════════════
 async function showRecentModal() {
@@ -1133,6 +1129,23 @@ async function showRecentModal() {
 // ═══════════════════════════════════════════════════════════
 // 14. EVENT DISPATCHER & POINTERS
 // ═══════════════════════════════════════════════════════════
+function switchMode(newMode) {
+  currentMode = newMode;
+  clearDimensionHelper();
+  document.querySelectorAll('.mode-btn').forEach(b => b.className = 'mode-btn');
+  document.querySelectorAll('.panel-bottom').forEach(p => p.style.display = 'none');
+  controls.enabled = !isFrozen;
+
+  const activeBtn = document.getElementById(`mode-${newMode}`);
+  if (activeBtn) activeBtn.classList.add(`active-${newMode}`);
+
+  const activePanel = document.getElementById(`${newMode}-panel`);
+  if (activePanel) activePanel.style.display = 'block';
+
+  if (newMode === 'section') updateClipPlane();
+  snapCursorEl.style.display = 'none';
+}
+
 function setupEvents() {
   const dom = renderer.domElement;
 
