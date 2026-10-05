@@ -33,7 +33,7 @@ const dimensionLinesGroup = new THREE.Group();
 let currentScale = window.innerWidth >= 768 ? 1.25 : 1.0;
 let activeProfile = localStorage.getItem('vt_viewer_profile') || 'PRO';
 
-// Pointer state for mobile/desktop
+// Pointer state for differentiating drag and tap
 let pointerDownPos = { x: 0, y: 0, time: 0 };
 
 // ═══════════════════════════════════════════════════════════
@@ -194,7 +194,7 @@ function loadBinaryVTSBuffer(buffer) {
     mesh.userData = { name, layerName: layer, originalColor: color };
 
     try {
-      const edges = new THREE.EdgesGeometry(geom, 45); // ലൈനുകൾ കൂടിച്ചേരാതിരിക്കാൻ 45°
+      const edges = new THREE.EdgesGeometry(geom, 45);
       const edgeLine = new THREE.LineSegments(
         edges,
         new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.65 })
@@ -261,8 +261,6 @@ function initThree() {
   scene.add(modelRoot);
   scene.add(dimensionLinesGroup);
   scene.add(pointMarkersGroup);
-
-  // ബേസ്‌ലൈൻ മെഷ് പൂർണ്ണമായി ഒഴിവാക്കി
 
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 100));
@@ -363,7 +361,7 @@ function loadRhinoDoc(doc, originalFileName) {
 
     const objects = doc.objects();
     const count = objects ? objects.count : 0;
-    const edgeThreshold = 45; // ലൈനുകൾ കൂടിച്ചേർന്ന് മങ്ങിപ്പോവാതിരിക്കാനുള്ള കൃത്യമായ ആംഗിൾ
+    const edgeThreshold = 45;
 
     for (let i = 0; i < count; i++) {
       try {
@@ -501,16 +499,16 @@ function setCameraView(preset) {
 
   controls.target.copy(center);
 
-  if (preset === 'top') { // Z-View (Plan View)
+  if (preset === 'top') {
     camera.position.set(center.x, center.y, center.z + d);
     camera.up.set(0, 1, 0);
-  } else if (preset === 'side') { // Y-View
+  } else if (preset === 'side') {
     camera.position.set(center.x, center.y - d, center.z);
     camera.up.set(0, 0, 1);
-  } else if (preset === 'front') { // X-View
+  } else if (preset === 'front') {
     camera.position.set(center.x + d, center.y, center.z);
     camera.up.set(0, 0, 1);
-  } else if (preset === 'iso') { // CSL Standard 3D Isometric View
+  } else if (preset === 'iso') {
     camera.up.set(0, 0, 1);
     camera.position.set(center.x + d * 0.85, center.y - d * 0.85, center.z + d * 0.75);
   }
@@ -1037,7 +1035,7 @@ function enableClipping(enabled) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 13. RECENT MODELS MODAL UI
+// 13. RECENT MODELS MODAL UI (HIGH CONTRAST & CLEAR TEXT)
 // ═══════════════════════════════════════════════════════════
 async function showRecentModal() {
   const container = document.getElementById('recent-list-container');
@@ -1237,7 +1235,7 @@ function setupEvents() {
   dom.addEventListener('pointerup', (e) => {
     const dx = Math.abs(e.clientX - pointerDownPos.x);
     const dy = Math.abs(e.clientY - pointerDownPos.y);
-    const isClickOrTap = (dx < 10 && dy < 10); // ഡ്രാഗിംഗും ടാപ്പും തമ്മിൽ വേർതിരിക്കുന്നു
+    const isClickOrTap = (dx < 10 && dy < 10);
 
     if (!isClickOrTap) return;
 
@@ -1389,12 +1387,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.setCameraView = setCameraView;
   window.highlightAxisDimension = highlightAxisDimension;
 
-  // IndexedDB ഇനിഷ്യലൈസ് ചെയ്ത് Recent ഫയലുകൾ ഉണ്ടെങ്കിൽ ഓട്ടോമാറ്റിക് ആയി തുറക്കുന്നു
+  // IndexedDB ഇനിഷ്യലൈസ് ചെയ്ത് ഫയലുകൾ ഉണ്ടെങ്കിൽ നേരിട്ട് Recent പേജ് തുറക്കുന്നു
   try {
     await initDB();
     const recents = await getAllRecentModels();
     if (recents && recents.length > 0) {
-      showRecentModal(); // ആപ്പ് ഓപ്പൺ ചെയ്യുമ്പോൾ ആദ്യം തന്നെ Recent പോപ്പ്-അപ്പ് വരുന്നു
+      showRecentModal();
     }
   } catch (e) {
     console.warn('DB initialization error:', e);
