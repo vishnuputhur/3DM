@@ -12,11 +12,16 @@ let meshList = [];
 let edgeLinesList = [];
 let dirLight1, dirLight2, hemiLight, ambientLight;
 
-const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+// MULTI-AXIS COMPOUND CLIPPING PLANES (X, Y, Z സ്വതന്ത്ര കട്ടുകൾ)
+const clipPlanes = {
+  x: new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
+  y: new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
+  z: new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)
+};
+const clipActiveState = { x: false, y: false, z: false };
+const clipInverts = { x: -1, y: -1, z: -1 };
 let currentCutAxis = 'z';
-let cutInvert = -1;
 const modelBBox = new THREE.Box3();
-let isClippingActive = false;
 
 // Constant Screen-Space Pins & Measurement States
 const pointMarkersGroup = new THREE.Group();
@@ -25,7 +30,6 @@ let girthPoints = [], girthMarkers = [], girthLine = null;
 let anglePoints = [], angleMarkers = [], angleLines = [];
 let coordMarker = null;
 
-let currentMode = 'view';
 let isFrozen = false, isXRay = false, isDarkMode = false;
 let snapCursorEl = null, activeSnappedPoint = null, selectedColorDotHex = null;
 let selectedObject = null, selectedLocalBox = null;
@@ -34,7 +38,10 @@ const dimensionLinesGroup = new THREE.Group();
 let currentScale = window.innerWidth >= 768 ? 1.25 : 1.0;
 let activeProfile = localStorage.getItem('vt_viewer_profile') || 'PRO';
 
-// Pointer state for differentiating drag and tap
+// Magnifier Loupe State
+let isInspectingLoupe = false;
+let loupePendingUpdate = false;
+const lastLoupePointer = { x: 0, y: 0 };
 let pointerDownPos = { x: 0, y: 0, time: 0 };
 
 // ═══════════════════════════════════════════════════════════
@@ -307,6 +314,7 @@ function clearModelScene() {
   clearCoordinatePoint();
   clearAngleMeasurement();
   clearDimensionHelper();
+  resetAllClippingPlanes();
   selectedObject = null;
   selectedLocalBox = null;
 }
@@ -316,10 +324,7 @@ function calibrateModelView() {
   const center = modelBBox.getCenter(new THREE.Vector3());
   controls.target.copy(center);
 
-  // മോഡൽ ഓപ്പൺ ആകുമ്പോൾത്തന്നെ നേരിട്ട് ISO വ്യൂവിലേക്ക്
   setCameraView('iso');
-
-  if (isClippingActive) updateClipPlane();
   hideLoader();
 }
 
@@ -519,7 +524,7 @@ function setCameraView(preset) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 6. SCREEN PINS & MAGNETIC SNAP
+// 6. SCREEN PINS, MAGNETIC SNAP & MAGNIFIER LOUPE (LENS)
 // ═══════════════════════════════════════════════════════════
 function createScreenSpacePin(worldPos, colorHex = 0x0284c7) {
   const geom = new THREE.BufferGeometry();
@@ -582,6 +587,56 @@ function findMagneticSnapPoint(screenX, screenY) {
     object: hit.object,
     isCorner: !!closestVertex
   };
+}
+
+// ═══════════════════════════════════════════════════════════
+// MAGNIFIER LOUPE ENGINE (ലെൻസ് റെൻഡറിംഗ്)
+// ═══════════════════════════════════════════════════════════
+function requestLoupeUpdate() {
+  if (loupePendingUpdate) return;
+  loupePendingUpdate = true;
+  requestAnimationFrame(() => {
+    renderLoupe(lastLoupePointer.x, lastLoupePointer.y);
+    loupePendingUpdate = false;
+  });
+}
+
+function renderLoupe(screenX, screenY) {
+  if (!isInspectingLoupe) return;
+  const loupeEl = document.getElementById('magnifier-loupe');
+  const loupeCanvas = document.getElementById('loupe-canvas');
+  if (!loupeEl || !loupeCanvas) return;
+
+  const loupeCtx = loupeCanvas.getContext('2d');
+
+  loupeEl.style.left = `${screenX}px`;
+  loupeEl.style.top = `${Math.max(screenY - 120, 80)}px`;
+  loupeEl.style.display = 'block';
+
+  const snap = findMagneticSnapPoint(screenX, screenY);
+  if (snap) {
+    activeSnappedPoint = snap;
+    const ptScreen = snap.point.clone().project(camera);
+    const w = renderer.domElement.width;
+    const h = renderer.domElement.height;
+    const srcX = (ptScreen.x * 0.5 + 0.5) * w - 70;
+    const srcY = (-ptScreen.y * 0.5 + 0.5) * h - 70;
+
+    loupeCtx.clearRect(0, 0, 140, 140);
+    try {
+      loupeCtx.drawImage(
+        renderer.domElement,
+        Math.max(0, srcX), Math.max(0, srcY), 140, 140,
+        0, 0, 140, 140
+      );
+    } catch (e) {}
+  }
+}
+
+function hideLoupe() {
+  isInspectingLoupe = false;
+  const loupeEl = document.getElementById('magnifier-loupe');
+  if (loupeEl) loupeEl.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -946,7 +1001,7 @@ function clearDimensionHelper() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 12. SECTION CUTTER LOGIC
+// 12. COMPOUND MULTI-AXIS SECTION CUTTER (X, Y, Z INDEPENDENT)
 // ═══════════════════════════════════════════════════════════
 function setupSectionCutControls() {
   const cutX = document.getElementById('cut-axis-x');
@@ -960,16 +1015,30 @@ function setupSectionCutControls() {
 
   function setAxis(axis) {
     currentCutAxis = axis;
-    cutX.classList.toggle('active-axis', axis === 'x');
-    cutY.classList.toggle('active-axis', axis === 'y');
-    cutZ.classList.toggle('active-axis', axis === 'z');
-    updateClipPlane();
+    if (cutX) cutX.classList.toggle('active-axis', axis === 'x');
+    if (cutY) cutY.classList.toggle('active-axis', axis === 'y');
+    if (cutZ) cutZ.classList.toggle('active-axis', axis === 'z');
+
+    if (clipActiveState[axis]) {
+      const c = clipPlanes[axis].constant;
+      const val = (clipInverts[axis] < 0) ? c : -c;
+      inputVal.value = val.toFixed(1);
+    } else {
+      inputVal.value = '';
+    }
   }
 
   if (cutX) cutX.addEventListener('click', () => setAxis('x'));
   if (cutY) cutY.addEventListener('click', () => setAxis('y'));
   if (cutZ) cutZ.addEventListener('click', () => setAxis('z'));
-  if (flipBtn) flipBtn.addEventListener('click', () => { cutInvert *= -1; updateClipPlane(); });
+
+  if (flipBtn) {
+    flipBtn.addEventListener('click', () => {
+      clipInverts[currentCutAxis] *= -1;
+      updateClipPlane();
+    });
+  }
+
   if (slider) slider.addEventListener('input', updateClipPlane);
 
   if (btnGo) {
@@ -981,37 +1050,37 @@ function setupSectionCutControls() {
 
   if (resetCutBtn) {
     resetCutBtn.addEventListener('click', () => {
-      slider.value = 100;
-      inputVal.value = '';
-      cutInvert = -1;
-      enableClipping(false);
+      resetAllClippingPlanes();
     });
   }
 }
 
 function updateClipPlane() {
-  enableClipping(true);
   const slider = document.getElementById('cut-slider');
   const inputVal = document.getElementById('cut-manual-input');
   if (!slider || !inputVal) return;
 
+  clipActiveState[currentCutAxis] = true;
   const sliderVal = parseFloat(slider.value);
   const min = modelBBox.min, max = modelBBox.max;
   const normal = new THREE.Vector3();
   let minVal = 0, maxVal = 0;
 
-  if (currentCutAxis === 'x') { normal.set(cutInvert, 0, 0); minVal = min.x; maxVal = max.x; }
-  else if (currentCutAxis === 'y') { normal.set(0, cutInvert, 0); minVal = min.y; maxVal = max.y; }
-  else { normal.set(0, 0, cutInvert); minVal = min.z; maxVal = max.z; }
+  const inv = clipInverts[currentCutAxis];
+  if (currentCutAxis === 'x') { normal.set(inv, 0, 0); minVal = min.x; maxVal = max.x; }
+  else if (currentCutAxis === 'y') { normal.set(0, inv, 0); minVal = min.y; maxVal = max.y; }
+  else { normal.set(0, 0, inv); minVal = min.z; maxVal = max.z; }
 
   const targetCoord = minVal + (maxVal - minVal) * (sliderVal / 100);
-  clipPlane.normal.copy(normal);
-  clipPlane.constant = (cutInvert < 0) ? targetCoord : -targetCoord;
+  clipPlanes[currentCutAxis].normal.copy(normal);
+  clipPlanes[currentCutAxis].constant = (inv < 0) ? targetCoord : -targetCoord;
   inputVal.value = targetCoord.toFixed(1);
+
+  applyCompoundClippingPlanes();
 }
 
 function setCutToExactCoordinate(exactCoord) {
-  enableClipping(true);
+  clipActiveState[currentCutAxis] = true;
   const min = modelBBox.min, max = modelBBox.max;
   let minVal = 0, maxVal = 0;
 
@@ -1022,21 +1091,57 @@ function setCutToExactCoordinate(exactCoord) {
   const clamped = Math.max(minVal, Math.min(maxVal, exactCoord));
   const percent = ((clamped - minVal) / Math.max(maxVal - minVal, 0.0001)) * 100;
   document.getElementById('cut-slider').value = percent;
+  
   updateClipPlane();
 }
 
-function enableClipping(enabled) {
-  isClippingActive = enabled;
+function applyCompoundClippingPlanes() {
+  const activeList = [];
+  if (clipActiveState.x) activeList.push(clipPlanes.x);
+  if (clipActiveState.y) activeList.push(clipPlanes.y);
+  if (clipActiveState.z) activeList.push(clipPlanes.z);
+
   meshList.forEach(m => {
     if (m.material) {
-      m.material.clippingPlanes = enabled ? [clipPlane] : [];
+      m.material.clippingPlanes = activeList;
+      m.material.clipShadows = true;
       m.material.needsUpdate = true;
+    }
+  });
+
+  edgeLinesList.forEach(line => {
+    if (line.material) {
+      line.material.clippingPlanes = activeList;
+      line.material.needsUpdate = true;
+    }
+  });
+}
+
+function resetAllClippingPlanes() {
+  clipActiveState.x = false;
+  clipActiveState.y = false;
+  clipActiveState.z = false;
+  clipInverts.x = -1; clipInverts.y = -1; clipInverts.z = -1;
+
+  document.getElementById('cut-slider').value = 100;
+  document.getElementById('cut-manual-input').value = '';
+
+  meshList.forEach(m => {
+    if (m.material) {
+      m.material.clippingPlanes = [];
+      m.material.needsUpdate = true;
+    }
+  });
+  edgeLinesList.forEach(line => {
+    if (line.material) {
+      line.material.clippingPlanes = [];
+      line.material.needsUpdate = true;
     }
   });
 }
 
 // ═══════════════════════════════════════════════════════════
-// 13. RECENT MODELS MODAL UI (HIGH CONTRAST & CLEAR TEXT)
+// 13. RECENT MODELS MODAL UI
 // ═══════════════════════════════════════════════════════════
 async function showRecentModal() {
   const container = document.getElementById('recent-list-container');
@@ -1100,39 +1205,49 @@ async function showRecentModal() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 14. MODE SWITCHING & EVENT LISTENERS
+// 14. SELECTIVE ORBIT LOCK, LOUPE TOUCH & EVENT DISPATCHER
 // ═══════════════════════════════════════════════════════════
+function updateControlsLockState() {
+  if (isFrozen) {
+    controls.enabled = false;
+    return;
+  }
+  // View, Section, Isolate എന്നീ 3 ടാബുകളിൽ മാത്രം മോഡൽ തിരിക്കാൻ അനുവാദം നൽകുന്നു!
+  if (['view', 'section'].includes(currentMode)) {
+    controls.enabled = true;
+  } else {
+    controls.enabled = false; // Coords, Linear, Girth, Angle എന്നിവയിൽ പൂർണ്ണമായും ഫ്രീസ്
+  }
+}
+
 function switchMode(newMode) {
   currentMode = newMode;
   clearDimensionHelper();
+  hideLoupe();
 
-  // എല്ലാ ടാബുകളുടെയും ക്ലാസുകൾ റീസെറ്റ് ചെയ്യുന്നു
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.className = 'mode-btn';
   });
 
-  // സെലക്ട് ചെയ്ത ടാബ് ഹൈലൈറ്റ് ചെയ്യുന്നു
   const activeBtn = document.getElementById(`mode-${newMode}`);
   if (activeBtn) {
     activeBtn.className = `mode-btn active-${newMode}`;
   }
 
-  // പാനലുകൾ ഹൈഡ്/ഷോ ചെയ്യുന്നു
   document.querySelectorAll('.panel-bottom').forEach(p => p.style.display = 'none');
   const activePanel = document.getElementById(`${newMode}-panel`);
   if (activePanel) {
     activePanel.style.display = 'block';
   }
 
-  controls.enabled = !isFrozen;
-  if (newMode === 'section') updateClipPlane();
+  updateControlsLockState();
+
   if (snapCursorEl) snapCursorEl.style.display = 'none';
 }
 
 function setupEvents() {
   const dom = renderer.domElement;
 
-  // മോഡ് ബാർ ബട്ടണുകൾ
   ['view', 'coords', 'measure', 'girth', 'angle', 'section', 'inspect'].forEach(m => {
     const btn = document.getElementById(`mode-${m}`);
     if (btn) {
@@ -1143,14 +1258,13 @@ function setupEvents() {
     }
   });
 
-  // ഫ്രീസ്, എക്സ്-റേ, പ്രോ ക്വാളിറ്റി
   const btnFreeze = document.getElementById('btn-freeze-orbit');
   if (btnFreeze) {
     btnFreeze.addEventListener('click', () => {
       isFrozen = !isFrozen;
-      controls.enabled = !isFrozen;
       btnFreeze.classList.toggle('active-freeze', isFrozen);
       btnFreeze.innerText = isFrozen ? 'LOCKED' : 'LOCK';
+      updateControlsLockState();
     });
   }
 
@@ -1176,7 +1290,6 @@ function setupEvents() {
     });
   }
 
-  // വ്യൂസ് ബാർ
   const vZ = document.getElementById('btn-view-z');
   const vY = document.getElementById('btn-view-y');
   const vX = document.getElementById('btn-view-x');
@@ -1186,7 +1299,6 @@ function setupEvents() {
   if (vX) vX.addEventListener('click', () => setCameraView('front'));
   if (vIso) vIso.addEventListener('click', () => setCameraView('iso'));
 
-  // തീം ടോഗിൾ
   const btnTheme = document.getElementById('btn-theme-toggle');
   if (btnTheme) {
     btnTheme.addEventListener('click', () => {
@@ -1198,7 +1310,6 @@ function setupEvents() {
     });
   }
 
-  // ഇൻഫോ പിൽ
   const pill = document.getElementById('info-pill');
   if (pill) {
     pill.addEventListener('click', function(e) {
@@ -1210,12 +1321,31 @@ function setupEvents() {
     });
   }
 
-  // പോയിന്റർ & ടച്ച് ഇവന്റുകൾ
+  // ലെൻസ് പോപ്പ്-അപ്പും മാഗ്നറ്റിക് സ്നാപ്പിംഗും ഉൾപ്പെടുത്തിയ പോയിന്റർ ഇവന്റുകൾ
   dom.addEventListener('pointerdown', (e) => {
     pointerDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
+
+    const isToolMode = ['measure', 'coords', 'angle', 'girth'].includes(currentMode);
+    const isPrimary = (e.button === 0 || e.pointerType === 'touch' || e.button === undefined);
+
+    if (isToolMode && isPrimary) {
+      controls.enabled = false;
+      isInspectingLoupe = true;
+      lastLoupePointer.x = e.clientX;
+      lastLoupePointer.y = e.clientY;
+      requestLoupeUpdate();
+    } else {
+      updateControlsLockState();
+    }
   });
 
   dom.addEventListener('pointermove', (e) => {
+    if (isInspectingLoupe) {
+      lastLoupePointer.x = e.clientX;
+      lastLoupePointer.y = e.clientY;
+      requestLoupeUpdate();
+    }
+
     if (['measure', 'coords', 'girth', 'angle'].includes(currentMode)) {
       const snap = findMagneticSnapPoint(e.clientX, e.clientY);
       if (snap) {
@@ -1234,30 +1364,46 @@ function setupEvents() {
   });
 
   dom.addEventListener('pointerup', (e) => {
+    const duration = performance.now() - pointerDownPos.time;
     const dx = Math.abs(e.clientX - pointerDownPos.x);
     const dy = Math.abs(e.clientY - pointerDownPos.y);
     const isClickOrTap = (dx < 10 && dy < 10);
 
-    if (!isClickOrTap) return;
+    let resolvedPoint = null;
+    let resolvedMesh = null;
 
-    if (['measure', 'coords', 'girth', 'angle'].includes(currentMode)) {
+    if (activeSnappedPoint) {
+      resolvedPoint = activeSnappedPoint.point;
+      resolvedMesh = activeSnappedPoint.object;
+    } else {
       const snap = findMagneticSnapPoint(e.clientX, e.clientY);
       if (snap) {
-        const pt = snap.point;
-        const mesh = snap.object;
+        resolvedPoint = snap.point;
+        resolvedMesh = snap.object;
+      }
+    }
 
-        if (currentMode === 'measure') registerMeasurementPoint(pt);
-        else if (currentMode === 'coords') registerCoordinatePoint(pt);
-        else if (currentMode === 'girth') registerGirthPoint(pt, mesh);
-        else if (currentMode === 'angle') registerAnglePoint(pt);
+    if (['measure', 'coords', 'girth', 'angle'].includes(currentMode)) {
+      if (resolvedPoint && (isClickOrTap || duration > 250)) {
+        if (currentMode === 'measure') registerMeasurementPoint(resolvedPoint);
+        else if (currentMode === 'coords') registerCoordinatePoint(resolvedPoint);
+        else if (currentMode === 'girth') registerGirthPoint(resolvedPoint, resolvedMesh);
+        else if (currentMode === 'angle') registerAnglePoint(resolvedPoint);
       }
     } else if (currentMode === 'inspect') {
       const snap = findMagneticSnapPoint(e.clientX, e.clientY);
       if (snap) handleInspectClick(snap);
     }
+
+    hideLoupe();
+    updateControlsLockState();
   });
 
-  // ഫയൽ സെലക്ഷൻ & റീസെറ്റ് ബട്ടണുകൾ
+  dom.addEventListener('pointercancel', () => {
+    hideLoupe();
+    updateControlsLockState();
+  });
+
   const fileInp = document.getElementById('file-input');
   if (fileInp) fileInp.addEventListener('change', handleFileSelect);
 
@@ -1301,6 +1447,7 @@ function setupEvents() {
     btnIsoPart.addEventListener('click', () => {
       if (!selectedObject) return;
       meshList.forEach(m => m.visible = (m === selectedObject));
+      controls.enabled = true; // Isolate ചെയ്യുമ്പോൾ കറക്കാൻ അനുവദിക്കുന്നു
     });
   }
 
@@ -1308,10 +1455,10 @@ function setupEvents() {
   if (btnUnhideAll) {
     btnUnhideAll.addEventListener('click', () => {
       meshList.forEach(m => m.visible = true);
+      updateControlsLockState();
     });
   }
 
-  // ഫോണ്ട് സൈസ് അഡ്ജസ്റ്റ്മെന്റ്
   const fInc = document.getElementById('btn-font-inc');
   const fDec = document.getElementById('btn-font-dec');
   if (fInc) {
@@ -1388,7 +1535,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.setCameraView = setCameraView;
   window.highlightAxisDimension = highlightAxisDimension;
 
-  // IndexedDB ഇനിഷ്യലൈസ് ചെയ്ത് ഫയലുകൾ ഉണ്ടെങ്കിൽ നേരിട്ട് Recent പേജ് തുറക്കുന്നു
   try {
     await initDB();
     const recents = await getAllRecentModels();
