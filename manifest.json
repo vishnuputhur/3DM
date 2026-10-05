@@ -1,6 +1,6 @@
 {
-  "name": "VT Soft 3DM Viewer",
-  "short_name": "VT 3DM",
+  "name": "CSL 3D Viewer",
+  "short_name": "CSL 3D",
   "description": "Offline 3DM CAD Viewer for Shipbuilding and Marine Engineering",
   "start_url": "./index.html",
   "display": "standalone",
