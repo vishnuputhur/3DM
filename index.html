@@ -6,23 +6,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#f1f5f9">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
 
-  <!-- Libraries -->
+  <!-- Offline Local Libraries -->
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
   <script src="rhino3dm.min.js"></script>
 
-  <!-- Stylesheet -->
+  <!-- External Stylesheet -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <div id="viewport"></div>
 
-  <!-- Dynamic Magnetic Snap Indicator -->
+  <!-- Dynamic Magnetic Snap Ring -->
   <div id="snap-cursor"></div>
+
+  <!-- Magnifier Loupe -->
+  <div id="magnifier-loupe">
+    <div class="crosshair-v"></div>
+    <canvas id="loupe-canvas" width="140" height="140"></canvas>
+  </div>
 
   <!-- HEADER -->
   <header class="hud-glass">
@@ -38,14 +45,21 @@
       </div>
     </div>
     <div class="actions-wrap">
-      <button id="btn-quality-toggle" class="btn-quality mode-pro">PRO</button>
-      <button id="btn-show-recent" class="btn-action">
+      <button id="btn-quality-toggle" class="btn-quality mode-pro" title="Switch Graphics Quality">PRO</button>
+
+      <div class="font-ctrl-wrap" title="Adjust UI Font Size">
+        <button id="btn-font-dec" class="btn-font">A-</button>
+        <button id="btn-font-inc" class="btn-font">A+</button>
+      </div>
+
+      <button id="btn-show-recent" class="btn-action" title="Recent Models">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>Recent</span>
       </button>
+
       <label id="btn-open-label" class="btn-action btn-open">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        <span>Open</span>
+        <span id="open-label-text">Open</span>
         <input type="file" id="file-input" accept=".3dm,.vts,.step,.stp,.iges,.igs" style="display:none;">
       </label>
     </div>
@@ -86,24 +100,27 @@
 
   <!-- ORTHOGRAPHIC & ISO VIEW BUTTONS -->
   <div class="views-bar">
-    <button id="btn-freeze-orbit" class="view-btn btn-freeze">LOCK</button>
-    <button id="btn-toggle-xray" class="view-btn btn-xray">X-RAY</button>
-    <button id="btn-view-z" class="view-btn">Z</button>
-    <button id="btn-view-y" class="view-btn">Y</button>
-    <button id="btn-view-x" class="view-btn">X</button>
-    <button id="btn-view-iso" class="view-btn iso">ISO</button>
+    <button id="btn-freeze-orbit" class="view-btn btn-freeze" title="Freeze 3D Movement">LOCK</button>
+    <button id="btn-toggle-xray" class="view-btn btn-xray" title="Transparent internal steel parts">X-RAY</button>
+    <button onclick="setCameraView('top')" class="view-btn" title="Plan View (XY Plane)">Z</button>
+    <button onclick="setCameraView('side')" class="view-btn" title="Side Elevation (XZ Plane)">Y</button>
+    <button onclick="setCameraView('front')" class="view-btn" title="Section / Transverse (YZ Plane)">X</button>
+    <button onclick="setCameraView('iso')" class="view-btn iso">ISO</button>
   </div>
 
   <!-- COORDS PANEL -->
   <div id="coords-panel" class="panel-bottom panel-coords hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#059669;">Point Coordinate Finder</span>
-      <button id="btn-clear-coords" class="btn-panel-text">Clear Pin</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:#059669; display:inline-block;"></span>
+        <span class="panel-title" style="color:#059669;">Point Coordinate Finder</span>
+      </div>
+      <button id="btn-clear-coords" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Pin</button>
     </div>
     <div class="coords-input-grid">
-      <div class="coord-field"><label>X (MM)</label><input type="number" id="inp-coord-x" placeholder="0.0"></div>
-      <div class="coord-field"><label>Y (MM)</label><input type="number" id="inp-coord-y" placeholder="0.0"></div>
-      <div class="coord-field"><label>Z (MM)</label><input type="number" id="inp-coord-z" placeholder="0.0"></div>
+      <div class="coord-field"><label>X (MM)</label><input type="number" id="inp-coord-x" placeholder="0.0" step="any"></div>
+      <div class="coord-field"><label>Y (MM)</label><input type="number" id="inp-coord-y" placeholder="0.0" step="any"></div>
+      <div class="coord-field"><label>Z (MM)</label><input type="number" id="inp-coord-z" placeholder="0.0" step="any"></div>
       <button id="btn-jump-coord" class="btn-jump">GOTO</button>
     </div>
   </div>
@@ -111,8 +128,11 @@
   <!-- LINEAR MEASURE PANEL -->
   <div id="measure-panel" class="panel-bottom panel-measure hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#0891b2;">Linear Measurement</span>
-      <button id="btn-clear-measure" class="btn-panel-text">Reset Pins</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:#0891b2; display:inline-block;"></span>
+        <span class="panel-title" style="color:#0891b2;">Linear Caliper Measurement</span>
+      </div>
+      <button id="btn-clear-measure" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Reset Pins</button>
     </div>
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-label">DIST (MM)</div><div id="val-dist" class="stat-val" style="color:#0284c7;">0.0</div></div>
@@ -120,44 +140,68 @@
       <div class="stat-card"><div class="stat-label">&Delta;Y</div><div id="val-dy" class="stat-val">0.0</div></div>
       <div class="stat-card"><div class="stat-label">&Delta;Z</div><div id="val-dz" class="stat-val">0.0</div></div>
     </div>
+    <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:10px; font-family:monospace; color:#0284c7; background:#f8fafc; padding:4px 8px; border-radius:4px; border:1px solid #cbd5e1;">
+      <span id="p1-coords-display">P1: [---, ---, ---]</span>
+      <span id="p2-coords-display">P2: [---, ---, ---]</span>
+    </div>
   </div>
 
   <!-- GIRTH PANEL -->
   <div id="girth-panel" class="panel-bottom panel-girth hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#d97706;">Surface Girth (Arc)</span>
-      <button id="btn-clear-girth" class="btn-panel-text">Clear</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:#d97706; display:inline-block;"></span>
+        <span class="panel-title" style="color:#d97706;">Shell Surface Girth (Smooth Arc)</span>
+      </div>
+      <button id="btn-clear-girth" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Path</button>
     </div>
-    <div class="stats-grid" style="grid-template-columns: 1fr 1fr;">
-      <div class="stat-card"><div class="stat-label">SURFACE ARC</div><div id="val-girth-arc" class="stat-val" style="color:#d97706;">0.0 mm</div></div>
-      <div class="stat-card"><div class="stat-label">STRAIGHT CHORD</div><div id="val-girth-chord" class="stat-val">0.0 mm</div></div>
+    <div style="display:flex; align-items:center; justify-content:space-around; background:#f8fafc; padding:10px; border-radius:6px; border:1px solid #cbd5e1;">
+      <div style="text-align:center;">
+        <div style="font-size:9px; color:#64748b; font-family:monospace; font-weight:700;">SURFACE GIRTH (ARC)</div>
+        <div id="val-girth-arc" style="font-size:17px; font-weight:800; color:#d97706; font-family:monospace;">0.0 mm</div>
+      </div>
+      <div style="text-align:center; border-left:1px solid #cbd5e1; padding-left:14px;">
+        <div style="font-size:9px; color:#64748b; font-family:monospace; font-weight:700;">STRAIGHT CHORD</div>
+        <div id="val-girth-chord" style="font-size:13px; font-weight:700; color:#334155; font-family:monospace;">0.0 mm</div>
+      </div>
     </div>
   </div>
 
   <!-- ANGLE PANEL -->
   <div id="angle-panel" class="panel-bottom panel-angle hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#7c3aed;">Included Angle</span>
-      <button id="btn-clear-angle" class="btn-panel-text">Reset</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:#7c3aed; display:inline-block;"></span>
+        <span class="panel-title" style="color:#7c3aed;">3-Point Angle Finder</span>
+      </div>
+      <button id="btn-clear-angle" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Reset</button>
     </div>
-    <div style="text-align:center; padding:6px; font-weight:800; font-size:18px; color:#7c3aed;" id="val-angle-deg">0.00&deg;</div>
+    <div style="display:flex; align-items:center; justify-content:center; gap:14px; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+      <div style="font-size:11px; color:#64748b; font-family:monospace; font-weight:700;">INCLUDED ANGLE:</div>
+      <div id="val-angle-deg" style="font-size:17px; font-weight:800; color:#7c3aed; font-family:monospace;">0.00&deg;</div>
+    </div>
   </div>
 
   <!-- SECTION CUT PANEL -->
   <div id="section-panel" class="panel-bottom panel-section hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#0d9488;">Cross Section Cut</span>
-      <button id="btn-reset-cut" class="btn-panel-text">Reset Cut</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:#0d9488; display:inline-block;"></span>
+        <span class="panel-title" style="color:#0d9488;">Cross Section Cutter</span>
+      </div>
+      <button id="btn-reset-cut" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer; text-decoration:underline;">Reset Cut</button>
     </div>
-    <div style="display:flex; gap:6px; margin-bottom:8px;">
-      <button id="cut-axis-x" class="axis-selector-btn">X-Cut</button>
-      <button id="cut-axis-y" class="axis-selector-btn">Y-Cut</button>
-      <button id="cut-axis-z" class="axis-selector-btn active-axis">Z-Cut</button>
-      <button id="btn-cut-flip" class="btn-action">Flip</button>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:10px;">
+      <div style="display:flex; gap:4px; flex:1;">
+        <button id="cut-axis-x" class="axis-selector-btn">X-Cut</button>
+        <button id="cut-axis-y" class="axis-selector-btn">Y-Cut</button>
+        <button id="cut-axis-z" class="axis-selector-btn active-axis">Z-Cut</button>
+      </div>
+      <button id="btn-cut-flip" class="btn-action" style="padding:5px 8px; font-size:10.5px; border-color:#0d9488; color:#0d9488;">Flip Side</button>
     </div>
-    <div style="display:flex; align-items:center; gap:8px;">
+    <div style="display:flex; align-items:center; gap:8px; background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
       <input type="range" id="cut-slider" class="cut-slider-range" min="0" max="100" value="100">
-      <input type="number" id="cut-manual-input" class="cut-input-box" placeholder="0.0">
+      <input type="number" id="cut-manual-input" class="cut-input-box" placeholder="0.0" step="any">
       <button id="btn-cut-go" class="btn-cut-go">GO</button>
     </div>
   </div>
@@ -165,47 +209,86 @@
   <!-- INSPECT PANEL -->
   <div id="inspect-panel" class="panel-bottom panel-inspect hud-glass">
     <div class="panel-head">
-      <span class="panel-title" style="color:#e11d48;">Part Properties</span>
-      <button id="btn-clear-lines" class="btn-panel-text">Clear</button>
+      <span class="panel-title" style="color:#e11d48;">Part Dimensions, Girth & Weight</span>
+      <button id="btn-clear-lines" style="background:none; border:none; color:#64748b; font-size:11px; cursor:pointer; text-decoration:underline;">Clear Lines</button>
     </div>
     <div class="part-meta-box">
-      <div><b>Part:</b> <span id="meta-part-name" style="color:#0284c7;">None</span></div>
-      <div style="text-align:right;"><b>Layer:</b> <span id="meta-part-layer">--</span></div>
-      <div><b>MS Weight:</b> <span id="meta-part-weight" style="color:#059669; font-weight:800;">--</span></div>
-      <div style="text-align:right;"><b>Girth:</b> <span id="meta-part-perim" style="color:#d97706; font-weight:800;">--</span></div>
+      <div class="part-meta-item"><b>Part:</b> <span id="meta-part-name" style="color:#0284c7;">None</span></div>
+      <div class="part-meta-item" style="text-align:right;"><b>Layer:</b> <span id="meta-part-layer" style="color:#0f172a;">--</span></div>
+      <div class="part-meta-item"><b>MS Weight:</b> <span id="meta-part-weight" style="color:#059669; font-weight:800;">--</span></div>
+      <div class="part-meta-item" style="text-align:right;"><b>Girth/Perim:</b> <span id="meta-part-perim" style="color:#d97706; font-weight:800;">--</span></div>
     </div>
     <table class="dim-table">
-      <tr>
-        <td id="cell-dim-x">Length (&Delta;X): <b id="part-bx" style="color:#0284c7;">--</b></td>
-        <td id="cell-dim-y">Breadth (&Delta;Y): <b id="part-by" style="color:#059669;">--</b></td>
-        <td id="cell-dim-z">Depth (&Delta;Z): <b id="part-bz" style="color:#e11d48;">--</b></td>
-      </tr>
+      <thead>
+        <tr>
+          <th>AXIS / MEASURE</th>
+          <th>COLOR CODE</th>
+          <th style="text-align:right;">DIMENSION (MM)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="dim-row" onclick="highlightAxisDimension('x')">
+          <td><span class="dim-badge" style="background:#0284c7;"></span> Length (&Delta;X)</td>
+          <td style="color:#0284c7;">Tap for Blue Line</td>
+          <td id="part-bx" style="text-align:right; font-weight:800; color:#0284c7;">--</td>
+        </tr>
+        <tr class="dim-row" onclick="highlightAxisDimension('y')">
+          <td><span class="dim-badge" style="background:#059669;"></span> Breadth (&Delta;Y)</td>
+          <td style="color:#059669;">Tap for Green Line</td>
+          <td id="part-by" style="text-align:right; font-weight:800; color:#059669;">--</td>
+        </tr>
+        <tr class="dim-row" onclick="highlightAxisDimension('z')">
+          <td><span class="dim-badge" style="background:#e11d48;"></span> Depth/Thk (&Delta;Z)</td>
+          <td style="color:#e11d48;">Tap for Red Line</td>
+          <td id="part-bz" style="text-align:right; font-weight:800; color:#e11d48;">--</td>
+        </tr>
+      </tbody>
     </table>
+    <div style="display:flex; gap:8px;">
+      <button id="btn-hide-part" style="flex:1; padding:7px; font-size:11px; font-weight:700; border-radius:4px; background:#ffe4e6; color:#e11d48; border:1px solid #fecdd3; cursor:pointer;">Hide Part</button>
+      <button id="btn-isolate-part" style="flex:1; padding:7px; font-size:11px; font-weight:700; border-radius:4px; background:#fef3c7; color:#d97706; border:1px solid #fde68a; cursor:pointer;">Isolate Part</button>
+      <button id="btn-unhide-all" style="padding:7px 12px; font-size:11px; font-weight:700; border-radius:4px; background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; cursor:pointer;">Show All</button>
+    </div>
   </div>
 
   <!-- RECENT MODAL -->
   <div id="recent-modal">
     <div class="recent-box">
       <div class="recent-header">
-        <div style="font-size:13px; font-weight:800; letter-spacing:0.04em;">RECENT 3D MODELS</div>
-        <button id="btn-close-recent" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">&times;</button>
+        <div style="font-size:14px; font-weight:800; color:#0f172a; letter-spacing:0.04em;">RECENT 3D MODELS</div>
+        <button id="btn-close-recent" style="background:none; border:none; color:#64748b; font-size:20px; cursor:pointer;">&times;</button>
       </div>
       <div id="recent-list-container" class="recent-list"></div>
     </div>
   </div>
 
   <!-- FLOATING THEME & INFO PILL -->
-  <button id="btn-theme-toggle" class="btn-theme-circle"><span id="theme-icon">☀️</span></button>
-  <div id="info-pill" class="info-pill-container">
+  <button id="btn-theme-toggle" class="btn-theme-circle" title="Toggle Theme">
+    <span id="theme-icon">☀️</span>
+  </button>
+
+  <div id="info-pill" class="info-pill-container" title="Click for details">
     <div class="info-pill-icon">i</div>
-    <div class="info-pill-text">Created by <span>Vishnu Puthoor</span> • CSL Pro V2.0</div>
+    <div class="info-pill-text">Created by <span>Vishnu Puthoor</span> • V 2.0.0</div>
   </div>
 
   <div id="loader">
     <div class="spinner"></div>
-    <div id="loader-msg">Loading Model...</div>
+    <div id="loader-msg">Reading CAD file...</div>
   </div>
 
+  <!-- Main Modular App Logic -->
   <script src="app.js"></script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('CSL Service Worker Active:', reg.scope))
+          .catch((err) => console.warn('Service Worker Init Failed:', err));
+      });
+    }
+  </script>
 </body>
 </html>
