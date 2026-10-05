@@ -11,7 +11,6 @@ const modelRoot = new THREE.Group();
 let meshList = [];
 let edgeLinesList = [];
 let dirLight1, dirLight2, hemiLight, ambientLight;
-let floorGrid = null; // Z-1000 Baseline Grid
 
 const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
 let currentCutAxis = 'z';
@@ -33,6 +32,9 @@ const dimensionLinesGroup = new THREE.Group();
 
 let currentScale = window.innerWidth >= 768 ? 1.25 : 1.0;
 let activeProfile = localStorage.getItem('vt_viewer_profile') || 'PRO';
+
+// Pointer state for mobile/desktop
+let pointerDownPos = { x: 0, y: 0, time: 0 };
 
 // ═══════════════════════════════════════════════════════════
 // 1. INDEXEDDB PERSISTENT RECENT STORAGE
@@ -132,7 +134,7 @@ function encodeModelToBinaryVTS() {
   const view = new DataView(buffer);
   const uint8 = new Uint8Array(buffer);
 
-  uint8[0] = 0x56; uint8[1] = 0x54; uint8[2] = 0x53; uint8[3] = 0x31; // VTS1 Signature
+  uint8[0] = 0x56; uint8[1] = 0x54; uint8[2] = 0x53; uint8[3] = 0x31;
   view.setUint32(4, parts.length, true);
 
   let offset = 8;
@@ -192,11 +194,10 @@ function loadBinaryVTSBuffer(buffer) {
     mesh.userData = { name, layerName: layer, originalColor: color };
 
     try {
-      const edgeThreshold = window.innerWidth < 768 ? 50 : 35;
-      const edges = new THREE.EdgesGeometry(geom, edgeThreshold);
+      const edges = new THREE.EdgesGeometry(geom, 45); // ലൈനുകൾ കൂടിച്ചേരാതിരിക്കാൻ 45°
       const edgeLine = new THREE.LineSegments(
         edges,
-        new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.85 })
+        new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.65 })
       );
       mesh.add(edgeLine);
       edgeLinesList.push(edgeLine);
@@ -212,7 +213,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION (Z-UP SHIP SYSTEM & NATURAL ROTATION FIX)
+// 3. THREE.JS INITIALIZATION (Z-UP, NATURAL CONTROLS, NO MESH)
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -222,8 +223,6 @@ function initThree() {
   scene.background = new THREE.Color(0xf1f5f9);
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000000);
-  
-  // Z-UP SYSTEM: കപ്പൽ നിർമ്മാണത്തിന് അനുയോജ്യമായ Z-Up ആക്സിസ്
   camera.up.set(0, 0, 1);
   camera.position.set(4000, -4000, 3000);
 
@@ -239,18 +238,11 @@ function initThree() {
   controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  
-  // NATURAL ROTATION FIX: വിരൽ നീക്കുന്ന അതേ ദിശയിൽ കൃത്യമായി തിരിയാൻ
   controls.rotateSpeed = 0.65;
   controls.zoomSpeed = 1.1;
   controls.panSpeed = 0.8;
   controls.screenSpacePanning = true;
 
-  // കൺട്രോൾസ് തലതിരിഞ്ഞ് സ്റ്റക്കാവുന്നത് തടയുന്നു (Gimbal lock prevention)
-  controls.minPolarAngle = 0.05;
-  controls.maxPolarAngle = Math.PI - 0.05;
-
-  // ലൈറ്റുകൾ (Z-Up അനുസരിച്ച് സജ്ജീകരിച്ചത്)
   ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
   scene.add(ambientLight);
 
@@ -270,39 +262,16 @@ function initThree() {
   scene.add(dimensionLinesGroup);
   scene.add(pointMarkersGroup);
 
-  // Baseline Grid (തറ പോലെ XY പ്ലെയിനിൽ Z ആക്സിസിൽ വരുന്നത്)
-  createOrUpdateBaselineGrid(0);
+  // ബേസ്‌ലൈൻ മെഷ് പൂർണ്ണമായി ഒഴിവാക്കി
 
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('orientationchange', () => setTimeout(onWindowResize, 100));
   animate();
 }
 
-// തറ പോലെയുള്ള മെഷ്: Z-1000 mm താഴെ സ്ഥാപിക്കുന്നു
-function createOrUpdateBaselineGrid(baseZ) {
-  if (floorGrid) scene.remove(floorGrid);
-
-  const gridSize = 25000;
-  const gridDivisions = 50;
-  floorGrid = new THREE.GridHelper(gridSize, gridDivisions, 0x0284c7, 0xcbd5e1);
-  
-  // Z-Up സിസ്റ്റത്തിലേക്ക് ഗ്രിഡിനെ തിരിക്കുന്നു
-  floorGrid.rotation.x = Math.PI / 2;
-  floorGrid.position.set(0, 0, baseZ - 1000); // കൃത്യമായി Z-ൽ നിന്ന് 1000mm താഴെ തറയായി നിൽക്കുന്നു
-  scene.add(floorGrid);
-}
-
 function initRhino() {
-  if (typeof rhino3dm === 'undefined') {
-    console.error('rhino3dm library not found.');
-    return;
-  }
-  const config = {
-    locateFile: function(path) {
-      if (path.endsWith('.wasm')) return './rhino3dm.wasm';
-      return path;
-    }
-  };
+  if (typeof rhino3dm === 'undefined') return;
+  const config = { locateFile: (path) => path.endsWith('.wasm') ? './rhino3dm.wasm' : path };
   rhino3dm(config).then(m => {
     rhinoModule = m;
     rhinoReady = true;
@@ -328,7 +297,7 @@ function onWindowResize() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 4. MODEL LIFECYCLE & AUTOMATIC ISOMETRIC DEFAULT VIEW
+// 4. MODEL LIFECYCLE & AUTOMATIC DEFAULT ISOMETRIC VIEW
 // ═══════════════════════════════════════════════════════════
 function clearModelScene() {
   while (modelRoot.children.length > 0) modelRoot.remove(modelRoot.children[0]);
@@ -346,13 +315,9 @@ function clearModelScene() {
 function calibrateModelView() {
   modelBBox.setFromObject(modelRoot);
   const center = modelBBox.getCenter(new THREE.Vector3());
-  const size = modelBBox.getSize(new THREE.Vector3());
-  const minZ = modelBBox.min.z;
+  controls.target.copy(center);
 
-  // മോഡലിന്റെ അടിത്തറയിൽ നിന്നും കൃത്യമായി 1000mm താഴെ മെഷ് കൊണ്ടുവരുന്നു
-  createOrUpdateBaselineGrid(minZ);
-
-  // ഓപ്പൺ ആകുമ്പോൾത്തന്നെ നേരിട്ട് ISO വ്യൂവിലേക്ക് സെറ്റാകുന്നു
+  // മോഡൽ ഓപ്പൺ ആകുമ്പോൾത്തന്നെ നേരിട്ട് ISO വ്യൂവിലേക്ക്
   setCameraView('iso');
 
   if (isClippingActive) updateClipPlane();
@@ -398,7 +363,7 @@ function loadRhinoDoc(doc, originalFileName) {
 
     const objects = doc.objects();
     const count = objects ? objects.count : 0;
-    const edgeThreshold = window.innerWidth < 768 ? 50 : 35;
+    const edgeThreshold = 45; // ലൈനുകൾ കൂടിച്ചേർന്ന് മങ്ങിപ്പോവാതിരിക്കാനുള്ള കൃത്യമായ ആംഗിൾ
 
     for (let i = 0; i < count; i++) {
       try {
@@ -464,7 +429,7 @@ function loadRhinoDoc(doc, originalFileName) {
             const edges = new THREE.EdgesGeometry(threeGeom, edgeThreshold);
             const edgeLine = new THREE.LineSegments(
               edges,
-              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.85 })
+              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.65 })
             );
             threeMesh.add(edgeLine);
             edgeLinesList.push(edgeLine);
@@ -524,7 +489,7 @@ function convertRhinoMeshToThree(rMesh) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 5. CAMERA PRESETS & PERFECT ISOMETRIC ALIGNMENT
+// 5. CAMERA PRESETS & ISO ALIGNMENT
 // ═══════════════════════════════════════════════════════════
 function setCameraView(preset) {
   const bbox = new THREE.Box3().setFromObject(modelRoot);
@@ -536,13 +501,13 @@ function setCameraView(preset) {
 
   controls.target.copy(center);
 
-  if (preset === 'top') { // Z-View (Plan View looking down Z axis)
+  if (preset === 'top') { // Z-View (Plan View)
     camera.position.set(center.x, center.y, center.z + d);
     camera.up.set(0, 1, 0);
-  } else if (preset === 'side') { // Y-View (Looking along Y)
+  } else if (preset === 'side') { // Y-View
     camera.position.set(center.x, center.y - d, center.z);
     camera.up.set(0, 0, 1);
-  } else if (preset === 'front') { // X-View (Looking along X)
+  } else if (preset === 'front') { // X-View
     camera.position.set(center.x + d, center.y, center.z);
     camera.up.set(0, 0, 1);
   } else if (preset === 'iso') { // CSL Standard 3D Isometric View
@@ -555,7 +520,7 @@ function setCameraView(preset) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 6. CONSTANT 1MM SCREEN PINS & MAGNETIC SNAP
+// 6. SCREEN PINS & MAGNETIC SNAP
 // ═══════════════════════════════════════════════════════════
 function createScreenSpacePin(worldPos, colorHex = 0x0284c7) {
   const geom = new THREE.BufferGeometry();
@@ -625,6 +590,7 @@ function findMagneticSnapPoint(screenX, screenY) {
 // ═══════════════════════════════════════════════════════════
 function populateColorPalette() {
   const dotsContainer = document.getElementById('model-color-dots');
+  if (!dotsContainer) return;
   dotsContainer.innerHTML = '';
   const uniqueColors = new Set();
 
@@ -648,9 +614,10 @@ function populateColorPalette() {
 
 function setupColorPaletteEvents() {
   const drawer = document.getElementById('color-palette-drawer');
-  document.getElementById('btn-toggle-palette').addEventListener('click', () => {
-    drawer.classList.toggle('expanded');
-  });
+  const toggleBtn = document.getElementById('btn-toggle-palette');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => drawer.classList.toggle('expanded'));
+  }
 
   document.querySelectorAll('.swatch-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -680,26 +647,22 @@ function applyQualityProfile(profile) {
   const proBadge = document.getElementById('app-pro-tag');
 
   if (profile === 'PRO') {
-    btnQuality.innerText = 'PRO';
-    btnQuality.className = 'btn-quality mode-pro';
-    proBadge.innerText = 'PRO';
-    proBadge.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
+    if (btnQuality) { btnQuality.innerText = 'PRO'; btnQuality.className = 'btn-quality mode-pro'; }
+    if (proBadge) { proBadge.innerText = 'PRO'; proBadge.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)'; }
     document.body.classList.remove('lite-mode');
 
     if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     edgeLinesList.forEach(line => line.visible = true);
   } else {
-    btnQuality.innerText = 'LITE';
-    btnQuality.className = 'btn-quality mode-lite';
-    proBadge.innerText = 'LITE';
-    proBadge.style.background = '#64748b';
+    if (btnQuality) { btnQuality.innerText = 'LITE'; btnQuality.className = 'btn-quality mode-lite'; }
+    if (proBadge) { proBadge.innerText = 'LITE'; proBadge.style.background = '#64748b'; }
     document.body.classList.add('lite-mode');
 
     if (renderer) renderer.setPixelRatio(1.0);
     edgeLinesList.forEach(line => line.visible = false);
 
     if (!['view', 'coords', 'measure'].includes(currentMode)) {
-      document.getElementById('mode-view').click();
+      switchMode('view');
     }
   }
 }
@@ -724,7 +687,7 @@ function applyCurrentProfileToMeshes() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 9. MEASUREMENT & GOTO LOGIC
+// 9. COMPLETE MEASUREMENT & CALIPER LOGIC
 // ═══════════════════════════════════════════════════════════
 function registerMeasurementPoint(worldPt) {
   if (measurePoints.length >= 2) clearMeasurements();
@@ -734,11 +697,11 @@ function registerMeasurementPoint(worldPt) {
   pinMarkers.push(pin);
 
   if (measurePoints.length === 1) {
-    document.getElementById('p1-coords-display').innerText =
-      `P1: [${worldPt.x.toFixed(1)}, ${worldPt.y.toFixed(1)}, ${worldPt.z.toFixed(1)}]`;
+    const p1Disp = document.getElementById('p1-coords-display');
+    if (p1Disp) p1Disp.innerText = `P1: [${worldPt.x.toFixed(1)}, ${worldPt.y.toFixed(1)}, ${worldPt.z.toFixed(1)}]`;
   } else if (measurePoints.length === 2) {
-    document.getElementById('p2-coords-display').innerText =
-      `P2: [${worldPt.x.toFixed(1)}, ${worldPt.y.toFixed(1)}, ${worldPt.z.toFixed(1)}]`;
+    const p2Disp = document.getElementById('p2-coords-display');
+    if (p2Disp) p2Disp.innerText = `P2: [${worldPt.x.toFixed(1)}, ${worldPt.y.toFixed(1)}, ${worldPt.z.toFixed(1)}]`;
 
     const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
     const lineMat = new THREE.LineBasicMaterial({ color: 0x0284c7, linewidth: 2, depthTest: false });
@@ -762,8 +725,10 @@ function clearMeasurements() {
   document.getElementById('val-dx').innerText = '0.0';
   document.getElementById('val-dy').innerText = '0.0';
   document.getElementById('val-dz').innerText = '0.0';
-  document.getElementById('p1-coords-display').innerText = 'P1: [---, ---, ---]';
-  document.getElementById('p2-coords-display').innerText = 'P2: [---, ---, ---]';
+  const p1Disp = document.getElementById('p1-coords-display');
+  const p2Disp = document.getElementById('p2-coords-display');
+  if (p1Disp) p1Disp.innerText = 'P1: [---, ---, ---]';
+  if (p2Disp) p2Disp.innerText = 'P2: [---, ---, ---]';
 }
 
 function registerCoordinatePoint(worldPt) {
@@ -1002,28 +967,36 @@ function setupSectionCutControls() {
     updateClipPlane();
   }
 
-  cutX.addEventListener('click', () => setAxis('x'));
-  cutY.addEventListener('click', () => setAxis('y'));
-  cutZ.addEventListener('click', () => setAxis('z'));
-  flipBtn.addEventListener('click', () => { cutInvert *= -1; updateClipPlane(); });
-  slider.addEventListener('input', updateClipPlane);
+  if (cutX) cutX.addEventListener('click', () => setAxis('x'));
+  if (cutY) cutY.addEventListener('click', () => setAxis('y'));
+  if (cutZ) cutZ.addEventListener('click', () => setAxis('z'));
+  if (flipBtn) flipBtn.addEventListener('click', () => { cutInvert *= -1; updateClipPlane(); });
+  if (slider) slider.addEventListener('input', updateClipPlane);
 
-  btnGo.addEventListener('click', () => {
-    const val = parseFloat(inputVal.value);
-    if (!isNaN(val)) setCutToExactCoordinate(val);
-  });
+  if (btnGo) {
+    btnGo.addEventListener('click', () => {
+      const val = parseFloat(inputVal.value);
+      if (!isNaN(val)) setCutToExactCoordinate(val);
+    });
+  }
 
-  resetCutBtn.addEventListener('click', () => {
-    slider.value = 100;
-    inputVal.value = '';
-    cutInvert = -1;
-    enableClipping(false);
-  });
+  if (resetCutBtn) {
+    resetCutBtn.addEventListener('click', () => {
+      slider.value = 100;
+      inputVal.value = '';
+      cutInvert = -1;
+      enableClipping(false);
+    });
+  }
 }
 
 function updateClipPlane() {
   enableClipping(true);
-  const sliderVal = parseFloat(document.getElementById('cut-slider').value);
+  const slider = document.getElementById('cut-slider');
+  const inputVal = document.getElementById('cut-manual-input');
+  if (!slider || !inputVal) return;
+
+  const sliderVal = parseFloat(slider.value);
   const min = modelBBox.min, max = modelBBox.max;
   const normal = new THREE.Vector3();
   let minVal = 0, maxVal = 0;
@@ -1035,7 +1008,7 @@ function updateClipPlane() {
   const targetCoord = minVal + (maxVal - minVal) * (sliderVal / 100);
   clipPlane.normal.copy(normal);
   clipPlane.constant = (cutInvert < 0) ? targetCoord : -targetCoord;
-  document.getElementById('cut-manual-input').value = targetCoord.toFixed(1);
+  inputVal.value = targetCoord.toFixed(1);
 }
 
 function setCutToExactCoordinate(exactCoord) {
@@ -1068,6 +1041,7 @@ function enableClipping(enabled) {
 // ═══════════════════════════════════════════════════════════
 async function showRecentModal() {
   const container = document.getElementById('recent-list-container');
+  if (!container) return;
   container.innerHTML = '<div style="text-align:center; padding:20px; font-size:12px; color:#64748b;">Loading recent files...</div>';
   document.getElementById('recent-modal').style.display = 'flex';
 
@@ -1127,74 +1101,121 @@ async function showRecentModal() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 14. EVENT DISPATCHER & POINTERS
+// 14. MODE SWITCHING & EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════
 function switchMode(newMode) {
   currentMode = newMode;
   clearDimensionHelper();
-  document.querySelectorAll('.mode-btn').forEach(b => b.className = 'mode-btn');
-  document.querySelectorAll('.panel-bottom').forEach(p => p.style.display = 'none');
-  controls.enabled = !isFrozen;
 
+  // എല്ലാ ടാബുകളുടെയും ക്ലാസുകൾ റീസെറ്റ് ചെയ്യുന്നു
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.className = 'mode-btn';
+  });
+
+  // സെലക്ട് ചെയ്ത ടാബ് ഹൈലൈറ്റ് ചെയ്യുന്നു
   const activeBtn = document.getElementById(`mode-${newMode}`);
-  if (activeBtn) activeBtn.classList.add(`active-${newMode}`);
+  if (activeBtn) {
+    activeBtn.className = `mode-btn active-${newMode}`;
+  }
 
+  // പാനലുകൾ ഹൈഡ്/ഷോ ചെയ്യുന്നു
+  document.querySelectorAll('.panel-bottom').forEach(p => p.style.display = 'none');
   const activePanel = document.getElementById(`${newMode}-panel`);
-  if (activePanel) activePanel.style.display = 'block';
+  if (activePanel) {
+    activePanel.style.display = 'block';
+  }
 
+  controls.enabled = !isFrozen;
   if (newMode === 'section') updateClipPlane();
-  snapCursorEl.style.display = 'none';
+  if (snapCursorEl) snapCursorEl.style.display = 'none';
 }
 
 function setupEvents() {
   const dom = renderer.domElement;
 
+  // മോഡ് ബാർ ബട്ടണുകൾ
   ['view', 'coords', 'measure', 'girth', 'angle', 'section', 'inspect'].forEach(m => {
     const btn = document.getElementById(`mode-${m}`);
-    if (btn) btn.addEventListener('click', () => switchMode(m));
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchMode(m);
+      });
+    }
   });
 
-  document.getElementById('btn-freeze-orbit').addEventListener('click', () => {
-    isFrozen = !isFrozen;
-    controls.enabled = !isFrozen;
-    document.getElementById('btn-freeze-orbit').classList.toggle('active-freeze', isFrozen);
-    document.getElementById('btn-freeze-orbit').innerText = isFrozen ? 'LOCKED' : 'LOCK';
-  });
-
-  document.getElementById('btn-toggle-xray').addEventListener('click', () => {
-    isXRay = !isXRay;
-    document.getElementById('btn-toggle-xray').classList.toggle('active-xray', isXRay);
-    meshList.forEach(m => {
-      if (!m.material) return;
-      m.material.transparent = isXRay;
-      m.material.opacity = isXRay ? 0.35 : 1.0;
-      m.material.depthWrite = !isXRay;
-      m.material.needsUpdate = true;
+  // ഫ്രീസ്, എക്സ്-റേ, പ്രോ ക്വാളിറ്റി
+  const btnFreeze = document.getElementById('btn-freeze-orbit');
+  if (btnFreeze) {
+    btnFreeze.addEventListener('click', () => {
+      isFrozen = !isFrozen;
+      controls.enabled = !isFrozen;
+      btnFreeze.classList.toggle('active-freeze', isFrozen);
+      btnFreeze.innerText = isFrozen ? 'LOCKED' : 'LOCK';
     });
+  }
+
+  const btnXray = document.getElementById('btn-toggle-xray');
+  if (btnXray) {
+    btnXray.addEventListener('click', () => {
+      isXRay = !isXRay;
+      btnXray.classList.toggle('active-xray', isXRay);
+      meshList.forEach(m => {
+        if (!m.material) return;
+        m.material.transparent = isXRay;
+        m.material.opacity = isXRay ? 0.35 : 1.0;
+        m.material.depthWrite = !isXRay;
+        m.material.needsUpdate = true;
+      });
+    });
+  }
+
+  const btnQuality = document.getElementById('btn-quality-toggle');
+  if (btnQuality) {
+    btnQuality.addEventListener('click', () => {
+      applyQualityProfile(activeProfile === 'PRO' ? 'LITE' : 'PRO');
+    });
+  }
+
+  // വ്യൂസ് ബാർ
+  const vZ = document.getElementById('btn-view-z');
+  const vY = document.getElementById('btn-view-y');
+  const vX = document.getElementById('btn-view-x');
+  const vIso = document.getElementById('btn-view-iso');
+  if (vZ) vZ.addEventListener('click', () => setCameraView('top'));
+  if (vY) vY.addEventListener('click', () => setCameraView('side'));
+  if (vX) vX.addEventListener('click', () => setCameraView('front'));
+  if (vIso) vIso.addEventListener('click', () => setCameraView('iso'));
+
+  // തീം ടോഗിൾ
+  const btnTheme = document.getElementById('btn-theme-toggle');
+  if (btnTheme) {
+    btnTheme.addEventListener('click', () => {
+      isDarkMode = !isDarkMode;
+      document.body.classList.toggle('dark-mode', isDarkMode);
+      document.getElementById('theme-icon').innerText = isDarkMode ? '🌙' : '☀️';
+      if (scene) scene.background = new THREE.Color(isDarkMode ? 0x0a0f1d : 0xf1f5f9);
+      localStorage.setItem('vt_viewer_theme', isDarkMode ? 'dark' : 'light');
+    });
+  }
+
+  // ഇൻഫോ പിൽ
+  const pill = document.getElementById('info-pill');
+  if (pill) {
+    pill.addEventListener('click', function(e) {
+      e.stopPropagation();
+      this.classList.toggle('expanded');
+    });
+    window.addEventListener('click', (e) => {
+      if (!pill.contains(e.target)) pill.classList.remove('expanded');
+    });
+  }
+
+  // പോയിന്റർ & ടച്ച് ഇവന്റുകൾ
+  dom.addEventListener('pointerdown', (e) => {
+    pointerDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
   });
 
-  document.getElementById('btn-quality-toggle').addEventListener('click', () => {
-    applyQualityProfile(activeProfile === 'PRO' ? 'LITE' : 'PRO');
-  });
-
-  document.getElementById('btn-theme-toggle').addEventListener('click', () => {
-    isDarkMode = !isDarkMode;
-    document.body.classList.toggle('dark-mode', isDarkMode);
-    document.getElementById('theme-icon').innerText = isDarkMode ? '🌙' : '☀️';
-    if (scene) scene.background = new THREE.Color(isDarkMode ? 0x0a0f1d : 0xf1f5f9);
-    localStorage.setItem('vt_viewer_theme', isDarkMode ? 'dark' : 'light');
-  });
-
-  document.getElementById('info-pill').addEventListener('click', function(e) {
-    e.stopPropagation();
-    this.classList.toggle('expanded');
-  });
-  window.addEventListener('click', (e) => {
-    const pill = document.getElementById('info-pill');
-    if (!pill.contains(e.target)) pill.classList.remove('expanded');
-  });
-
-  // Dynamic Magnetic Snapping Cursor
   dom.addEventListener('pointermove', (e) => {
     if (['measure', 'coords', 'girth', 'angle'].includes(currentMode)) {
       const snap = findMagneticSnapPoint(e.clientX, e.clientY);
@@ -1209,47 +1230,107 @@ function setupEvents() {
         snapCursorEl.style.display = 'none';
       }
     } else {
-      snapCursorEl.style.display = 'none';
+      if (snapCursorEl) snapCursorEl.style.display = 'none';
     }
   });
 
   dom.addEventListener('pointerup', (e) => {
-    if (['measure', 'coords', 'girth', 'angle'].includes(currentMode) && activeSnappedPoint) {
-      const pt = activeSnappedPoint.point;
-      const mesh = activeSnappedPoint.object;
+    const dx = Math.abs(e.clientX - pointerDownPos.x);
+    const dy = Math.abs(e.clientY - pointerDownPos.y);
+    const isClickOrTap = (dx < 10 && dy < 10); // ഡ്രാഗിംഗും ടാപ്പും തമ്മിൽ വേർതിരിക്കുന്നു
 
-      if (currentMode === 'measure') registerMeasurementPoint(pt);
-      else if (currentMode === 'coords') registerCoordinatePoint(pt);
-      else if (currentMode === 'girth') registerGirthPoint(pt, mesh);
-      else if (currentMode === 'angle') registerAnglePoint(pt);
+    if (!isClickOrTap) return;
+
+    if (['measure', 'coords', 'girth', 'angle'].includes(currentMode)) {
+      const snap = findMagneticSnapPoint(e.clientX, e.clientY);
+      if (snap) {
+        const pt = snap.point;
+        const mesh = snap.object;
+
+        if (currentMode === 'measure') registerMeasurementPoint(pt);
+        else if (currentMode === 'coords') registerCoordinatePoint(pt);
+        else if (currentMode === 'girth') registerGirthPoint(pt, mesh);
+        else if (currentMode === 'angle') registerAnglePoint(pt);
+      }
     } else if (currentMode === 'inspect') {
       const snap = findMagneticSnapPoint(e.clientX, e.clientY);
       if (snap) handleInspectClick(snap);
     }
   });
 
-  document.getElementById('file-input').addEventListener('change', handleFileSelect);
-  document.getElementById('btn-clear-measure').addEventListener('click', clearMeasurements);
-  document.getElementById('btn-clear-girth').addEventListener('click', clearGirthMeasurement);
-  document.getElementById('btn-clear-coords').addEventListener('click', clearCoordinatePoint);
-  document.getElementById('btn-clear-angle').addEventListener('click', clearAngleMeasurement);
-  document.getElementById('btn-clear-lines').addEventListener('click', clearDimensionHelper);
-  document.getElementById('btn-show-recent').addEventListener('click', showRecentModal);
-  document.getElementById('btn-close-recent').addEventListener('click', () => {
-    document.getElementById('recent-modal').style.display = 'none';
-  });
-  document.getElementById('btn-jump-coord').addEventListener('click', jumpToInputCoordinates);
+  // ഫയൽ സെലക്ഷൻ & റീസെറ്റ് ബട്ടണുകൾ
+  const fileInp = document.getElementById('file-input');
+  if (fileInp) fileInp.addEventListener('change', handleFileSelect);
 
-  document.getElementById('btn-hide-part').addEventListener('click', () => {
-    if (selectedObject) { selectedObject.visible = false; clearDimensionHelper(); }
-  });
-  document.getElementById('btn-isolate-part').addEventListener('click', () => {
-    if (!selectedObject) return;
-    meshList.forEach(m => m.visible = (m === selectedObject));
-  });
-  document.getElementById('btn-unhide-all').addEventListener('click', () => {
-    meshList.forEach(m => m.visible = true);
-  });
+  const btnClrM = document.getElementById('btn-clear-measure');
+  if (btnClrM) btnClrM.addEventListener('click', clearMeasurements);
+
+  const btnClrG = document.getElementById('btn-clear-girth');
+  if (btnClrG) btnClrG.addEventListener('click', clearGirthMeasurement);
+
+  const btnClrC = document.getElementById('btn-clear-coords');
+  if (btnClrC) btnClrC.addEventListener('click', clearCoordinatePoint);
+
+  const btnClrA = document.getElementById('btn-clear-angle');
+  if (btnClrA) btnClrA.addEventListener('click', clearAngleMeasurement);
+
+  const btnClrL = document.getElementById('btn-clear-lines');
+  if (btnClrL) btnClrL.addEventListener('click', clearDimensionHelper);
+
+  const btnRecent = document.getElementById('btn-show-recent');
+  if (btnRecent) btnRecent.addEventListener('click', showRecentModal);
+
+  const btnCloseRecent = document.getElementById('btn-close-recent');
+  if (btnCloseRecent) {
+    btnCloseRecent.addEventListener('click', () => {
+      document.getElementById('recent-modal').style.display = 'none';
+    });
+  }
+
+  const btnJump = document.getElementById('btn-jump-coord');
+  if (btnJump) btnJump.addEventListener('click', jumpToInputCoordinates);
+
+  const btnHidePart = document.getElementById('btn-hide-part');
+  if (btnHidePart) {
+    btnHidePart.addEventListener('click', () => {
+      if (selectedObject) { selectedObject.visible = false; clearDimensionHelper(); }
+    });
+  }
+
+  const btnIsoPart = document.getElementById('btn-isolate-part');
+  if (btnIsoPart) {
+    btnIsoPart.addEventListener('click', () => {
+      if (!selectedObject) return;
+      meshList.forEach(m => m.visible = (m === selectedObject));
+    });
+  }
+
+  const btnUnhideAll = document.getElementById('btn-unhide-all');
+  if (btnUnhideAll) {
+    btnUnhideAll.addEventListener('click', () => {
+      meshList.forEach(m => m.visible = true);
+    });
+  }
+
+  // ഫോണ്ട് സൈസ് അഡ്ജസ്റ്റ്മെന്റ്
+  const fInc = document.getElementById('btn-font-inc');
+  const fDec = document.getElementById('btn-font-dec');
+  if (fInc) {
+    fInc.addEventListener('click', () => {
+      if (currentScale < 1.7) {
+        currentScale = +(currentScale + 0.1).toFixed(2);
+        document.documentElement.style.setProperty('--ui-scale', currentScale);
+      }
+    });
+  }
+  if (fDec) {
+    fDec.addEventListener('click', () => {
+      if (currentScale > 0.8) {
+        currentScale = +(currentScale - 0.1).toFixed(2);
+        document.documentElement.style.setProperty('--ui-scale', currentScale);
+      }
+    });
+  }
 }
 
 function handleFileSelect(evt) {
@@ -1295,7 +1376,7 @@ function hideLoader() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 15. BOOTSTRAP INITIALIZATION
+// 15. BOOTSTRAP INITIALIZATION (AUTO RECENT LAUNCH)
 // ═══════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
   initThree();
@@ -1308,7 +1389,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.setCameraView = setCameraView;
   window.highlightAxisDimension = highlightAxisDimension;
 
-  try { await initDB(); } catch (e) { console.warn('DB initialization error:', e); }
+  // IndexedDB ഇനിഷ്യലൈസ് ചെയ്ത് Recent ഫയലുകൾ ഉണ്ടെങ്കിൽ ഓട്ടോമാറ്റിക് ആയി തുറക്കുന്നു
+  try {
+    await initDB();
+    const recents = await getAllRecentModels();
+    if (recents && recents.length > 0) {
+      showRecentModal(); // ആപ്പ് ഓപ്പൺ ചെയ്യുമ്പോൾ ആദ്യം തന്നെ Recent പോപ്പ്-അപ്പ് വരുന്നു
+    }
+  } catch (e) {
+    console.warn('DB initialization error:', e);
+  }
 
   const savedTheme = localStorage.getItem('vt_viewer_theme');
   if (savedTheme === 'dark') {
