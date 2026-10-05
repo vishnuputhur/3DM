@@ -1,296 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Install 3DM Viewer - VT Soft</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #0284c7;
-            --primary-glow: rgba(2, 132, 199, 0.4);
-            --bg-dark: #0a0f18;
-            --card-bg: #111a28;
-            --border-line: rgba(255, 255, 255, 0.08);
-            --success: #22c55e;
-        }
+  <meta charset="utf-8">
+  <title>CSL 3D Model Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f1f5f9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-        }
+  <!-- Libraries -->
+  <script src="three.min.js"></script>
+  <script src="OrbitControls.js"></script>
+  <script src="rhino3dm.min.js"></script>
 
-        body {
-            font-family: 'Poppins', sans-serif;
-            text-align: center;
-            background: radial-gradient(circle at center, #132238 0%, var(--bg-dark) 100%);
-            color: #e2e8f0;
-            padding: 40px 20px;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .install-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-line);
-            color: #e2e8f0;
-            border-radius: 28px;
-            padding: 38px 24px;
-            max-width: 400px;
-            width: 100%;
-            margin: auto;
-            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
-            backdrop-filter: blur(10px);
-        }
-
-        .badge {
-            font-size: 0.72rem;
-            background: rgba(2, 132, 199, 0.15);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            padding: 5px 14px;
-            border-radius: 20px;
-            font-weight: 700;
-            color: #38bdf8;
-            letter-spacing: 0.08em;
-            display: inline-block;
-        }
-
-        .logo-wrap {
-            margin: 22px auto 16px;
-            width: 95px;
-            height: 95px;
-            border-radius: 22px;
-            background: #fff;
-            padding: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-        }
-
-        .logo-img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-
-        h2 {
-            font-size: 1.45rem;
-            font-weight: 700;
-            color: #f8fafc;
-            margin-bottom: 4px;
-            letter-spacing: 0.03em;
-        }
-
-        .sub-tag {
-            color: #38bdf8;
-            font-weight: 600;
-            font-size: 0.85rem;
-            margin-bottom: 14px;
-            letter-spacing: 0.04em;
-        }
-
-        .desc-text {
-            font-size: 0.86rem;
-            color: #94a3b8;
-            line-height: 1.55;
-            margin-bottom: 26px;
-            text-align: center;
-        }
-
-        .btn-install {
-            background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-            box-shadow: 0 4px 15px var(--primary-glow);
-            transition: all 0.25s ease;
-        }
-
-        .btn-install:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
-        }
-
-        .status-container {
-            display: none;
-            padding: 16px 10px;
-            border-radius: 14px;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            margin-top: 10px;
-        }
-
-        .spinner {
-            width: 28px;
-            height: 28px;
-            border: 3px solid rgba(56, 189, 248, 0.2);
-            border-top-color: #38bdf8;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 10px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .status-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #f1f5f9;
-        }
-
-        .status-sub {
-            font-size: 12px;
-            color: #94a3b8;
-            margin-top: 4px;
-        }
-
-        .success-icon {
-            width: 32px;
-            height: 32px;
-            color: var(--success);
-            margin: 0 auto 8px;
-        }
-
-        .footer-tag {
-            margin-top: 28px;
-            font-size: 0.78rem;
-            color: #475569;
-            font-weight: 500;
-        }
-    </style>
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="install-card">
-        <span class="badge">3D CAD UTILITY</span>
-        
-        <div class="logo-wrap">
-            <img src="logo.png" class="logo-img" alt="3DM Viewer Logo" onerror="this.onerror=null; this.src='icon-192.png';">
-        </div>
-        
-        <h2>3DM Viewer</h2>
-        <div class="sub-tag">3D Model Inspector & Caliper</div>
-        
-        <p class="desc-text">
-            View and analyze 3D models, inspect individual components, take precise measurements, and plan structural work directly on your device — 100% offline.
-        </p>
-        
-        <!-- Install Trigger Button -->
-        <button id="installBtn" class="btn-install" style="display: none;">Install Application</button>
-        <div id="waitMsg" style="color: #64748b; font-size: 13px;">Checking system readiness...</div>
+  <div id="viewport"></div>
 
-        <!-- Installing & Success Progress Box -->
-        <div id="statusBox" class="status-container">
-            <!-- Phase 1: Installing State (5 seconds) -->
-            <div id="installingState">
-                <div class="spinner"></div>
-                <div class="status-title">Installing Application...</div>
-                <div class="status-sub">Preparing offline CAD engine & storage</div>
-            </div>
+  <!-- Dynamic Magnetic Snap Indicator -->
+  <div id="snap-cursor"></div>
 
-            <!-- Phase 2: Success State (4 seconds countdown) -->
-            <div id="successState" style="display: none;">
-                <svg class="success-icon" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <div class="status-title" style="color: #4ade80;">Installation Successful!</div>
-                <div class="status-sub" id="redirectMsg">Redirecting to VT Soft in 4s...</div>
-            </div>
+  <!-- HEADER -->
+  <header class="hud-glass">
+    <div class="brand-wrap">
+      <img src="logo.png" alt="Logo" class="brand-logo-img" onerror="this.style.display='none'">
+      <div class="title-box">
+        <div class="app-title-row">
+          <span class="app-name">CSL 3D Model Viewer</span>
+          <span id="app-pro-tag" class="pro-badge">PRO</span>
         </div>
-        
-        <div class="footer-tag">Created by Vishnu T | VT Soft</div>
+        <span class="csl-subtext">Cochin Shipyard Limited</span>
+        <div id="active-file-display" class="file-name">no file loaded</div>
+      </div>
     </div>
+    <div class="actions-wrap">
+      <button id="btn-quality-toggle" class="btn-quality mode-pro">PRO</button>
+      <button id="btn-show-recent" class="btn-action">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>Recent</span>
+      </button>
+      <label id="btn-open-label" class="btn-action btn-open">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <span>Open</span>
+        <input type="file" id="file-input" accept=".3dm,.vts,.step,.stp,.iges,.igs" style="display:none;">
+      </label>
+    </div>
+  </header>
 
-    <script>
-        let deferredPrompt;
-        const installBtn = document.getElementById('installBtn');
-        const waitMsg = document.getElementById('waitMsg');
-        const statusBox = document.getElementById('statusBox');
-        const installingState = document.getElementById('installingState');
-        const successState = document.getElementById('successState');
-        const redirectMsg = document.getElementById('redirectMsg');
+  <!-- COLLAPSIBLE SIDE COLOR PALETTE -->
+  <div id="color-palette-drawer" class="hud-glass">
+    <button id="btn-toggle-palette" title="Change Part Colors">🎨</button>
+    <div id="palette-content">
+      <div class="palette-title">Model Colors</div>
+      <div id="model-color-dots" class="dots-list"></div>
+      <div id="swatch-picker" style="display:none;">
+        <div class="picker-title">Apply Tone:</div>
+        <div class="swatches-grid">
+          <button class="swatch-btn" style="background:#3b82f6;" data-color="0x3b82f6"></button>
+          <button class="swatch-btn" style="background:#94a3b8;" data-color="0x94a3b8"></button>
+          <button class="swatch-btn" style="background:#ef4444;" data-color="0xef4444"></button>
+          <button class="swatch-btn" style="background:#10b981;" data-color="0x10b981"></button>
+          <button class="swatch-btn" style="background:#f59e0b;" data-color="0xf59e0b"></button>
+          <button class="swatch-btn" style="background:#6366f1;" data-color="0x6366f1"></button>
+          <button class="swatch-btn" style="background:#64748b;" data-color="0x64748b"></button>
+          <button class="swatch-btn" style="background:#0284c7;" data-color="0x0284c7"></button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        const REDIRECT_TARGET = "https://vtsoft.onrender.com";
+  <!-- MODE TOOLBAR -->
+  <div class="mode-bar hud-glass">
+    <button id="mode-view" class="mode-btn active-view">View</button>
+    <button id="mode-coords" class="mode-btn">Coords</button>
+    <button id="mode-measure" class="mode-btn">Linear</button>
+    <button id="mode-girth" class="mode-btn">Girth</button>
+    <button id="mode-angle" class="mode-btn">Angle</button>
+    <button id="mode-section" class="mode-btn">Section</button>
+    <button id="mode-inspect" class="mode-btn">Inspect</button>
+  </div>
 
-        // Register Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch(console.warn);
-        }
+  <!-- ORTHOGRAPHIC & ISO VIEW BUTTONS -->
+  <div class="views-bar">
+    <button id="btn-freeze-orbit" class="view-btn btn-freeze">LOCK</button>
+    <button id="btn-toggle-xray" class="view-btn btn-xray">X-RAY</button>
+    <button id="btn-view-z" class="view-btn">Z</button>
+    <button id="btn-view-y" class="view-btn">Y</button>
+    <button id="btn-view-x" class="view-btn">X</button>
+    <button id="btn-view-iso" class="view-btn iso">ISO</button>
+  </div>
 
-        // PWA Install Event
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installBtn.style.display = 'block';
-            waitMsg.style.display = 'none';
-        });
+  <!-- COORDS PANEL -->
+  <div id="coords-panel" class="panel-bottom panel-coords hud-glass">
+    <div class="panel-head">
+      <span class="panel-title" style="color:#059669;">Point Coordinate Finder</span>
+      <button id="btn-clear-coords" class="btn-panel-text">Clear Pin</button>
+    </div>
+    <div class="coords-input-grid">
+      <div class="coord-field"><label>X (MM)</label><input type="number" id="inp-coord-x" placeholder="0.0"></div>
+      <div class="coord-field"><label>Y (MM)</label><input type="number" id="inp-coord-y" placeholder="0.0"></div>
+      <div class="coord-field"><label>Z (MM)</label><input type="number" id="inp-coord-z" placeholder="0.0"></div>
+      <button id="btn-jump-coord" class="btn-jump">GOTO</button>
+    </div>
+  </div>
 
-        // Fallback for browsers
-        setTimeout(() => {
-            if (!deferredPrompt && installBtn.style.display === 'none') {
-                installBtn.style.display = 'block';
-                installBtn.innerText = 'Install / Add to Screen';
-                waitMsg.style.display = 'none';
-            }
-        }, 1200);
+  <!-- LINEAR MEASURE PANEL -->
+  <div id="measure-panel" class="panel-bottom panel-measure hud-glass">
+    <div class="panel-head">
+      <span class="panel-title" style="color:#0891b2;">Linear Measurement</span>
+      <button id="btn-clear-measure" class="btn-panel-text">Reset Pins</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">DIST (MM)</div><div id="val-dist" class="stat-val" style="color:#0284c7;">0.0</div></div>
+      <div class="stat-card"><div class="stat-label">&Delta;X</div><div id="val-dx" class="stat-val">0.0</div></div>
+      <div class="stat-card"><div class="stat-label">&Delta;Y</div><div id="val-dy" class="stat-val">0.0</div></div>
+      <div class="stat-card"><div class="stat-label">&Delta;Z</div><div id="val-dz" class="stat-val">0.0</div></div>
+    </div>
+  </div>
 
-        // Click Trigger -> 5s Installing -> 4s Countdown -> Redirect
-        installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                deferredPrompt = null;
-                if (outcome !== 'accepted') {
-                    return; // User cancelled
-                }
-            }
+  <!-- GIRTH PANEL -->
+  <div id="girth-panel" class="panel-bottom panel-girth hud-glass">
+    <div class="panel-head">
+      <span class="panel-title" style="color:#d97706;">Surface Girth (Arc)</span>
+      <button id="btn-clear-girth" class="btn-panel-text">Clear</button>
+    </div>
+    <div class="stats-grid" style="grid-template-columns: 1fr 1fr;">
+      <div class="stat-card"><div class="stat-label">SURFACE ARC</div><div id="val-girth-arc" class="stat-val" style="color:#d97706;">0.0 mm</div></div>
+      <div class="stat-card"><div class="stat-label">STRAIGHT CHORD</div><div id="val-girth-chord" class="stat-val">0.0 mm</div></div>
+    </div>
+  </div>
 
-            installBtn.style.display = 'none';
-            waitMsg.style.display = 'none';
-            statusBox.style.display = 'block';
-            installingState.style.display = 'block';
-            successState.style.display = 'none';
+  <!-- ANGLE PANEL -->
+  <div id="angle-panel" class="panel-bottom panel-angle hud-glass">
+    <div class="panel-head">
+      <span class="panel-title" style="color:#7c3aed;">Included Angle</span>
+      <button id="btn-clear-angle" class="btn-panel-text">Reset</button>
+    </div>
+    <div style="text-align:center; padding:6px; font-weight:800; font-size:18px; color:#7c3aed;" id="val-angle-deg">0.00&deg;</div>
+  </div>
 
-            // 5 Seconds Installing Animation
-            setTimeout(() => {
-                installingState.style.display = 'none';
-                successState.style.display = 'block';
+  <!-- SECTION CUT PANEL -->
+  <div id="section-panel" class="panel-bottom panel-section hud-glass">
+    <div class="panel-head">
+      <span class="panel-title" style="color:#0d9488;">Cross Section Cut</span>
+      <button id="btn-reset-cut" class="btn-panel-text">Reset Cut</button>
+    </div>
+    <div style="display:flex; gap:6px; margin-bottom:8px;">
+      <button id="cut-axis-x" class="axis-selector-btn">X-Cut</button>
+      <button id="cut-axis-y" class="axis-selector-btn">Y-Cut</button>
+      <button id="cut-axis-z" class="axis-selector-btn active-axis">Z-Cut</button>
+      <button id="btn-cut-flip" class="btn-action">Flip</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <input type="range" id="cut-slider" class="cut-slider-range" min="0" max="100" value="100">
+      <input type="number" id="cut-manual-input" class="cut-input-box" placeholder="0.0">
+      <button id="btn-cut-go" class="btn-cut-go">GO</button>
+    </div>
+  </div>
 
-                // 4 Seconds Countdown before redirect
-                let countdown = 4;
-                redirectMsg.innerText = `Redirecting to VT Soft in ${countdown}s...`;
+  <!-- INSPECT PANEL -->
+  <div id="inspect-panel" class="panel-bottom panel-inspect hud-glass">
+    <div class="panel-head">
+      <span class="panel-title" style="color:#e11d48;">Part Properties</span>
+      <button id="btn-clear-lines" class="btn-panel-text">Clear</button>
+    </div>
+    <div class="part-meta-box">
+      <div><b>Part:</b> <span id="meta-part-name" style="color:#0284c7;">None</span></div>
+      <div style="text-align:right;"><b>Layer:</b> <span id="meta-part-layer">--</span></div>
+      <div><b>MS Weight:</b> <span id="meta-part-weight" style="color:#059669; font-weight:800;">--</span></div>
+      <div style="text-align:right;"><b>Girth:</b> <span id="meta-part-perim" style="color:#d97706; font-weight:800;">--</span></div>
+    </div>
+    <table class="dim-table">
+      <tr>
+        <td id="cell-dim-x">Length (&Delta;X): <b id="part-bx" style="color:#0284c7;">--</b></td>
+        <td id="cell-dim-y">Breadth (&Delta;Y): <b id="part-by" style="color:#059669;">--</b></td>
+        <td id="cell-dim-z">Depth (&Delta;Z): <b id="part-bz" style="color:#e11d48;">--</b></td>
+      </tr>
+    </table>
+  </div>
 
-                const interval = setInterval(() => {
-                    countdown--;
-                    if (countdown > 0) {
-                        redirectMsg.innerText = `Redirecting to VT Soft in ${countdown}s...`;
-                    } else {
-                        clearInterval(interval);
-                        window.location.href = REDIRECT_TARGET;
-                    }
-                }, 1000);
+  <!-- RECENT MODAL -->
+  <div id="recent-modal">
+    <div class="recent-box">
+      <div class="recent-header">
+        <div style="font-size:13px; font-weight:800; letter-spacing:0.04em;">RECENT 3D MODELS</div>
+        <button id="btn-close-recent" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">&times;</button>
+      </div>
+      <div id="recent-list-container" class="recent-list"></div>
+    </div>
+  </div>
 
-            }, 5000);
-        });
+  <!-- FLOATING THEME & INFO PILL -->
+  <button id="btn-theme-toggle" class="btn-theme-circle"><span id="theme-icon">☀️</span></button>
+  <div id="info-pill" class="info-pill-container">
+    <div class="info-pill-icon">i</div>
+    <div class="info-pill-text">Created by <span>Vishnu Puthoor</span> • CSL Pro V2.0</div>
+  </div>
 
-        // If launched in standalone mode, open the viewer directly
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            window.location.href = 'index.html';
-        }
-    </script>
+  <div id="loader">
+    <div class="spinner"></div>
+    <div id="loader-msg">Loading Model...</div>
+  </div>
+
+  <!-- App Modular Logic -->
+  <script src="app.js"></script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => {
+            console.log('CSL Service Worker Registered successfully:', reg.scope);
+          })
+          .catch((err) => {
+            console.warn('Service Worker Registration Failed:', err);
+          });
+      });
+    }
+  </script>
 </body>
 </html>
