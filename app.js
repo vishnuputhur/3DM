@@ -196,17 +196,23 @@ function loadBinaryVTSBuffer(buffer) {
     geom.computeVertexNormals();
 
     const mat = new THREE.MeshStandardMaterial({
-      color: color, roughness: 0.3, metalness: 0.25, side: THREE.DoubleSide
+      color: color, 
+      roughness: 0.35, 
+      metalness: 0.2, 
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1
     });
 
     const mesh = new THREE.Mesh(geom, mat);
     mesh.userData = { name, layerName: layer, originalColor: color };
 
     try {
-      const edges = new THREE.EdgesGeometry(geom, 45);
+      const edges = new THREE.EdgesGeometry(geom, 55);
       const edgeLine = new THREE.LineSegments(
         edges,
-        new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.65 })
+        new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 1, transparent: true, opacity: 0.28, depthTest: true })
       );
       mesh.add(edgeLine);
       edgeLinesList.push(edgeLine);
@@ -222,7 +228,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION (Z-UP, NATURAL CONTROLS, NO MESH)
+// 3. THREE.JS INITIALIZATION (Z-UP & OPTIMIZED DEPTH BUFFER)
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -231,7 +237,8 @@ function initThree() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf1f5f9);
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000000);
+  // Near 10, Far 500000 നൽകിയതിനാൽ Z-Fighting ഇല്ലാതെ സൂം ഔട്ടിലും ലൈനുകൾ ക്ലീൻ ആയി കാണപ്പെടും
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
   camera.up.set(0, 0, 1);
   camera.position.set(4000, -4000, 3000);
 
@@ -368,7 +375,7 @@ function loadRhinoDoc(doc, originalFileName) {
 
     const objects = doc.objects();
     const count = objects ? objects.count : 0;
-    const edgeThreshold = 45;
+    const edgeThreshold = 55; // 45 മാറ്റി 55 നൽകിയതിനാൽ സൂക്ഷ്മ അനാവശ്യ ലൈനുകൾ ഒഴിവാകും
 
     for (let i = 0; i < count; i++) {
       try {
@@ -418,7 +425,13 @@ function loadRhinoDoc(doc, originalFileName) {
           if (!resolvedColor) resolvedColor = new THREE.Color(0x3b82f6);
 
           const material = new THREE.MeshStandardMaterial({
-            color: resolvedColor, roughness: 0.3, metalness: 0.25, side: THREE.DoubleSide
+            color: resolvedColor, 
+            roughness: 0.35, 
+            metalness: 0.2, 
+            side: THREE.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1
           });
           const threeMesh = new THREE.Mesh(threeGeom, material);
 
@@ -434,7 +447,7 @@ function loadRhinoDoc(doc, originalFileName) {
             const edges = new THREE.EdgesGeometry(threeGeom, edgeThreshold);
             const edgeLine = new THREE.LineSegments(
               edges,
-              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.65 })
+              new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 1, transparent: true, opacity: 0.28, depthTest: true })
             );
             threeMesh.add(edgeLine);
             edgeLinesList.push(edgeLine);
@@ -525,7 +538,7 @@ function setCameraView(preset) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 6. SCREEN PINS, MAGNETIC SNAP & MAGNIFIER LOUPE (LENS)
+// 6. INTELLIGENT OSNAP (CORNER & EDGE AUTO-MAGNETIC SNAP)
 // ═══════════════════════════════════════════════════════════
 function createScreenSpacePin(worldPos, colorHex = 0x0284c7) {
   const geom = new THREE.BufferGeometry();
@@ -548,6 +561,7 @@ function clearAllPins() {
   }
 }
 
+// AutoCAD പോലെ തൊട്ടടുത്തുള്ള Vertex (Corner), അല്ലെങ്കിൽ Edge (Line) എന്നിവയിലേക്ക് ഓട്ടോ കാന്തിക സ്നാപ്പ് ചെയ്യുന്നു
 function findMagneticSnapPoint(screenX, screenY) {
   const rect = renderer.domElement.getBoundingClientRect();
   const mouse = new THREE.Vector2(
@@ -563,35 +577,90 @@ function findMagneticSnapPoint(screenX, screenY) {
   const hit = hits[0];
   const geom = hit.object.geometry;
   const posAttr = geom.attributes.position;
-  let closestVertex = null;
-  let minScreenDist = 28;
+  const index = geom.index;
 
-  const vWorld = new THREE.Vector3();
+  const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3();
   const vScreen = new THREE.Vector3();
 
-  for (let i = 0; i < posAttr.count; i++) {
-    vWorld.fromBufferAttribute(posAttr, i).applyMatrix4(hit.object.matrixWorld);
-    vScreen.copy(vWorld).project(camera);
+  let closestCorner = null;
+  let minCornerDist = 32; // Corner സ്നാപ്പ് റേഡിയസ് (Pixels)
 
+  let closestEdgePt = null;
+  let minEdgeDist = 24;   // Edge സ്നാപ്പ് റേഡിയസ് (Pixels)
+
+  // 1. CORNER (VERTEX) DETECTION
+  const checkVertex = (idx) => {
+    vA.fromBufferAttribute(posAttr, idx).applyMatrix4(hit.object.matrixWorld);
+    vScreen.copy(vA).project(camera);
+    const sx = ((vScreen.x + 1) * rect.width) / 2;
+    const sy = ((-vScreen.y + 1) * rect.height) / 2;
+    const dist = Math.hypot(sx - screenX, sy - screenY);
+    if (dist < minCornerDist) {
+      minCornerDist = dist;
+      closestCorner = vA.clone();
+    }
+  };
+
+  // 2. EDGE (LINE SEGMENT) DETECTION
+  const checkEdge = (idx1, idx2) => {
+    vA.fromBufferAttribute(posAttr, idx1).applyMatrix4(hit.object.matrixWorld);
+    vB.fromBufferAttribute(posAttr, idx2).applyMatrix4(hit.object.matrixWorld);
+
+    const line = new THREE.Line3(vA, vB);
+    const closestOnLine = new THREE.Vector3();
+    line.closestPointToPoint(hit.point, true, closestOnLine);
+
+    vScreen.copy(closestOnLine).project(camera);
     const sx = ((vScreen.x + 1) * rect.width) / 2;
     const sy = ((-vScreen.y + 1) * rect.height) / 2;
     const dist = Math.hypot(sx - screenX, sy - screenY);
 
-    if (dist < minScreenDist) {
-      minScreenDist = dist;
-      closestVertex = vWorld.clone();
+    if (dist < minEdgeDist) {
+      minEdgeDist = dist;
+      closestEdgePt = closestOnLine.clone();
+    }
+  };
+
+  // Hit ചെയ്ത ത്രികോണത്തിന്റെ (Face) പോയിന്റുകളിൽ നിന്നുള്ള പരിശോധന
+  if (hit.face) {
+    const a = hit.face.a, b = hit.face.b, c = hit.face.c;
+    checkVertex(a); checkVertex(b); checkVertex(c);
+    checkEdge(a, b); checkEdge(b, c); checkEdge(c, a);
+  } else {
+    // ഇൻഡക്സ് ബഫർ ഇല്ലെങ്കിൽ ആദ്യ 200 വെർട്ടെക്സുകളിൽ അടുത്തുള്ളവ സെർച്ച് ചെയ്യുന്നു
+    const count = Math.min(posAttr.count, 300);
+    for (let i = 0; i < count; i++) {
+      checkVertex(i);
     }
   }
 
+  // Corner-ന് ആദ്യ മുൻഗണന, ഇല്ലെങ്കിൽ Edge, അതുമല്ലെങ്കിൽ Hit Point
+  if (closestCorner) {
+    return {
+      point: closestCorner,
+      object: hit.object,
+      snapType: 'corner',
+      isCorner: true
+    };
+  } else if (closestEdgePt) {
+    return {
+      point: closestEdgePt,
+      object: hit.object,
+      snapType: 'edge',
+      isCorner: false
+    };
+  }
+
   return {
-    point: closestVertex || hit.point,
+    point: hit.point,
     object: hit.object,
-    isCorner: !!closestVertex
+    snapType: 'surface',
+    isCorner: false
   };
 }
 
 // ═══════════════════════════════════════════════════════════
-// MAGNIFIER LOUPE ENGINE (ലെൻസ് റെൻഡറിംഗ്)
+// MAGNIFIER LOUPE ENGINE (AUTO OSNAP POP-UP)
 // ═══════════════════════════════════════════════════════════
 function requestLoupeUpdate() {
   if (loupePendingUpdate) return;
@@ -630,6 +699,26 @@ function renderLoupe(screenX, screenY) {
         Math.max(0, srcX), Math.max(0, srcY), 140, 140,
         0, 0, 140, 140
       );
+
+      // ഓട്ടോ സ്നാപ്പ് ആയ പോയിന്റ് തിരിച്ചറിയാൻ ലെൻസിനുള്ളിൽ കൃത്യമായ ഇൻഡിക്കേറ്റർ
+      loupeCtx.save();
+      loupeCtx.translate(70, 70);
+      if (snap.snapType === 'corner') {
+        loupeCtx.strokeStyle = '#10b981'; // പച്ച ചതുരം (Corner)
+        loupeCtx.lineWidth = 2.5;
+        loupeCtx.strokeRect(-6, -6, 12, 12);
+      } else if (snap.snapType === 'edge') {
+        loupeCtx.strokeStyle = '#0284c7'; // നീല ത്രികോണം (Edge)
+        loupeCtx.lineWidth = 2.5;
+        loupeCtx.beginPath();
+        loupeCtx.moveTo(0, -7);
+        loupeCtx.lineTo(6, 5);
+        loupeCtx.lineTo(-6, 5);
+        loupeCtx.closePath();
+        loupeCtx.stroke();
+      }
+      loupeCtx.restore();
+
     } catch (e) {}
   }
 }
@@ -729,8 +818,8 @@ function applyCurrentProfileToMeshes() {
       m.material.roughness = 0.5;
       m.material.metalness = 0.1;
     } else {
-      m.material.roughness = 0.3;
-      m.material.metalness = 0.25;
+      m.material.roughness = 0.35;
+      m.material.metalness = 0.2;
     }
     if (isXRay) {
       m.material.transparent = true;
@@ -1213,11 +1302,11 @@ function updateControlsLockState() {
     controls.enabled = false;
     return;
   }
-  // View, Section, Isolate എന്നീ 3 ടാബുകളിൽ മാത്രം മോഡൽ തിരിക്കാൻ അനുവാദം നൽകുന്നു!
+  // View, Section എന്നീ ടാബുകളിൽ മാത്രം മോഡൽ റൊട്ടേഷൻ ഓൺ ആക്കുന്നു
   if (['view', 'section'].includes(currentMode)) {
     controls.enabled = true;
   } else {
-    controls.enabled = false; // Coords, Linear, Girth, Angle എന്നിവയിൽ പൂർണ്ണമായും ഫ്രീസ്
+    controls.enabled = false; // Coords, Linear, Girth, Angle എന്നിവയിൽ കൃത്യതയ്ക്കായി ഫ്രീസ്
   }
 }
 
@@ -1354,7 +1443,8 @@ function setupEvents() {
         snapCursorEl.style.left = `${e.clientX}px`;
         snapCursorEl.style.top = `${e.clientY}px`;
         snapCursorEl.style.display = 'block';
-        snapCursorEl.style.borderColor = snap.isCorner ? '#10b981' : '#0284c7';
+        // Corner ആണെങ്കിൽ പച്ച, Edge ആണെങ്കിൽ നീല, അല്ലാത്തവയ്ക്ക് ഡീഫോൾട്ട്
+        snapCursorEl.style.borderColor = (snap.snapType === 'corner') ? '#10b981' : (snap.snapType === 'edge' ? '#0284c7' : '#f59e0b');
       } else {
         activeSnappedPoint = null;
         snapCursorEl.style.display = 'none';
@@ -1448,7 +1538,7 @@ function setupEvents() {
     btnIsoPart.addEventListener('click', () => {
       if (!selectedObject) return;
       meshList.forEach(m => m.visible = (m === selectedObject));
-      controls.enabled = true; // Isolate ചെയ്യുമ്പോൾ കറക്കാൻ അനുവദിക്കുന്നു
+      controls.enabled = true; // Isolate ചെയ്യുമ്പോൾ റൊട്ടേഷൻ ഓൺ ആക്കുന്നു
     });
   }
 
