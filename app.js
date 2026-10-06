@@ -15,7 +15,7 @@ let meshList = [];
 let edgeLinesList = [];
 let dirLight1, dirLight2, hemiLight, ambientLight;
 
-// MULTI-AXIS COMPOUND CLIPPING PLANES (X, Y, Z സ്വതന്ത്ര കട്ടുകൾ)
+// MULTI-AXIS COMPOUND CLIPPING PLANES
 const clipPlanes = {
   x: new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0),
   y: new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
@@ -41,6 +41,9 @@ const dimensionLinesGroup = new THREE.Group();
 
 let currentScale = window.innerWidth >= 768 ? 1.25 : 1.0;
 let activeProfile = localStorage.getItem('vt_viewer_profile') || 'PRO';
+
+// Active File Name Tracking (കളർ സേവിംഗിനായി)
+let currentLoadedFileName = 'model.vts';
 
 // Magnifier Loupe State
 let isInspectingLoupe = false;
@@ -127,10 +130,11 @@ function encodeModelToBinaryVTS() {
   const parts = [];
 
   meshList.forEach(m => {
+    if (!m.geometry || !m.geometry.attributes.position) return;
     const pos = m.geometry.attributes.position.array;
     const nameBytes = new TextEncoder().encode(m.userData.name || 'Part');
     const layerBytes = new TextEncoder().encode(m.userData.layerName || 'Default');
-    const color = m.material.color.getHex();
+    const color = (m.material && m.material.color) ? m.material.color.getHex() : 0x3b82f6;
 
     const namePad = pad4(nameBytes.length);
     const layerPad = pad4(layerBytes.length);
@@ -231,7 +235,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION (Z-UP & OPTIMIZED DEPTH)
+// 3. THREE.JS INITIALIZATION
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -351,7 +355,7 @@ function calibrateModelView() {
   hideLoader();
 }
 
-// 3D & 2D DXF PARSER ENGINE
+// 3D & 2D DXF PARSER ENGINE (BLOCKS & INSERTS SUPPORTED)
 function loadDxfBuffer(textData, fileName) {
   showLoader(`Parsing 3D DXF: ${fileName}...`);
   clearModelScene();
@@ -364,11 +368,10 @@ function loadDxfBuffer(textData, fileName) {
     const parser = new DxfParser();
     const dxf = parser.parseSync(textData);
 
-    if (!dxf || !dxf.entities || dxf.entities.length === 0) {
-      throw new Error('No valid CAD entities found in DXF file.');
+    if (!dxf) {
+      throw new Error('Unable to read DXF structure.');
     }
 
-    // കളർ പാലറ്റ് ലെയർ വഴി മാപ്പ് ചെയ്യുന്നു
     const layerColors = {};
     if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
       Object.keys(dxf.tables.layer.layers).forEach(k => {
@@ -378,13 +381,26 @@ function loadDxfBuffer(textData, fileName) {
     }
 
     const defaultColor = 0x3b82f6;
-    const meshGroupMap = {};
+    const allEntities = [...(dxf.entities || [])];
 
-    dxf.entities.forEach((entity, idx) => {
+    if (dxf.blocks) {
+      Object.keys(dxf.blocks).forEach(bKey => {
+        const blk = dxf.blocks[bKey];
+        if (blk && blk.entities) {
+          allEntities.push(...blk.entities);
+        }
+      });
+    }
+
+    if (allEntities.length === 0) {
+      throw new Error('DXF file did not contain any usable CAD elements.');
+    }
+
+    allEntities.forEach((entity, idx) => {
       const layerName = entity.layer || 'Default';
       const colorHex = layerColors[layerName] ? ('#' + layerColors[layerName].toString(16).padStart(6, '0')) : defaultColor;
 
-      // 3DFACE & SOLID
+      // 1. 3D FACES & SOLIDS
       if (entity.type === '3DFACE' || entity.type === 'SOLID') {
         const v = entity.vertices;
         if (!v || v.length < 3) return;
@@ -434,14 +450,18 @@ function loadDxfBuffer(textData, fileName) {
         modelRoot.add(mesh);
         meshList.push(mesh);
       }
-      // 3D LINES / POLYLINES (സ്ട്രക്ചറൽ ഫ്രെയിമുകൾ മെഷുകളിലേക്ക് സ്നാപ്പ് ചെയ്യാവുന്ന രീതിയിൽ)
-      else if (entity.type === 'LINE' || entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
+      // 2. 3D LINES, POLYLINES & SPLINES
+      else if (['LINE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE'].includes(entity.type)) {
         const pts = [];
         if (entity.type === 'LINE') {
-          pts.push(new THREE.Vector3(entity.vertices[0].x, entity.vertices[0].y, entity.vertices[0].z || 0));
-          pts.push(new THREE.Vector3(entity.vertices[1].x, entity.vertices[1].y, entity.vertices[1].z || 0));
+          if (entity.vertices && entity.vertices.length >= 2) {
+            pts.push(new THREE.Vector3(entity.vertices[0].x, entity.vertices[0].y, entity.vertices[0].z || 0));
+            pts.push(new THREE.Vector3(entity.vertices[1].x, entity.vertices[1].y, entity.vertices[1].z || 0));
+          }
         } else if (entity.vertices) {
           entity.vertices.forEach(p => pts.push(new THREE.Vector3(p.x, p.y, p.z || 0)));
+        } else if (entity.controlPoints) {
+          entity.controlPoints.forEach(p => pts.push(new THREE.Vector3(p.x, p.y, p.z || 0)));
         }
 
         if (pts.length >= 2) {
@@ -454,11 +474,34 @@ function loadDxfBuffer(textData, fileName) {
             originalColor: new THREE.Color(colorHex).getHex()
           };
 
-          // സ്നാപ്പിംഗിനായി ലൈൻ വെർട്ടെക്സുകൾ മെഷ് ലിസ്റ്റിലേക്ക് ചേർക്കുന്നു
           modelRoot.add(lineObj);
           meshList.push(lineObj);
           edgeLinesList.push(lineObj);
         }
+      }
+      // 3. ARCS & CIRCLES
+      else if (entity.type === 'ARC' || entity.type === 'CIRCLE') {
+        const center = entity.center || { x: 0, y: 0, z: 0 };
+        const radius = entity.radius || 10;
+        const startAngle = entity.startAngle || 0;
+        const endAngle = entity.endAngle || (Math.PI * 2);
+
+        const curve = new THREE.ArcCurve(center.x, center.y, radius, startAngle, endAngle, false);
+        const pts2D = curve.getPoints(32);
+        const pts3D = pts2D.map(p => new THREE.Vector3(p.x, p.y, center.z || 0));
+
+        const arcGeom = new THREE.BufferGeometry().setFromPoints(pts3D);
+        const arcMat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 1.5 });
+        const arcObj = new THREE.Line(arcGeom, arcMat);
+        arcObj.userData = {
+          name: `DXF_Arc_${idx + 1}`,
+          layerName: layerName,
+          originalColor: new THREE.Color(colorHex).getHex()
+        };
+
+        modelRoot.add(arcObj);
+        meshList.push(arcObj);
+        edgeLinesList.push(arcObj);
       }
     });
 
@@ -956,7 +999,7 @@ function hideLoupe() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 7. COLOR PALETTE CONTROLLER
+// 7. COLOR PALETTE CONTROLLER WITH AUTO-SAVE TO .VTS
 // ═══════════════════════════════════════════════════════════
 function populateColorPalette() {
   const dotsContainer = document.getElementById('model-color-dots');
@@ -990,18 +1033,29 @@ function setupColorPaletteEvents() {
   }
 
   document.querySelectorAll('.swatch-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       if (selectedColorDotHex === null) return;
       const targetHex = parseInt(btn.getAttribute('data-color'), 16);
 
       meshList.forEach(m => {
-        if (m.material && m.material.color.getHex() === selectedColorDotHex) {
+        if (m.material && m.material.color && m.material.color.getHex() === selectedColorDotHex) {
           m.material.color.setHex(targetHex);
           m.material.needsUpdate = true;
         }
       });
+
       populateColorPalette();
       document.getElementById('swatch-picker').style.display = 'none';
+
+      // കളർ മാറ്റി കഴിഞ്ഞാൽ തൽക്ഷണം ബാക്ക്ഗ്രൗണ്ടിൽ .vts ലേക്ക് അപ്‌ഡേറ്റ് ചെയ്തു സേവ് ചെയ്യുന്നു
+      if (currentLoadedFileName) {
+        try {
+          const buf = encodeModelToBinaryVTS();
+          await saveModelToStorage(currentLoadedFileName, buf);
+        } catch (err) {
+          console.warn('Auto-save color state failed:', err);
+        }
+      }
     });
   });
 }
@@ -1489,7 +1543,8 @@ async function showRecentModal() {
 
     div.querySelector('.recent-item-info').addEventListener('click', () => {
       document.getElementById('recent-modal').style.display = 'none';
-      document.getElementById('active-file-display').innerText = item.name.toLowerCase();
+      currentLoadedFileName = item.name.toLowerCase();
+      document.getElementById('active-file-display').innerText = currentLoadedFileName;
       showLoader(`Loading ${item.name}...`);
 
       setTimeout(() => {
@@ -1798,6 +1853,7 @@ function handleFileSelect(evt) {
   if (!file) return;
 
   const fileName = file.name.toLowerCase();
+  currentLoadedFileName = fileName;
   document.getElementById('active-file-display').innerText = fileName;
   showLoader('Reading file...');
 
