@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>VTSoft - Shell Plate Forming Studio</title>
+  <script src="three.min.js"></script>
+  <script src="OrbitControls.js"></script>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(17, 24, 39, 0.95);
+      --border: #1f293d;
+      --accent: #0284c7;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); }
+    #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+
+    /* HUD Top Bar */
+    .top-bar {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--card-bg); backdrop-filter: blur(10px);
+      padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border);
+      z-index: 10;
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 12px; }
+    .btn-back {
+      background: #1e293b; color: #f8fafc; border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;
+      text-decoration: none; display: flex; align-items: center; gap: 6px;
+    }
+    .top-bar h1 { font-size: 15px; font-weight: 700; color: #38bdf8; }
+    .badge { font-size: 12px; background: #0369a1; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+
+    /* Realtime Floating Probe HUD */
+    .probe-hud {
+      position: absolute; top: 72px; right: 12px;
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(8px);
+      border: 1px solid #0284c7; border-radius: 12px; padding: 12px 18px;
+      z-index: 10; text-align: right; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.25);
+      pointer-events: none;
+    }
+    .probe-hud .probe-label { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-muted); text-transform: uppercase; }
+    .probe-hud .probe-val { font-size: 26px; font-weight: 800; color: #facc15; font-family: monospace; }
+    .probe-hud .probe-sub { font-size: 11px; color: #38bdf8; font-family: monospace; }
+
+    /* Control Panel */
+    .control-card {
+      position: absolute; top: 72px; left: 12px; width: 320px;
+      background: var(--card-bg); backdrop-filter: blur(12px);
+      padding: 16px; border-radius: 14px; border: 1px solid var(--border);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); z-index: 10;
+      max-height: calc(100vh - 90px); overflow-y: auto;
+    }
+    .control-card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 10px; }
+
+    .input-group { margin-bottom: 12px; }
+    .input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: var(--text-muted); }
+    .input-group input[type="range"] { width: 100%; accent-color: #0284c7; }
+    .input-group input[type="number"] {
+      width: 100%; padding: 8px 10px; background: #0b1120; border: 1px solid var(--border);
+      border-radius: 6px; color: #fff; font-size: 13px; outline: none; font-family: monospace;
+    }
+
+    .btn {
+      width: 100%; padding: 10px; border: none; border-radius: 8px; font-weight: 600;
+      font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex;
+      align-items: center; justify-content: center; gap: 6px; margin-top: 6px;
+    }
+    .btn-primary { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; }
+    .btn-toggle { background: #1e293b; color: #e2e8f0; border: 1px solid var(--border); }
+
+    .template-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .tmpl-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #0b1120; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .tmpl-dxf-btn {
+      background: #059669; color: #fff; border: none; padding: 4px 8px;
+      border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;
+    }
+
+    #touch-pin {
+      position: absolute; width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid #facc15; background: rgba(250, 204, 21, 0.4);
+      transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 20;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <a href="index.html" class="btn-back">⬅ Viewer</a>
+      <h1>📐 Forming Studio</h1>
+    </div>
+    <span class="badge" id="plate-badge">Plate</span>
+  </div>
+
+  <div class="probe-hud">
+    <div class="probe-label">Sight Depth (Offset)</div>
+    <div class="probe-val" id="hud-probe-depth">0.0 mm</div>
+    <div class="probe-sub" id="hud-probe-coord">Touch & drag on plate</div>
+  </div>
+
+  <div id="touch-pin"></div>
+
+  <div class="control-card">
+    <h2>Parallel Sight Plane</h2>
+
+    <div class="input-group">
+      <div style="display:flex; justify-content:space-between;">
+        <label>Lift from Plate Top (mm)</label>
+        <span id="lbl-plane-offset" style="font-size:11px; color:#38bdf8; font-weight:700;">100 mm</span>
+      </div>
+      <input type="range" id="slider-plane-offset" min="0" max="500" value="100" step="10" />
+    </div>
+
+    <div class="input-group">
+      <label>Perpendicular Station Pitch (mm)</label>
+      <input type="number" id="inp-interval" value="300" step="50" min="100" max="1500" />
+    </div>
+
+    <div class="input-group">
+      <label>Wood Base Margin for CNC (mm)</label>
+      <input type="number" id="inp-wood-margin" value="100" min="50" max="300" />
+    </div>
+
+    <button class="btn btn-primary" id="btn-recalc">⚡ Update Templates</button>
+    <button class="btn btn-toggle" id="btn-toggle-plane">👁️ Toggle Plane View</button>
+
+    <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
+      <h2>Export 2D Wood CNC DXF</h2>
+      <div class="template-list" id="template-export-list"></div>
+    </div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script>
+    let scene, camera, renderer, controls;
+    let plateMesh = null;
+    let datumPlaneMesh = null;
+    let stationsGroup = new THREE.Group();
+    let probeIndicatorGroup = new THREE.Group();
+    let generatedTemplates = [];
+
+    let localFrame = {
+      origin: new THREE.Vector3(),
+      uDir: new THREE.Vector3(),
+      vDir: new THREE.Vector3(),
+      nDir: new THREE.Vector3(),
+      maxPlateSagitta: 0
+    };
+
+    function init() {
+      const container = document.getElementById('canvas-container');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x090d16);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
+      camera.up.set(0, 0, 1);
+      camera.position.set(2500, -2500, 2000);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+      dirLight.position.set(5000, -5000, 7000);
+      scene.add(dirLight);
+
+      scene.add(stationsGroup);
+      scene.add(probeIndicatorGroup);
+
+      window.addEventListener('resize', onResize);
+      setupTouchProbe();
+      loadPlateData();
+      setupUI();
+      animate();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (controls) controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SAFE DUAL-STORAGE PLATE LOADER
+    // ═══════════════════════════════════════════════════════════
+    function loadPlateData() {
+      // രണ്ട് വിധത്തിലുള്ള കീകളും പരിശോധിക്കുന്നു
+      let raw = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
+      
+      if (!raw) {
+        alert('പ്ലേറ്റ് ഡാറ്റ ലഭിച്ചില്ല. മെയിൻ വ്യൂവറിലേക്ക് തിരികെ പോയി പ്ലേറ്റ് സെലക്ട് ചെയ്ത ശേഷം "Send to Forming Studio" ക്ലിക്ക് ചെയ്യുക.');
+        document.getElementById('plate-badge').innerText = 'No Plate Connected';
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (err) {
+        alert('ഡാറ്റ വായിച്ചെടുക്കുന്നതിൽ പിഴവ് സംഭവിച്ചു.');
+        return;
+      }
+
+      document.getElementById('plate-badge').innerText = data.name || 'Selected Shell';
+
+      let verts = data.vertices;
+      if (!verts || verts.length < 9) {
+        alert('പ്ലേറ്റിന്റെ കോർഡിനേറ്റ്സ് ശരിയായ രീതിയിലല്ല.');
+        return;
+      }
+
+      // ഫ്ലോട്ട് അറേ ആണെന്ന് ഉറപ്പുവരുത്തുന്നു
+      const floatArr = (verts instanceof Float32Array) ? verts : new Float32Array(verts);
+
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(floatArr, 3));
+      geom.computeVertexNormals();
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: (data.color !== undefined) ? data.color : 0x38bdf8,
+        roughness: 0.35,
+        metalness: 0.25,
+        side: THREE.DoubleSide
+      });
+
+      plateMesh = new THREE.Mesh(geom, mat);
+      scene.add(plateMesh);
+
+      // ക്യാമറയെ പ്ലേറ്റിലേക്ക് കൃത്യമായി ഫോക്കസ് ചെയ്യുന്നു
+      geom.computeBoundingBox();
+      const bbox = geom.boundingBox;
+      const center = bbox.getCenter(new THREE.Vector3());
+      controls.target.copy(center);
+
+      const size = bbox.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1000;
+      camera.position.set(center.x + maxDim * 0.8, center.y - maxDim * 0.8, center.z + maxDim * 0.7);
+      controls.update();
+
+      // പാരലൽ പ്ലെയിനും സ്റ്റേഷനുകളും കാൽക്കുലേറ്റ് ചെയ്യുന്നു
+      computeFourCornerParallelFrame(floatArr);
+      buildParallelPlane();
+      generateStations();
+    }
+
+    function computeFourCornerParallelFrame(verts) {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      let c1 = new THREE.Vector3(), c2 = new THREE.Vector3(), c3 = new THREE.Vector3(), c4 = new THREE.Vector3();
+
+      for (let i = 0; i < verts.length; i += 3) {
+        const x = verts[i], y = verts[i+1], z = verts[i+2];
+        if (x + y < minX + minY) { minX = x; minY = y; c1.set(x, y, z); }
+        if (x - y > maxX - minY) { maxX = x; c2.set(x, y, z); }
+        if (x + y > maxX + maxY) { maxY = y; c3.set(x, y, z); }
+        if (y - x > maxY - minX) { c4.set(x, y, z); }
+      }
+
+      localFrame.origin.copy(c1).add(c2).add(c3).add(c4).multiplyScalar(0.25);
+
+      const edge12 = c1.distanceTo(c2);
+      const edge23 = c2.distanceTo(c3);
+      if (edge12 >= edge23) {
+        localFrame.uDir.subVectors(c2, c1).normalize();
+        localFrame.vDir.subVectors(c4, c1).normalize();
+      } else {
+        localFrame.uDir.subVectors(c3, c2).normalize();
+        localFrame.vDir.subVectors(c1, c2).normalize();
+      }
+
+      localFrame.nDir.crossVectors(localFrame.uDir, localFrame.vDir).normalize();
+      localFrame.vDir.crossVectors(localFrame.nDir, localFrame.uDir).normalize();
+
+      let maxSag = 0;
+      const pt = new THREE.Vector3();
+      for (let i = 0; i < verts.length; i += 3) {
+        pt.set(verts[i], verts[i+1], verts[i+2]).sub(localFrame.origin);
+        const dist = Math.abs(pt.dot(localFrame.nDir));
+        if (dist > maxSag) maxSag = dist;
+      }
+      localFrame.maxPlateSagitta = maxSag;
+    }
+
+    function buildParallelPlane() {
+      if (datumPlaneMesh) scene.remove(datumPlaneMesh);
+
+      const liftVal = parseFloat(document.getElementById('slider-plane-offset').value) || 100;
+      const totalOffset = localFrame.maxPlateSagitta + liftVal;
+
+      const bbox = plateMesh.geometry.boundingBox;
+      const size = bbox.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) * 1.25;
+
+      const geom = new THREE.PlaneGeometry(maxDim, maxDim, 8, 8);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x0284c7,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.35,
+        side: THREE.DoubleSide
+      });
+
+      datumPlaneMesh = new THREE.Mesh(geom, mat);
+
+      const rotMatrix = new THREE.Matrix4().makeBasis(localFrame.uDir, localFrame.vDir, localFrame.nDir);
+      datumPlaneMesh.rotation.setFromRotationMatrix(rotMatrix);
+
+      const planePos = localFrame.origin.clone().addScaledVector(localFrame.nDir, totalOffset);
+      datumPlaneMesh.position.copy(planePos);
+      datumPlaneMesh.userData.totalOffset = totalOffset;
+
+      scene.add(datumPlaneMesh);
+    }
+
+    function generateStations() {
+      while (stationsGroup.children.length > 0) stationsGroup.remove(stationsGroup.children[0]);
+      generatedTemplates = [];
+
+      const interval = parseFloat(document.getElementById('inp-interval').value) || 300;
+      const woodMargin = parseFloat(document.getElementById('inp-wood-margin').value) || 100;
+
+      const pos = plateMesh.geometry.attributes.position.array;
+      let minU = Infinity, maxU = -Infinity;
+      const pt = new THREE.Vector3();
+
+      for (let i = 0; i < pos.length; i += 3) {
+        pt.set(pos[i], pos[i+1], pos[i+2]).sub(localFrame.origin);
+        const u = pt.dot(localFrame.uDir);
+        if (u < minU) minU = u;
+        if (u > maxU) maxU = u;
+      }
+
+      const listEl = document.getElementById('template-export-list');
+      listEl.innerHTML = '';
+      let idx = 1;
+
+      for (let u = minU + interval / 2; u < maxU; u += interval) {
+        const cutPlanePos = localFrame.origin.clone().addScaledVector(localFrame.uDir, u);
+        const cutPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(localFrame.uDir, cutPlanePos);
+
+        const segs = sliceMesh(plateMesh, cutPlane);
+        if (segs.length < 2) continue;
+
+        const pts = sortPoints(segs);
+        if (pts.length < 2) continue;
+
+        const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+        const line = new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 }));
+        stationsGroup.add(line);
+
+        const tmplName = `Template_Stn_${idx}_at_${Math.round(u)}mm`;
+        generatedTemplates.push({ name: tmplName, pts: pts, margin: woodMargin });
+
+        const div = document.createElement('div');
+        div.className = 'tmpl-item';
+        div.innerHTML = `
+          <span><b>${tmplName}</b></span>
+          <button class="tmpl-dxf-btn" onclick="exportDXF(${generatedTemplates.length - 1})">Export DXF</button>
+        `;
+        listEl.appendChild(div);
+        idx++;
+      }
+    }
+
+    function sliceMesh(mesh, plane) {
+      const pos = mesh.geometry.attributes.position.array;
+      const segments = [];
+      for (let i = 0; i < pos.length; i += 9) {
+        const a = new THREE.Vector3(pos[i], pos[i+1], pos[i+2]);
+        const b = new THREE.Vector3(pos[i+3], pos[i+4], pos[i+5]);
+        const c = new THREE.Vector3(pos[i+6], pos[i+7], pos[i+8]);
+
+        const da = plane.distanceToPoint(a), db = plane.distanceToPoint(b), dc = plane.distanceToPoint(c);
+        const pts = [];
+        if (da * db < 0) pts.push(new THREE.Vector3().lerpVectors(a, b, da / (da - db)));
+        if (db * dc < 0) pts.push(new THREE.Vector3().lerpVectors(b, c, db / (db - dc)));
+        if (dc * da < 0) pts.push(new THREE.Vector3().lerpVectors(c, a, dc / (dc - da)));
+
+        if (pts.length === 2) segments.push({ a: pts[0], b: pts[1] });
+      }
+      return segments;
+    }
+
+    function sortPoints(segs) {
+      const pts = [segs[0].a, segs[0].b];
+      const pool = segs.slice(1);
+      while (pool.length > 0) {
+        const tip = pts[pts.length - 1];
+        let found = -1, rev = false;
+        for (let i = 0; i < pool.length; i++) {
+          if (tip.distanceTo(pool[i].a) < 1.0) { found = i; rev = false; break; }
+          if (tip.distanceTo(pool[i].b) < 1.0) { found = i; rev = true; break; }
+        }
+        if (found !== -1) {
+          const s = pool.splice(found, 1)[0];
+          pts.push(rev ? s.a : s.b);
+        } else break;
+      }
+      return pts;
+    }
+
+    function setupTouchProbe() {
+      const dom = renderer.domElement;
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      const hudVal = document.getElementById('hud-probe-depth');
+      const hudCoord = document.getElementById('hud-probe-coord');
+      const pin = document.getElementById('touch-pin');
+
+      function inspectDepth(cx, cy) {
+        const rect = dom.getBoundingClientRect();
+        mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+
+        if (!plateMesh || !datumPlaneMesh) return;
+        const hits = raycaster.intersectObject(plateMesh, false);
+
+        if (hits.length > 0) {
+          const hitPt = hits[0].point;
+          const planePt = datumPlaneMesh.position;
+          const diff = new THREE.Vector3().subVectors(planePt, hitPt);
+          const depth = Math.abs(diff.dot(localFrame.nDir));
+
+          hudVal.innerText = depth.toFixed(1) + ' mm';
+          hudCoord.innerText = `X:${hitPt.x.toFixed(0)} Y:${hitPt.y.toFixed(0)} Z:${hitPt.z.toFixed(0)}`;
+
+          pin.style.left = cx + 'px';
+          pin.style.top = cy + 'px';
+          pin.style.display = 'block';
+
+          while (probeIndicatorGroup.children.length > 0) probeIndicatorGroup.remove(probeIndicatorGroup.children[0]);
+          const topOnPlane = hitPt.clone().addScaledVector(localFrame.nDir, depth);
+          const lGeom = new THREE.BufferGeometry().setFromPoints([hitPt, topOnPlane]);
+          probeIndicatorGroup.add(new THREE.Line(lGeom, new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 })));
+        } else {
+          pin.style.display = 'none';
+        }
+      }
+
+      dom.addEventListener('pointermove', (e) => inspectDepth(e.clientX, e.clientY));
+      dom.addEventListener('pointerdown', (e) => inspectDepth(e.clientX, e.clientY));
+    }
+
+    window.exportDXF = function(idx) {
+      const item = generatedTemplates[idx];
+      if (!item) return;
+
+      const pts3D = item.pts;
+      const origin = pts3D[0];
+      const endPt = pts3D[pts3D.length - 1];
+      const chord = new THREE.Vector3().subVectors(endPt, origin).normalize();
+
+      const pts2D = pts3D.map(p => {
+        const diff = new THREE.Vector3().subVectors(p, origin);
+        return { x: diff.dot(chord), y: diff.dot(localFrame.nDir) };
+      });
+
+      const minY = Math.min(...pts2D.map(p => p.y));
+      const baseLine = minY - item.margin;
+
+      let dxf = "0\nSECTION\n2\nENTITIES\n";
+      for (let i = 0; i < pts2D.length - 1; i++) {
+        dxf += `0\nLINE\n8\nPLATE_CURVE\n10\n${pts2D[i].x.toFixed(2)}\n20\n${pts2D[i].y.toFixed(2)}\n11\n${pts2D[i+1].x.toFixed(2)}\n21\n${pts2D[i+1].y.toFixed(2)}\n`;
+      }
+      const s = pts2D[0], e = pts2D[pts2D.length - 1];
+      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${s.x.toFixed(2)}\n20\n${s.y.toFixed(2)}\n11\n${s.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
+      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${e.x.toFixed(2)}\n20\n${e.y.toFixed(2)}\n11\n${e.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
+      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${s.x.toFixed(2)}\n20\n${baseLine.toFixed(2)}\n11\n${e.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
+      dxf += "0\nENDSEC\n0\nEOF\n";
+
+      const blob = new Blob([dxf], { type: 'application/dxf' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${item.name}.dxf`;
+      a.click();
+    };
+
+    function setupUI() {
+      const slider = document.getElementById('slider-plane-offset');
+      const lbl = document.getElementById('lbl-plane-offset');
+
+      slider.addEventListener('input', () => {
+        lbl.innerText = slider.value + ' mm';
+        buildParallelPlane();
+      });
+
+      document.getElementById('btn-recalc').addEventListener('click', () => {
+        buildParallelPlane();
+        generateStations();
+      });
+
+      document.getElementById('btn-toggle-plane').addEventListener('click', () => {
+        if (datumPlaneMesh) datumPlaneMesh.visible = !datumPlaneMesh.visible;
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
