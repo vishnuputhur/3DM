@@ -42,7 +42,7 @@ const dimensionLinesGroup = new THREE.Group();
 let currentScale = window.innerWidth >= 768 ? 1.25 : 1.0;
 let activeProfile = localStorage.getItem('vt_viewer_profile') || 'PRO';
 
-// Active File Name Tracking (കളർ സേവിംഗിനായി)
+// Active File Name Tracking
 let currentLoadedFileName = 'model.vts';
 
 // Magnifier Loupe State
@@ -77,7 +77,7 @@ function initDB() {
 }
 
 async function saveModelToStorage(name, buffer) {
-  if (!dbAvailable) return;
+  if (!dbAvailable || !buffer) return;
   return new Promise((resolve) => {
     try {
       const tx = db.transaction([STORE_NAME], 'readwrite');
@@ -130,7 +130,7 @@ function encodeModelToBinaryVTS() {
   const parts = [];
 
   meshList.forEach(m => {
-    if (!m.geometry || !m.geometry.attributes.position) return;
+    if (!m.isMesh || !m.geometry || !m.geometry.attributes.position) return;
     const pos = m.geometry.attributes.position.array;
     const nameBytes = new TextEncoder().encode(m.userData.name || 'Part');
     const layerBytes = new TextEncoder().encode(m.userData.layerName || 'Default');
@@ -145,6 +145,8 @@ function encodeModelToBinaryVTS() {
 
     parts.push({ nameBytes, namePad, layerBytes, layerPad, color, pos });
   });
+
+  if (parts.length === 0) return null;
 
   const buffer = new ArrayBuffer(totalBytes);
   const view = new DataView(buffer);
@@ -330,7 +332,7 @@ function onWindowResize() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 4. MODEL PARSERS (3D DXF, STEP, IGES, RHINO 3DM)
+// 4. MODEL LIFECYCLE & HIGH-SPEED DXF BATCH ENGINE
 // ═══════════════════════════════════════════════════════════
 function clearModelScene() {
   while (modelRoot.children.length > 0) modelRoot.remove(modelRoot.children[0]);
@@ -355,73 +357,97 @@ function calibrateModelView() {
   hideLoader();
 }
 
-// 3D & 2D DXF PARSER ENGINE (BLOCKS & INSERTS SUPPORTED)
+// ഹൈ-സ്പീഡ് ബാച്ച്ഡ് 3D DXF പാർസർ (ലാഗ് പൂർണ്ണമായി ഒഴിവാക്കിയത്)
 function loadDxfBuffer(textData, fileName) {
-  showLoader(`Parsing 3D DXF: ${fileName}...`);
+  showLoader(`Processing 3D DXF: ${fileName}...`);
   clearModelScene();
 
-  try {
-    if (typeof DxfParser === 'undefined') {
-      throw new Error('dxf-parser.js library not found. Please ensure it is linked.');
-    }
+  setTimeout(() => {
+    try {
+      if (typeof DxfParser === 'undefined') {
+        throw new Error('dxf-parser.js library not found. Please ensure it is linked.');
+      }
 
-    const parser = new DxfParser();
-    const dxf = parser.parseSync(textData);
+      const parser = new DxfParser();
+      const dxf = parser.parseSync(textData);
 
-    if (!dxf) {
-      throw new Error('Unable to read DXF structure.');
-    }
+      if (!dxf) {
+        throw new Error('Unable to read DXF structure.');
+      }
 
-    const layerColors = {};
-    if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
-      Object.keys(dxf.tables.layer.layers).forEach(k => {
-        const lyr = dxf.tables.layer.layers[k];
-        if (lyr.color) layerColors[k] = lyr.color;
-      });
-    }
+      const layerColors = {};
+      if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
+        Object.keys(dxf.tables.layer.layers).forEach(k => {
+          const lyr = dxf.tables.layer.layers[k];
+          if (lyr.color) layerColors[k] = lyr.color;
+        });
+      }
 
-    const defaultColor = 0x3b82f6;
-    const allEntities = [...(dxf.entities || [])];
+      const allEntities = [...(dxf.entities || [])];
+      if (dxf.blocks) {
+        Object.keys(dxf.blocks).forEach(bKey => {
+          const blk = dxf.blocks[bKey];
+          if (blk && blk.entities) allEntities.push(...blk.entities);
+        });
+      }
 
-    if (dxf.blocks) {
-      Object.keys(dxf.blocks).forEach(bKey => {
-        const blk = dxf.blocks[bKey];
-        if (blk && blk.entities) {
-          allEntities.push(...blk.entities);
+      if (allEntities.length === 0) {
+        throw new Error('DXF file did not contain any readable CAD entities.');
+      }
+
+      // ലെയർ അനുസരിച്ച് ത്രികോണങ്ങളെയും ലൈനുകളെയും ഗ്രൂപ്പ് ചെയ്യുന്നു (Batching)
+      const layerFaces = {};
+      const layerLines = {};
+
+      allEntities.forEach(entity => {
+        const lName = entity.layer || 'Default';
+
+        // 3D ഫേസുകൾ
+        if (entity.type === '3DFACE' || entity.type === 'SOLID') {
+          const v = entity.vertices;
+          if (!v || v.length < 3) return;
+
+          if (!layerFaces[lName]) layerFaces[lName] = [];
+          layerFaces[lName].push(v[0].x, v[0].y, v[0].z || 0);
+          layerFaces[lName].push(v[1].x, v[1].y, v[1].z || 0);
+          layerFaces[lName].push(v[2].x, v[2].y, v[2].z || 0);
+
+          if (v.length >= 4 && (v[2].x !== v[3].x || v[2].y !== v[3].y || (v[2].z || 0) !== (v[3].z || 0))) {
+            layerFaces[lName].push(v[0].x, v[0].y, v[0].z || 0);
+            layerFaces[lName].push(v[2].x, v[2].y, v[2].z || 0);
+            layerFaces[lName].push(v[3].x, v[3].y, v[3].z || 0);
+          }
+        }
+        // ലൈനുകളും കർവുകളും
+        else if (['LINE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE'].includes(entity.type)) {
+          if (!layerLines[lName]) layerLines[lName] = [];
+          if (entity.type === 'LINE' && entity.vertices && entity.vertices.length >= 2) {
+            layerLines[lName].push(entity.vertices[0].x, entity.vertices[0].y, entity.vertices[0].z || 0);
+            layerLines[lName].push(entity.vertices[1].x, entity.vertices[1].y, entity.vertices[1].z || 0);
+          } else if (entity.vertices && entity.vertices.length >= 2) {
+            for (let i = 0; i < entity.vertices.length - 1; i++) {
+              layerLines[lName].push(entity.vertices[i].x, entity.vertices[i].y, entity.vertices[i].z || 0);
+              layerLines[lName].push(entity.vertices[i + 1].x, entity.vertices[i + 1].y, entity.vertices[i + 1].z || 0);
+            }
+          }
         }
       });
-    }
 
-    if (allEntities.length === 0) {
-      throw new Error('DXF file did not contain any usable CAD elements.');
-    }
+      let loadedCount = 0;
 
-    allEntities.forEach((entity, idx) => {
-      const layerName = entity.layer || 'Default';
-      const colorHex = layerColors[layerName] ? ('#' + layerColors[layerName].toString(16).padStart(6, '0')) : defaultColor;
-
-      // 1. 3D FACES & SOLIDS
-      if (entity.type === '3DFACE' || entity.type === 'SOLID') {
-        const v = entity.vertices;
-        if (!v || v.length < 3) return;
-
-        const positions = [];
-        positions.push(v[0].x, v[0].y, v[0].z || 0);
-        positions.push(v[1].x, v[1].y, v[1].z || 0);
-        positions.push(v[2].x, v[2].y, v[2].z || 0);
-
-        if (v.length >= 4 && (v[2].x !== v[3].x || v[2].y !== v[3].y || (v[2].z || 0) !== (v[3].z || 0))) {
-          positions.push(v[0].x, v[0].y, v[0].z || 0);
-          positions.push(v[2].x, v[2].y, v[2].z || 0);
-          positions.push(v[3].x, v[3].y, v[3].z || 0);
-        }
+      // 1. ഫേസുകൾ ഒരൊറ്റ മെഷ് ആയി ബിൽഡ് ചെയ്യുന്നു (കളറും സ്കിന്നും സഹിതം)
+      Object.keys(layerFaces).forEach(lName => {
+        const coords = layerFaces[lName];
+        if (coords.length === 0) return;
 
         const geom = new THREE.BufferGeometry();
-        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(coords, 3));
         geom.computeVertexNormals();
 
+        let resolvedColor = layerColors[lName] ? ('#' + layerColors[lName].toString(16).padStart(6, '0')) : 0x3b82f6;
+
         const mat = new THREE.MeshStandardMaterial({
-          color: colorHex,
+          color: resolvedColor,
           roughness: 0.35,
           metalness: 0.2,
           side: THREE.DoubleSide,
@@ -432,9 +458,9 @@ function loadDxfBuffer(textData, fileName) {
 
         const mesh = new THREE.Mesh(geom, mat);
         mesh.userData = {
-          name: `DXF_Plate_${idx + 1}`,
-          layerName: layerName,
-          originalColor: new THREE.Color(colorHex).getHex()
+          name: `${lName}_Plates`,
+          layerName: lName,
+          originalColor: new THREE.Color(resolvedColor).getHex()
         };
 
         try {
@@ -449,82 +475,55 @@ function loadDxfBuffer(textData, fileName) {
 
         modelRoot.add(mesh);
         meshList.push(mesh);
-      }
-      // 2. 3D LINES, POLYLINES & SPLINES
-      else if (['LINE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE'].includes(entity.type)) {
-        const pts = [];
-        if (entity.type === 'LINE') {
-          if (entity.vertices && entity.vertices.length >= 2) {
-            pts.push(new THREE.Vector3(entity.vertices[0].x, entity.vertices[0].y, entity.vertices[0].z || 0));
-            pts.push(new THREE.Vector3(entity.vertices[1].x, entity.vertices[1].y, entity.vertices[1].z || 0));
-          }
-        } else if (entity.vertices) {
-          entity.vertices.forEach(p => pts.push(new THREE.Vector3(p.x, p.y, p.z || 0)));
-        } else if (entity.controlPoints) {
-          entity.controlPoints.forEach(p => pts.push(new THREE.Vector3(p.x, p.y, p.z || 0)));
-        }
+        loadedCount++;
+      });
 
-        if (pts.length >= 2) {
-          const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
-          const lineMat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 1.5 });
-          const lineObj = new THREE.Line(lineGeom, lineMat);
-          lineObj.userData = {
-            name: `DXF_Line_${idx + 1}`,
-            layerName: layerName,
-            originalColor: new THREE.Color(colorHex).getHex()
-          };
+      // 2. ലൈനുകൾ ഒരൊറ്റ ലൈൻ-സെഗ്‌മെന്റായി ഒപ്റ്റിമൈസ് ചെയ്യുന്നു
+      Object.keys(layerLines).forEach(lName => {
+        const coords = layerLines[lName];
+        if (coords.length === 0) return;
 
-          modelRoot.add(lineObj);
-          meshList.push(lineObj);
-          edgeLinesList.push(lineObj);
-        }
-      }
-      // 3. ARCS & CIRCLES
-      else if (entity.type === 'ARC' || entity.type === 'CIRCLE') {
-        const center = entity.center || { x: 0, y: 0, z: 0 };
-        const radius = entity.radius || 10;
-        const startAngle = entity.startAngle || 0;
-        const endAngle = entity.endAngle || (Math.PI * 2);
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(coords, 3));
 
-        const curve = new THREE.ArcCurve(center.x, center.y, radius, startAngle, endAngle, false);
-        const pts2D = curve.getPoints(32);
-        const pts3D = pts2D.map(p => new THREE.Vector3(p.x, p.y, center.z || 0));
+        let resolvedColor = layerColors[lName] ? ('#' + layerColors[lName].toString(16).padStart(6, '0')) : 0x0284c7;
+        const lineMat = new THREE.LineBasicMaterial({ color: resolvedColor, linewidth: 1.5 });
+        const lineSegments = new THREE.LineSegments(geom, lineMat);
 
-        const arcGeom = new THREE.BufferGeometry().setFromPoints(pts3D);
-        const arcMat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 1.5 });
-        const arcObj = new THREE.Line(arcGeom, arcMat);
-        arcObj.userData = {
-          name: `DXF_Arc_${idx + 1}`,
-          layerName: layerName,
-          originalColor: new THREE.Color(colorHex).getHex()
+        lineSegments.userData = {
+          name: `${lName}_Frames`,
+          layerName: lName,
+          originalColor: new THREE.Color(resolvedColor).getHex()
         };
 
-        modelRoot.add(arcObj);
-        meshList.push(arcObj);
-        edgeLinesList.push(arcObj);
+        modelRoot.add(lineSegments);
+        meshList.push(lineSegments);
+        edgeLinesList.push(lineSegments);
+        loadedCount++;
+      });
+
+      if (loadedCount === 0) {
+        throw new Error('DXF file did not contain 3D Face or Wireframe elements.');
       }
-    });
 
-    if (meshList.length === 0) {
-      throw new Error('DXF file did not contain 3D Face, Mesh, or Wireframe elements.');
+      calibrateModelView();
+      applyCurrentProfileToMeshes();
+      populateColorPalette();
+
+      // സുരക്ഷിതമായ ബാക്ക്ഗ്രൗണ്ട് സേവിംഗ്
+      setTimeout(async () => {
+        try {
+          const buf = encodeModelToBinaryVTS();
+          if (buf) await saveModelToStorage(fileName, buf);
+        } catch (e) {}
+      }, 200);
+
+    } catch (err) {
+      alert('DXF Parse Error:\n' + err.message);
+    } finally {
+      hideLoader();
     }
-
-    calibrateModelView();
-    applyCurrentProfileToMeshes();
-    populateColorPalette();
-
-    setTimeout(async () => {
-      try {
-        const buf = encodeModelToBinaryVTS();
-        await saveModelToStorage(fileName, buf);
-      } catch (e) {}
-    }, 150);
-
-  } catch (err) {
-    alert('DXF Parse Error:\n' + err.message);
-  } finally {
-    hideLoader();
-  }
+  }, 50);
 }
 
 async function loadStepOrIgesBuffer(buffer, fileName) {
@@ -602,9 +601,9 @@ async function loadStepOrIgesBuffer(buffer, fileName) {
     setTimeout(async () => {
       try {
         const buf = encodeModelToBinaryVTS();
-        await saveModelToStorage(fileName, buf);
+        if (buf) await saveModelToStorage(fileName, buf);
       } catch (e) {}
-    }, 150);
+    }, 200);
 
   } catch (err) {
     alert('CAD Read Error:\n' + err.message);
@@ -752,9 +751,9 @@ function loadRhinoDoc(doc, originalFileName) {
       setTimeout(async () => {
         try {
           const buf = encodeModelToBinaryVTS();
-          await saveModelToStorage(originalFileName, buf);
+          if (buf) await saveModelToStorage(originalFileName, buf);
         } catch (e) {}
-      }, 150);
+      }, 200);
     }
   } catch (err) {
     console.error('Rendering failed:', err);
@@ -1047,11 +1046,10 @@ function setupColorPaletteEvents() {
       populateColorPalette();
       document.getElementById('swatch-picker').style.display = 'none';
 
-      // കളർ മാറ്റി കഴിഞ്ഞാൽ തൽക്ഷണം ബാക്ക്ഗ്രൗണ്ടിൽ .vts ലേക്ക് അപ്‌ഡേറ്റ് ചെയ്തു സേവ് ചെയ്യുന്നു
       if (currentLoadedFileName) {
         try {
           const buf = encodeModelToBinaryVTS();
-          await saveModelToStorage(currentLoadedFileName, buf);
+          if (buf) await saveModelToStorage(currentLoadedFileName, buf);
         } catch (err) {
           console.warn('Auto-save color state failed:', err);
         }
@@ -1868,7 +1866,6 @@ function handleFileSelect(evt) {
         alert('Error parsing DXF:\n' + err.message);
       } finally {
         evt.target.value = '';
-        hideLoader();
       }
     };
     reader.readAsText(file);
@@ -1909,7 +1906,7 @@ function hideLoader() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 15. BOOTSTRAP INITIALIZATION (AUTO RECENT LAUNCH)
+// 15. BOOTSTRAP INITIALIZATION
 // ═══════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
   initThree();
