@@ -23,6 +23,35 @@
 
   <!-- External Stylesheet -->
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Floating Side Forming Popup Button */
+    #btn-forming-popup {
+      position: absolute;
+      top: 76px;
+      right: 14px;
+      z-index: 25;
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 10px 14px;
+      border-radius: 24px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.45);
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 7px;
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #btn-forming-popup:active {
+      transform: scale(0.96);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.7) translateY(-8px); opacity: 0; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+  </style>
 </head>
 <body>
 
@@ -36,6 +65,11 @@
     <div class="crosshair-v"></div>
     <canvas id="loupe-canvas" width="140" height="140"></canvas>
   </div>
+
+  <!-- FLOATING SIDE POPUP BUTTON FOR FORMING STUDIO -->
+  <button id="btn-forming-popup" title="Open selected shell in Forming Studio">
+    <span>📐 Forming Studio</span>
+  </button>
 
   <!-- HEADER -->
   <header class="hud-glass">
@@ -286,7 +320,7 @@
   <!-- Main Modular App Logic -->
   <script src="app.js"></script>
 
-  <!-- PWA Service Worker Registration -->
+  <!-- PWA Service Worker & Forming Bridge Logic -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -295,6 +329,75 @@
           .catch((err) => console.warn('Service Worker Init Failed:', err));
       });
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // FLOATING POPUP FORMING BRIDGE & AUTO-RECENT ON LAUNCH
+    // ═══════════════════════════════════════════════════════════
+    window.addEventListener('DOMContentLoaded', () => {
+      const popupBtn = document.getElementById('btn-forming-popup');
+
+      // 1. പ്ലേറ്റ് ക്ലിക്ക് ചെയ്യുമ്പോൾ പോപ്പ്-അപ്പ് ബട്ടൺ കാണിക്കാൻ ലിസണർ
+      window.addEventListener('pointerup', () => {
+        setTimeout(() => {
+          if (typeof selectedObject !== 'undefined' && selectedObject && selectedObject.geometry) {
+            popupBtn.style.display = 'flex';
+          } else {
+            popupBtn.style.display = 'none';
+          }
+        }, 50);
+      });
+
+      // 2. പോപ്പ്-അപ്പ് ബട്ടൺ അമർത്തുമ്പോൾ പ്ലേറ്റ് ഫോമിംഗ് സ്റ്റുഡിയോയിലേക്ക് അയക്കുന്നു
+      if (popupBtn) {
+        popupBtn.addEventListener('click', () => {
+          if (!selectedObject || !selectedObject.geometry) return;
+
+          const geom = selectedObject.geometry;
+          const posAttr = geom.attributes.position;
+          if (!posAttr) return;
+
+          const worldVertices = [];
+          const v = new THREE.Vector3();
+          for (let i = 0; i < posAttr.count; i++) {
+            v.fromBufferAttribute(posAttr, i);
+            v.applyMatrix4(selectedObject.matrixWorld);
+            worldVertices.push(v.x, v.y, v.z);
+          }
+
+          const exportPayload = {
+            name: selectedObject.userData.name || 'Shell_Plate',
+            layer: selectedObject.userData.layerName || 'Default',
+            color: (selectedObject.material && selectedObject.material.color) 
+                   ? selectedObject.material.color.getHex() 
+                   : 0x38bdf8,
+            vertices: worldVertices,
+            timestamp: Date.now()
+          };
+
+          try {
+            localStorage.setItem('vt_forming_plate_data', JSON.stringify(exportPayload));
+            window.location.href = 'forming.html';
+          } catch (err) {
+            alert('Error transferring plate data: ' + err.message);
+          }
+        });
+      }
+
+      // 3. പേജ് ലോഡ് ആകുമ്പോൾ തന്നെ റീസെന്റ് ഫയലുകൾ ഓട്ടോമാറ്റിക് ആയി ഡിസ്പ്ലേ ചെയ്യുന്നു
+      setTimeout(async () => {
+        try {
+          if (typeof initDB === 'function' && typeof getAllRecentModels === 'function' && typeof showRecentModal === 'function') {
+            await initDB();
+            const recents = await getAllRecentModels();
+            if (recents && recents.length > 0) {
+              showRecentModal();
+            }
+          }
+        } catch (e) {
+          console.warn('Auto recent popup check:', e);
+        }
+      }, 150);
+    });
   </script>
 </body>
 </html>
