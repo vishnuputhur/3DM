@@ -30,6 +30,7 @@ let girthPoints = [], girthMarkers = [], girthLine = null;
 let anglePoints = [], angleMarkers = [], angleLines = [];
 let coordMarker = null;
 
+let currentMode = 'view';
 let isFrozen = false, isXRay = false, isDarkMode = false;
 let snapCursorEl = null, activeSnappedPoint = null, selectedColorDotHex = null;
 let selectedObject = null, selectedLocalBox = null;
