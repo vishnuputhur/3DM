@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2.1.2'; // വേർഷൻ അപ്ഡേറ്റ് ചെയ്തു
+const CACHE_VERSION = 'v2.1.3'; // വേർഷൻ അപ്ഡേറ്റ് ചെയ്തു
 const CACHE_NAME = `csl-3d-viewer-${CACHE_VERSION}`;
 
 const ASSETS_TO_CACHE = [
