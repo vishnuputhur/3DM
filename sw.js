@@ -1,18 +1,21 @@
-const CACHE_VERSION = 'v2.0.10'; // വേർഷൻ അപ്ഡേറ്റ് ചെയ്തു
+const CACHE_VERSION = 'v2.0.11'; // വേർഷൻ അപ്ഡേറ്റ് ചെയ്തു
 const CACHE_NAME = `csl-3d-viewer-${CACHE_VERSION}`;
 
 const ASSETS_TO_CACHE = [
-  './',
+   './',
   './index.html',
-  './style.css',      // സ്പ്ലിറ്റ് ചെയ്ത പുതിയ സി.എസ്.എസ്
-  './app.js',         // സ്പ്ലിറ്റ് ചെയ്ത പുതിയ ജെ.എസ്
+  './style.css',
+  './app.js',
   './manifest.json',
   './three.min.js',
   './OrbitControls.js',
   './rhino3dm.min.js',
   './rhino3dm.wasm',
-  './logo.png',
-  './icon-192.png'
+  './occt-import-js.js',
+  './occt-import-js.wasm',
+  './dxf-parser.js',
+  './icon-192.png',
+  './logo.png'
 ];
 
 // 1. ഇൻസ്റ്റാളേഷൻ ഘട്ടം (പുതിയ ഫയലുകൾ നിർബന്ധമായും ഡൗൺലോഡ് ചെയ്യുന്നു)
