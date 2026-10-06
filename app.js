@@ -82,9 +82,8 @@ function resolveAciColor(colorVal, defaultHex = 0x38bdf8) {
     return defaultHex;
   }
   if (typeof colorVal === 'number') {
-    const absVal = Math.abs(colorVal);
-    if (absVal > 0 && absVal < ACI_COLORS.length) return ACI_COLORS[absVal];
-    if (absVal > 255) return absVal; // TrueColor
+    if (colorVal > 0 && colorVal < ACI_COLORS.length) return ACI_COLORS[colorVal];
+    if (colorVal > 255) return colorVal; // TrueColor
   }
   return defaultHex;
 }
@@ -168,7 +167,7 @@ function encodeModelToBinaryVTS() {
   const parts = [];
 
   meshList.forEach(m => {
-    if (!m.isMesh || !m.geometry || !m.geometry.attributes.position) return;
+    if (!m.geometry || !m.geometry.attributes.position) return;
     const pos = m.geometry.attributes.position.array;
     const nameBytes = new TextEncoder().encode(m.userData.name || 'Part');
     const layerBytes = new TextEncoder().encode(m.userData.layerName || 'Default');
@@ -262,7 +261,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION WITH ENHANCED CONTRAST LIGHTING
+// 3. THREE.JS INITIALIZATION WITH BALANCED LIGHTING
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -292,10 +291,10 @@ function initThree() {
   controls.panSpeed = 0.8;
   controls.screenSpacePanning = true;
 
-  ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+  ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
   scene.add(ambientLight);
 
-  hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.45);
+  hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.4);
   hemiLight.position.set(0, 0, 5000);
   scene.add(hemiLight);
 
@@ -387,10 +386,10 @@ function calibrateModelView() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3D DXF MULTI-PART & RESTORED VIBRANT COLOR LOADER (HIGH SPEED & NON-BLOCKING)
+// 3D DXF ADVANCED SMART-GROUPING & COMPLETE COLOR ENGINE
 // ═══════════════════════════════════════════════════════════
 function loadDxfBuffer(textData, fileName) {
-  showLoader(`Reconstructing CAD Elements...`);
+  showLoader(`Reconstructing CAD Members with Original Colors...`);
   clearModelScene();
 
   setTimeout(() => {
@@ -404,9 +403,9 @@ function loadDxfBuffer(textData, fileName) {
 
       if (!dxf) throw new Error('Corrupted or unreadable DXF structure.');
 
-      // 1. ലെയർ കളറുകൾ കൃത്യമായി പിടിച്ചെടുക്കുന്നു
+      // 1. ഒറിജിനൽ ലെയർ കളർ മാപ്പർ (കൃത്യമായ അതേ വർക്കിംഗ് കോഡ്)
       const layerColorMap = {};
-      const layerTable = (dxf.tables && (dxf.tables.layer?.layers || dxf.tables.layers || dxf.tables.layer)) || {};
+      const layerTable = (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) ? dxf.tables.layer.layers : (dxf.tables && dxf.tables.layers) ? dxf.tables.layers : {};
       
       Object.keys(layerTable).forEach(k => {
         const lyr = layerTable[k];
@@ -415,19 +414,10 @@ function loadDxfBuffer(textData, fileName) {
         }
       });
 
-      // 2. INSERT (Nested Block References) അൺപാക്ക് ചെയ്ത് പാർട്ട് നെയിമും ലൊക്കേഷനും എടുക്കുന്നു
+      // 2. INSERT (Nested Block References) അൺപാക്ക് ചെയ്ത് ഒറിജിനൽ പാർട്ട് നെയിം സൂക്ഷിക്കുന്നു
       const expandedEntities = [];
 
-      function processEntity(ent, transformMatrix, parentName, parentColor, parentLayer) {
-        const effectiveLayer = (ent.layer && ent.layer !== '0') ? ent.layer : (parentLayer || 'Default');
-
-        let activeColor = parentColor;
-        if (ent.color !== undefined && ent.color !== 0 && ent.color !== 256) {
-          activeColor = resolveAciColor(ent.color);
-        } else if (layerColorMap[effectiveLayer] !== undefined) {
-          activeColor = layerColorMap[effectiveLayer];
-        }
-
+      function processEntity(ent, transformMatrix, parentColor, parentBlock) {
         if (ent.type === 'INSERT') {
           const blkName = ent.name;
           if (dxf.blocks && dxf.blocks[blkName] && dxf.blocks[blkName].entities) {
@@ -449,11 +439,14 @@ function loadDxfBuffer(textData, fileName) {
             );
 
             const combinedMatrix = transformMatrix ? new THREE.Matrix4().multiplyMatrices(transformMatrix, m) : m;
-            const currentName = blkName || parentName;
+            const currentInsertColor = (ent.color !== undefined && ent.color !== 0 && ent.color !== 256)
+              ? resolveAciColor(ent.color)
+              : parentColor;
 
             blk.entities.forEach(bEnt => {
               const cloneEnt = JSON.parse(JSON.stringify(bEnt));
-              processEntity(cloneEnt, combinedMatrix, currentName, activeColor, effectiveLayer);
+              if (!cloneEnt.layer || cloneEnt.layer === '0') cloneEnt.layer = ent.layer || 'Default';
+              processEntity(cloneEnt, combinedMatrix, currentInsertColor, blkName);
             });
           }
         } else {
@@ -472,61 +465,74 @@ function loadDxfBuffer(textData, fileName) {
               });
             }
           }
-          ent._partName = parentName || null;
-          ent._resolvedColor = activeColor || 0x38bdf8;
-          ent._resolvedLayer = effectiveLayer;
+          ent._inheritedColor = parentColor;
+          ent._blockRefName = parentBlock;
           expandedEntities.push(ent);
         }
       }
 
-      (dxf.entities || []).forEach(ent => processEntity(ent, null, null, null, null));
+      (dxf.entities || []).forEach(ent => processEntity(ent, null, null, null));
 
       if (expandedEntities.length === 0) {
         throw new Error('No renderable 3D entities or frames found in this DXF.');
       }
 
-      // 3. ഓരോ പാർട്ടുകളെയും വേർതിരിച്ച് വെവ്വേറെ സൂക്ഷിക്കുന്നു (By Part & Color)
-      const individualPartsMap = {};
+      // 3. പ്ലേറ്റുകളെ ഒറ്റ ത്രികോണങ്ങളാക്കാതെ പാർട്ട് ലെവലിൽ സ്മാർട്ടായി ഗ്രൂപ്പ് ചെയ്യുന്നു
+      const partBuckets = {};
 
       expandedEntities.forEach((ent, idx) => {
-        const lName = ent._resolvedLayer;
-        const col = ent._resolvedColor;
-        const partId = ent._partName ? `${ent._partName}_${lName}` : `${lName}_Item_${idx + 1}`;
+        const lName = ent.layer || 'Default';
+        
+        let resolvedColor = 0x38bdf8;
+        if (ent.color !== undefined && ent.color !== 0 && ent.color !== 256) {
+          resolvedColor = resolveAciColor(ent.color);
+        } else if (ent._inheritedColor) {
+          resolvedColor = ent._inheritedColor;
+        } else if (layerColorMap[lName] !== undefined) {
+          resolvedColor = layerColorMap[lName];
+        }
 
-        if (!individualPartsMap[partId]) {
-          individualPartsMap[partId] = { 
-            faces: [], 
-            lines: [], 
-            layer: lName, 
-            color: col, 
-            name: ent._partName || `${lName}_Part_${idx + 1}` 
+        // ഓരോ ബ്ലോക്കും അല്ലെങ്കിൽ ലെയറും അനുസരിച്ച് ഗ്രൂപ്പ് കീ നിർണ്ണയിക്കുന്നു
+        const partKey = ent._blockRefName 
+          ? `BLK_${ent._blockRefName}_${resolvedColor.toString(16)}` 
+          : `LYR_${lName}_${resolvedColor.toString(16)}`;
+
+        const partDisplayName = ent._blockRefName || `${lName}_Member`;
+
+        if (!partBuckets[partKey]) {
+          partBuckets[partKey] = {
+            name: partDisplayName,
+            layer: lName,
+            color: resolvedColor,
+            faceCoords: [],
+            lineCoords: []
           };
         }
 
-        // 3D സർഫസ് പ്ലേറ്റുകൾ (3DFACE, SOLID)
+        // 3D സർഫസ് പ്ലേറ്റുകൾ
         if (ent.type === '3DFACE' || ent.type === 'SOLID') {
           const v = ent.vertices;
           if (!v || v.length < 3) return;
 
-          individualPartsMap[partId].faces.push(v[0].x, v[0].y, v[0].z || 0);
-          individualPartsMap[partId].faces.push(v[1].x, v[1].y, v[1].z || 0);
-          individualPartsMap[partId].faces.push(v[2].x, v[2].y, v[2].z || 0);
+          partBuckets[partKey].faceCoords.push(v[0].x, v[0].y, v[0].z || 0);
+          partBuckets[partKey].faceCoords.push(v[1].x, v[1].y, v[1].z || 0);
+          partBuckets[partKey].faceCoords.push(v[2].x, v[2].y, v[2].z || 0);
 
           if (v.length >= 4 && (v[2].x !== v[3].x || v[2].y !== v[3].y || (v[2].z || 0) !== (v[3].z || 0))) {
-            individualPartsMap[partId].faces.push(v[0].x, v[0].y, v[0].z || 0);
-            individualPartsMap[partId].faces.push(v[2].x, v[2].y, v[2].z || 0);
-            individualPartsMap[partId].faces.push(v[3].x, v[3].y, v[3].z || 0);
+            partBuckets[partKey].faceCoords.push(v[0].x, v[0].y, v[0].z || 0);
+            partBuckets[partKey].faceCoords.push(v[2].x, v[2].y, v[2].z || 0);
+            partBuckets[partKey].faceCoords.push(v[3].x, v[3].y, v[3].z || 0);
           }
         }
         // സ്ട്രക്ചറൽ ഫ്രെയിം ലൈനുകൾ
         else if (['LINE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE'].includes(ent.type)) {
           if (ent.type === 'LINE' && ent.vertices && ent.vertices.length >= 2) {
-            individualPartsMap[partId].lines.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
-            individualPartsMap[partId].lines.push(ent.vertices[1].x, ent.vertices[1].y, ent.vertices[1].z || 0);
+            partBuckets[partKey].lineCoords.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
+            partBuckets[partKey].lineCoords.push(ent.vertices[1].x, ent.vertices[1].y, ent.vertices[1].z || 0);
           } else if (ent.vertices && ent.vertices.length >= 2) {
             for (let i = 0; i < ent.vertices.length - 1; i++) {
-              individualPartsMap[partId].lines.push(ent.vertices[i].x, ent.vertices[i].y, ent.vertices[i].z || 0);
-              individualPartsMap[partId].lines.push(ent.vertices[i + 1].x, ent.vertices[i + 1].y, ent.vertices[i + 1].z || 0);
+              partBuckets[partKey].lineCoords.push(ent.vertices[i].x, ent.vertices[i].y, ent.vertices[i].z || 0);
+              partBuckets[partKey].lineCoords.push(ent.vertices[i + 1].x, ent.vertices[i + 1].y, ent.vertices[i + 1].z || 0);
             }
           }
         }
@@ -534,14 +540,14 @@ function loadDxfBuffer(textData, fileName) {
 
       let loadedCount = 0;
 
-      // 4. ഭാരമേറിയ EdgesGeometry ഇല്ലാതെ ഫാസ്റ്റ് & സ്മൂത്ത് ആയി റെൻഡർ ചെയ്യുന്നു
-      Object.keys(individualPartsMap).forEach(pKey => {
-        const item = individualPartsMap[pKey];
+      // 4. മുഴുവൻ പാർട്ടുകളെയും ഒറിജിനൽ ഷേപ്പിലും കളറിലും റെൻഡർ ചെയ്യുന്നു
+      Object.keys(partBuckets).forEach(k => {
+        const item = partBuckets[k];
 
-        // സർഫസ് പ്ലേറ്റുകൾ
-        if (item.faces.length > 0) {
+        // A. പ്ലേറ്റ് സർഫസ് മെഷുകൾ (സെലക്ട് ചെയ്യുമ്പോൾ മുഴുവൻ പാർട്ടിന്റെ ഷേപ്പ് വരും)
+        if (item.faceCoords.length > 0) {
           const geom = new THREE.BufferGeometry();
-          geom.setAttribute('position', new THREE.Float32BufferAttribute(item.faces, 3));
+          geom.setAttribute('position', new THREE.Float32BufferAttribute(item.faceCoords, 3));
           geom.computeVertexNormals();
 
           const mat = new THREE.MeshStandardMaterial({
@@ -563,19 +569,16 @@ function loadDxfBuffer(textData, fileName) {
           loadedCount++;
         }
 
-        // ഫ്രെയിമുകൾ / ലൈനുകൾ
-        if (item.lines.length > 0) {
+        // B. ഫ്രെയിം വർക്കുകൾ
+        if (item.lineCoords.length > 0) {
           const geom = new THREE.BufferGeometry();
-          geom.setAttribute('position', new THREE.Float32BufferAttribute(item.lines, 3));
+          geom.setAttribute('position', new THREE.Float32BufferAttribute(item.lineCoords, 3));
 
-          const lineMat = new THREE.LineBasicMaterial({ 
-            color: item.color, 
-            linewidth: 1.5 
-          });
+          const lineMat = new THREE.LineBasicMaterial({ color: item.color, linewidth: 1.5 });
           const lineSegments = new THREE.LineSegments(geom, lineMat);
 
           lineSegments.userData = {
-            name: item.name,
+            name: `${item.name}_Frame`,
             layerName: item.layer,
             originalColor: item.color
           };
@@ -1356,16 +1359,20 @@ function clearAngleMeasurement() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 11. INSPECT & WEIGHT CALCULATOR
+// 11. INSPECT & MEMBER THICKNESS / WEIGHT CALCULATOR
 // ═══════════════════════════════════════════════════════════
 const STEEL_DENSITY = 7.85e-6;
 
 function handleInspectClick(hit) {
   selectedObject = hit.object;
+
+  // സെലക്ട് ചെയ്ത പാർട്ട് മാത്രം തെളിഞ്ഞു നിൽക്കാൻ നേരിയ എമിഷൻ
   meshList.forEach(m => {
     if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
   });
-  if (selectedObject.material && selectedObject.material.emissive) selectedObject.material.emissive.setHex(0x38bdf8);
+  if (selectedObject.material && selectedObject.material.emissive) {
+    selectedObject.material.emissive.setHex(0x1e293b);
+  }
 
   document.getElementById('meta-part-name').innerText = selectedObject.userData.name || 'Ship Part';
   document.getElementById('meta-part-layer').innerText = selectedObject.userData.layerName || 'Default';
@@ -1379,13 +1386,24 @@ function handleInspectClick(hit) {
   document.getElementById('part-by').innerText = size.y.toFixed(1);
   document.getElementById('part-bz').innerText = size.z.toFixed(1);
 
+  // മൂന്ന് അളവുകൾ ക്രമീകരിക്കുന്നു: L (നീളം), B (വീതി), T (തിക്ക്നസ്സ്)
   const sortedDims = [size.x, size.y, size.z].sort((a, b) => b - a);
-  const L = sortedDims[0], B = sortedDims[1], T = Math.max(sortedDims[2], 0.5);
-  const weightKg = (L * B * T * 0.7) * STEEL_DENSITY;
+  const L = sortedDims[0];
+  const B = sortedDims[1];
+  const T = Math.max(sortedDims[2], 0.5);
 
+  // തിക്ക്നസ്സ് ഡിസ്പ്ലേ ചെയ്യുന്നു
+  const thickEl = document.getElementById('meta-part-thick') || document.getElementById('part-bt');
+  if (thickEl) thickEl.innerText = T.toFixed(1) + ' mm';
+
+  const weightKg = (L * B * T * 0.7) * STEEL_DENSITY;
   let weightStr = (weightKg < 1) ? (weightKg * 1000).toFixed(0) + ' g' : (weightKg < 1000) ? weightKg.toFixed(2) + ' KG' : (weightKg / 1000).toFixed(3) + ' T';
-  document.getElementById('meta-part-weight').innerText = weightStr;
-  document.getElementById('meta-part-perim').innerText = (2 * (L + B)).toFixed(1) + ' mm';
+  
+  const wEl = document.getElementById('meta-part-weight');
+  if (wEl) wEl.innerText = weightStr;
+
+  const perimEl = document.getElementById('meta-part-perim');
+  if (perimEl) perimEl.innerText = (2 * (L + B)).toFixed(1) + ' mm';
 }
 
 function highlightAxisDimension(axis) {
@@ -1860,12 +1878,19 @@ function setupEvents() {
     });
   }
 
+  // ISOLATE മെമ്പർ + തിക്ക്നസ്സ് കൃത്യമായി ഫോക്കസ് ചെയ്യുന്നു
   const btnIsoPart = document.getElementById('btn-isolate-part');
   if (btnIsoPart) {
     btnIsoPart.addEventListener('click', () => {
       if (!selectedObject) return;
       meshList.forEach(m => m.visible = (m === selectedObject));
+
+      // സെലക്ട് ചെയ്ത മെമ്പറിലേക്ക് ക്യാമറ സ്മൂത്തായി ഫോക്കസ് ചെയ്യുന്നു
+      const b = new THREE.Box3().setFromObject(selectedObject);
+      const c = b.getCenter(new THREE.Vector3());
+      controls.target.copy(c);
       controls.enabled = true;
+      controls.update();
     });
   }
 
