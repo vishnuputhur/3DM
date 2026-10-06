@@ -6,6 +6,9 @@
 let rhinoReady = false;
 let rhinoModule = null;
 
+let occtReady = false;
+let occtEngine = null;
+
 let scene, camera, renderer, controls;
 const modelRoot = new THREE.Group();
 let meshList = [];
@@ -228,7 +231,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION (Z-UP & OPTIMIZED DEPTH BUFFER)
+// 3. THREE.JS INITIALIZATION (Z-UP & OPTIMIZED DEPTH)
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -237,7 +240,6 @@ function initThree() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf1f5f9);
 
-  // Near 10, Far 500000 നൽകിയതിനാൽ Z-Fighting ഇല്ലാതെ സൂം ഔട്ടിലും ലൈനുകൾ ക്ലീൻ ആയി കാണപ്പെടും
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
   camera.up.set(0, 0, 1);
   camera.position.set(4000, -4000, 3000);
@@ -297,6 +299,19 @@ function initRhino() {
   });
 }
 
+async function initOCCT() {
+  if (typeof occtimportjs === 'undefined') return;
+  try {
+    occtEngine = await occtimportjs({
+      locateFile: (name) => './' + name
+    });
+    occtReady = true;
+    console.log('OCCT Lightweight CAD Engine Ready');
+  } catch (err) {
+    console.warn('OCCT Engine load error:', err);
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
   if (controls) controls.update();
@@ -311,7 +326,7 @@ function onWindowResize() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 4. MODEL LIFECYCLE & AUTOMATIC DEFAULT ISOMETRIC VIEW
+// 4. MODEL PARSERS (3D DXF, STEP, IGES, RHINO 3DM)
 // ═══════════════════════════════════════════════════════════
 function clearModelScene() {
   while (modelRoot.children.length > 0) modelRoot.remove(modelRoot.children[0]);
@@ -334,6 +349,225 @@ function calibrateModelView() {
 
   setCameraView('iso');
   hideLoader();
+}
+
+// 3D & 2D DXF PARSER ENGINE
+function loadDxfBuffer(textData, fileName) {
+  showLoader(`Parsing 3D DXF: ${fileName}...`);
+  clearModelScene();
+
+  try {
+    if (typeof DxfParser === 'undefined') {
+      throw new Error('dxf-parser.js library not found. Please ensure it is linked.');
+    }
+
+    const parser = new DxfParser();
+    const dxf = parser.parseSync(textData);
+
+    if (!dxf || !dxf.entities || dxf.entities.length === 0) {
+      throw new Error('No valid CAD entities found in DXF file.');
+    }
+
+    // കളർ പാലറ്റ് ലെയർ വഴി മാപ്പ് ചെയ്യുന്നു
+    const layerColors = {};
+    if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
+      Object.keys(dxf.tables.layer.layers).forEach(k => {
+        const lyr = dxf.tables.layer.layers[k];
+        if (lyr.color) layerColors[k] = lyr.color;
+      });
+    }
+
+    const defaultColor = 0x3b82f6;
+    const meshGroupMap = {};
+
+    dxf.entities.forEach((entity, idx) => {
+      const layerName = entity.layer || 'Default';
+      const colorHex = layerColors[layerName] ? ('#' + layerColors[layerName].toString(16).padStart(6, '0')) : defaultColor;
+
+      // 3DFACE & SOLID
+      if (entity.type === '3DFACE' || entity.type === 'SOLID') {
+        const v = entity.vertices;
+        if (!v || v.length < 3) return;
+
+        const positions = [];
+        positions.push(v[0].x, v[0].y, v[0].z || 0);
+        positions.push(v[1].x, v[1].y, v[1].z || 0);
+        positions.push(v[2].x, v[2].y, v[2].z || 0);
+
+        if (v.length >= 4 && (v[2].x !== v[3].x || v[2].y !== v[3].y || (v[2].z || 0) !== (v[3].z || 0))) {
+          positions.push(v[0].x, v[0].y, v[0].z || 0);
+          positions.push(v[2].x, v[2].y, v[2].z || 0);
+          positions.push(v[3].x, v[3].y, v[3].z || 0);
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geom.computeVertexNormals();
+
+        const mat = new THREE.MeshStandardMaterial({
+          color: colorHex,
+          roughness: 0.35,
+          metalness: 0.2,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: 1,
+          polygonOffsetUnits: 1
+        });
+
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.userData = {
+          name: `DXF_Plate_${idx + 1}`,
+          layerName: layerName,
+          originalColor: new THREE.Color(colorHex).getHex()
+        };
+
+        try {
+          const edges = new THREE.EdgesGeometry(geom, 55);
+          const edgeLine = new THREE.LineSegments(
+            edges,
+            new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 1, transparent: true, opacity: 0.28, depthTest: true })
+          );
+          mesh.add(edgeLine);
+          edgeLinesList.push(edgeLine);
+        } catch (e) {}
+
+        modelRoot.add(mesh);
+        meshList.push(mesh);
+      }
+      // 3D LINES / POLYLINES (സ്ട്രക്ചറൽ ഫ്രെയിമുകൾ മെഷുകളിലേക്ക് സ്നാപ്പ് ചെയ്യാവുന്ന രീതിയിൽ)
+      else if (entity.type === 'LINE' || entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
+        const pts = [];
+        if (entity.type === 'LINE') {
+          pts.push(new THREE.Vector3(entity.vertices[0].x, entity.vertices[0].y, entity.vertices[0].z || 0));
+          pts.push(new THREE.Vector3(entity.vertices[1].x, entity.vertices[1].y, entity.vertices[1].z || 0));
+        } else if (entity.vertices) {
+          entity.vertices.forEach(p => pts.push(new THREE.Vector3(p.x, p.y, p.z || 0)));
+        }
+
+        if (pts.length >= 2) {
+          const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+          const lineMat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 1.5 });
+          const lineObj = new THREE.Line(lineGeom, lineMat);
+          lineObj.userData = {
+            name: `DXF_Line_${idx + 1}`,
+            layerName: layerName,
+            originalColor: new THREE.Color(colorHex).getHex()
+          };
+
+          // സ്നാപ്പിംഗിനായി ലൈൻ വെർട്ടെക്സുകൾ മെഷ് ലിസ്റ്റിലേക്ക് ചേർക്കുന്നു
+          modelRoot.add(lineObj);
+          meshList.push(lineObj);
+          edgeLinesList.push(lineObj);
+        }
+      }
+    });
+
+    if (meshList.length === 0) {
+      throw new Error('DXF file did not contain 3D Face, Mesh, or Wireframe elements.');
+    }
+
+    calibrateModelView();
+    applyCurrentProfileToMeshes();
+    populateColorPalette();
+
+    setTimeout(async () => {
+      try {
+        const buf = encodeModelToBinaryVTS();
+        await saveModelToStorage(fileName, buf);
+      } catch (e) {}
+    }, 150);
+
+  } catch (err) {
+    alert('DXF Parse Error:\n' + err.message);
+  } finally {
+    hideLoader();
+  }
+}
+
+async function loadStepOrIgesBuffer(buffer, fileName) {
+  if (!occtReady || !occtEngine) {
+    throw new Error('CAD Module initializing. Please wait...');
+  }
+
+  showLoader(`Converting CAD: ${fileName}...`);
+  clearModelScene();
+
+  try {
+    const fileBytes = new Uint8Array(buffer);
+    const isStep = fileName.endsWith('.step') || fileName.endsWith('.stp');
+
+    const result = isStep 
+      ? occtEngine.ReadStepFile(fileBytes, null) 
+      : occtEngine.ReadIgesFile(fileBytes, null);
+
+    if (!result || !result.success) {
+      throw new Error('Failed to parse CAD file structure.');
+    }
+
+    result.meshes.forEach((m, idx) => {
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(m.attributes.position.array, 3));
+      if (m.attributes.normal) {
+        geom.setAttribute('normal', new THREE.Float32BufferAttribute(m.attributes.normal.array, 3));
+      } else {
+        geom.computeVertexNormals();
+      }
+      if (m.index) {
+        geom.setIndex(new THREE.BufferAttribute(m.index.array, 1));
+      }
+
+      let col = new THREE.Color(0x38bdf8);
+      if (m.color) {
+        col = new THREE.Color(m.color[0], m.color[1], m.color[2]);
+      }
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: col,
+        roughness: 0.35,
+        metalness: 0.2,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1
+      });
+
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.userData = {
+        name: m.name || `CAD_Part_${idx + 1}`,
+        layerName: isStep ? 'STEP_Body' : 'IGES_Surface',
+        originalColor: col.getHex()
+      };
+
+      try {
+        const edges = new THREE.EdgesGeometry(geom, 55);
+        const edgeLine = new THREE.LineSegments(
+          edges,
+          new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 1, transparent: true, opacity: 0.28, depthTest: true })
+        );
+        mesh.add(edgeLine);
+        edgeLinesList.push(edgeLine);
+      } catch (e) {}
+
+      modelRoot.add(mesh);
+      meshList.push(mesh);
+    });
+
+    calibrateModelView();
+    applyCurrentProfileToMeshes();
+    populateColorPalette();
+
+    setTimeout(async () => {
+      try {
+        const buf = encodeModelToBinaryVTS();
+        await saveModelToStorage(fileName, buf);
+      } catch (e) {}
+    }, 150);
+
+  } catch (err) {
+    alert('CAD Read Error:\n' + err.message);
+  } finally {
+    hideLoader();
+  }
 }
 
 function loadRhinoDoc(doc, originalFileName) {
@@ -375,7 +609,7 @@ function loadRhinoDoc(doc, originalFileName) {
 
     const objects = doc.objects();
     const count = objects ? objects.count : 0;
-    const edgeThreshold = 55; // 45 മാറ്റി 55 നൽകിയതിനാൽ സൂക്ഷ്മ അനാവശ്യ ലൈനുകൾ ഒഴിവാകും
+    const edgeThreshold = 55;
 
     for (let i = 0; i < count; i++) {
       try {
@@ -561,7 +795,6 @@ function clearAllPins() {
   }
 }
 
-// AutoCAD പോലെ തൊട്ടടുത്തുള്ള Vertex (Corner), അല്ലെങ്കിൽ Edge (Line) എന്നിവയിലേക്ക് ഓട്ടോ കാന്തിക സ്നാപ്പ് ചെയ്യുന്നു
 function findMagneticSnapPoint(screenX, screenY) {
   const rect = renderer.domElement.getBoundingClientRect();
   const mouse = new THREE.Vector2(
@@ -577,18 +810,16 @@ function findMagneticSnapPoint(screenX, screenY) {
   const hit = hits[0];
   const geom = hit.object.geometry;
   const posAttr = geom.attributes.position;
-  const index = geom.index;
 
-  const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3();
+  const vA = new THREE.Vector3(), vB = new THREE.Vector3();
   const vScreen = new THREE.Vector3();
 
   let closestCorner = null;
-  let minCornerDist = 32; // Corner സ്നാപ്പ് റേഡിയസ് (Pixels)
+  let minCornerDist = 32;
 
   let closestEdgePt = null;
-  let minEdgeDist = 24;   // Edge സ്നാപ്പ് റേഡിയസ് (Pixels)
+  let minEdgeDist = 24;
 
-  // 1. CORNER (VERTEX) DETECTION
   const checkVertex = (idx) => {
     vA.fromBufferAttribute(posAttr, idx).applyMatrix4(hit.object.matrixWorld);
     vScreen.copy(vA).project(camera);
@@ -601,7 +832,6 @@ function findMagneticSnapPoint(screenX, screenY) {
     }
   };
 
-  // 2. EDGE (LINE SEGMENT) DETECTION
   const checkEdge = (idx1, idx2) => {
     vA.fromBufferAttribute(posAttr, idx1).applyMatrix4(hit.object.matrixWorld);
     vB.fromBufferAttribute(posAttr, idx2).applyMatrix4(hit.object.matrixWorld);
@@ -621,20 +851,17 @@ function findMagneticSnapPoint(screenX, screenY) {
     }
   };
 
-  // Hit ചെയ്ത ത്രികോണത്തിന്റെ (Face) പോയിന്റുകളിൽ നിന്നുള്ള പരിശോധന
   if (hit.face) {
     const a = hit.face.a, b = hit.face.b, c = hit.face.c;
     checkVertex(a); checkVertex(b); checkVertex(c);
     checkEdge(a, b); checkEdge(b, c); checkEdge(c, a);
   } else {
-    // ഇൻഡക്സ് ബഫർ ഇല്ലെങ്കിൽ ആദ്യ 200 വെർട്ടെക്സുകളിൽ അടുത്തുള്ളവ സെർച്ച് ചെയ്യുന്നു
     const count = Math.min(posAttr.count, 300);
     for (let i = 0; i < count; i++) {
       checkVertex(i);
     }
   }
 
-  // Corner-ന് ആദ്യ മുൻഗണന, ഇല്ലെങ്കിൽ Edge, അതുമല്ലെങ്കിൽ Hit Point
   if (closestCorner) {
     return {
       point: closestCorner,
@@ -700,15 +927,14 @@ function renderLoupe(screenX, screenY) {
         0, 0, 140, 140
       );
 
-      // ഓട്ടോ സ്നാപ്പ് ആയ പോയിന്റ് തിരിച്ചറിയാൻ ലെൻസിനുള്ളിൽ കൃത്യമായ ഇൻഡിക്കേറ്റർ
       loupeCtx.save();
       loupeCtx.translate(70, 70);
       if (snap.snapType === 'corner') {
-        loupeCtx.strokeStyle = '#10b981'; // പച്ച ചതുരം (Corner)
+        loupeCtx.strokeStyle = '#10b981';
         loupeCtx.lineWidth = 2.5;
         loupeCtx.strokeRect(-6, -6, 12, 12);
       } else if (snap.snapType === 'edge') {
-        loupeCtx.strokeStyle = '#0284c7'; // നീല ത്രികോണം (Edge)
+        loupeCtx.strokeStyle = '#0284c7';
         loupeCtx.lineWidth = 2.5;
         loupeCtx.beginPath();
         loupeCtx.moveTo(0, -7);
@@ -1036,7 +1262,7 @@ function handleInspectClick(hit) {
   meshList.forEach(m => {
     if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
   });
-  if (selectedObject.material.emissive) selectedObject.material.emissive.setHex(0x38bdf8);
+  if (selectedObject.material && selectedObject.material.emissive) selectedObject.material.emissive.setHex(0x38bdf8);
 
   document.getElementById('meta-part-name').innerText = selectedObject.userData.name || 'Ship Part';
   document.getElementById('meta-part-layer').innerText = selectedObject.userData.layerName || 'Default';
@@ -1302,11 +1528,10 @@ function updateControlsLockState() {
     controls.enabled = false;
     return;
   }
-  // View, Section എന്നീ ടാബുകളിൽ മാത്രം മോഡൽ റൊട്ടേഷൻ ഓൺ ആക്കുന്നു
   if (['view', 'section'].includes(currentMode)) {
     controls.enabled = true;
   } else {
-    controls.enabled = false; // Coords, Linear, Girth, Angle എന്നിവയിൽ കൃത്യതയ്ക്കായി ഫ്രീസ്
+    controls.enabled = false;
   }
 }
 
@@ -1411,7 +1636,6 @@ function setupEvents() {
     });
   }
 
-  // ലെൻസ് പോപ്പ്-അപ്പും മാഗ്നറ്റിക് സ്നാപ്പിംഗും ഉൾപ്പെടുത്തിയ പോയിന്റർ ഇവന്റുകൾ
   dom.addEventListener('pointerdown', (e) => {
     pointerDownPos = { x: e.clientX, y: e.clientY, time: performance.now() };
 
@@ -1443,7 +1667,6 @@ function setupEvents() {
         snapCursorEl.style.left = `${e.clientX}px`;
         snapCursorEl.style.top = `${e.clientY}px`;
         snapCursorEl.style.display = 'block';
-        // Corner ആണെങ്കിൽ പച്ച, Edge ആണെങ്കിൽ നീല, അല്ലാത്തവയ്ക്ക് ഡീഫോൾട്ട്
         snapCursorEl.style.borderColor = (snap.snapType === 'corner') ? '#10b981' : (snap.snapType === 'edge' ? '#0284c7' : '#f59e0b');
       } else {
         activeSnappedPoint = null;
@@ -1538,7 +1761,7 @@ function setupEvents() {
     btnIsoPart.addEventListener('click', () => {
       if (!selectedObject) return;
       meshList.forEach(m => m.visible = (m === selectedObject));
-      controls.enabled = true; // Isolate ചെയ്യുമ്പോൾ റൊട്ടേഷൻ ഓൺ ആക്കുന്നു
+      controls.enabled = true;
     });
   }
 
@@ -1580,28 +1803,45 @@ function handleFileSelect(evt) {
 
   const reader = new FileReader();
   reader.onerror = () => { hideLoader(); alert('Failed to read file.'); };
-  reader.onload = function(e) {
-    (async () => {
+
+  if (fileName.endsWith('.dxf')) {
+    reader.onload = function(e) {
       try {
-        const buffer = e.target.result;
-        if (fileName.endsWith('.vts')) {
-          loadBinaryVTSBuffer(buffer);
-          await saveModelToStorage(file.name, buffer);
-        } else {
-          if (!rhinoReady || !rhinoModule) throw new Error('Rhino engine initializing. Please wait...');
-          const doc = rhinoModule.File3dm.fromByteArray(new Uint8Array(buffer));
-          if (!doc) throw new Error('Unable to parse 3DM format.');
-          loadRhinoDoc(doc, file.name);
-        }
+        loadDxfBuffer(e.target.result, file.name);
       } catch (err) {
-        alert('Error opening file:\n' + err.message);
+        alert('Error parsing DXF:\n' + err.message);
       } finally {
         evt.target.value = '';
         hideLoader();
       }
-    })();
-  };
-  reader.readAsArrayBuffer(file);
+    };
+    reader.readAsText(file);
+  } else {
+    reader.onload = function(e) {
+      (async () => {
+        try {
+          const buffer = e.target.result;
+          if (fileName.endsWith('.vts')) {
+            loadBinaryVTSBuffer(buffer);
+            await saveModelToStorage(file.name, buffer);
+          } else if (fileName.endsWith('.step') || fileName.endsWith('.stp') || fileName.endsWith('.iges') || fileName.endsWith('.igs')) {
+            await loadStepOrIgesBuffer(buffer, file.name);
+          } else {
+            if (!rhinoReady || !rhinoModule) throw new Error('Rhino engine initializing. Please wait...');
+            const doc = rhinoModule.File3dm.fromByteArray(new Uint8Array(buffer));
+            if (!doc) throw new Error('Unable to parse 3DM format.');
+            loadRhinoDoc(doc, file.name);
+          }
+        } catch (err) {
+          alert('Error opening file:\n' + err.message);
+        } finally {
+          evt.target.value = '';
+          hideLoader();
+        }
+      })();
+    };
+    reader.readAsArrayBuffer(file);
+  }
 }
 
 function showLoader(txt) {
@@ -1618,6 +1858,7 @@ function hideLoader() {
 window.addEventListener('DOMContentLoaded', async () => {
   initThree();
   initRhino();
+  initOCCT();
   setupEvents();
   setupColorPaletteEvents();
   setupSectionCutControls();
