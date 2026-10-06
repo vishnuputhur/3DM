@@ -134,7 +134,7 @@ function encodeModelToBinaryVTS() {
     const pos = m.geometry.attributes.position.array;
     const nameBytes = new TextEncoder().encode(m.userData.name || 'Part');
     const layerBytes = new TextEncoder().encode(m.userData.layerName || 'Default');
-    const color = (m.material && m.material.color) ? m.material.color.getHex() : 0x3b82f6;
+    const color = (m.material && m.material.color) ? m.material.color.getHex() : 0x0284c7;
 
     const namePad = pad4(nameBytes.length);
     const layerPad = pad4(layerBytes.length);
@@ -214,6 +214,17 @@ function loadBinaryVTSBuffer(buffer) {
     const mesh = new THREE.Mesh(geom, mat);
     mesh.userData = { name, layerName: layer, originalColor: color };
 
+    // എഡ്ജ് ലൈനുകൾ (35 ഡിഗ്രിയിൽ ക്ലീൻ ഔട്ട്ലൈൻ)
+    try {
+      const edges = new THREE.EdgesGeometry(geom, 35);
+      const edgeLine = new THREE.LineSegments(
+        edges,
+        new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
+      );
+      mesh.add(edgeLine);
+      edgeLinesList.push(edgeLine);
+    } catch (e) {}
+
     modelRoot.add(mesh);
     meshList.push(mesh);
   }
@@ -224,7 +235,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION
+// 3. THREE.JS INITIALIZATION WITH BALANCED LIGHTING
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -254,10 +265,11 @@ function initThree() {
   controls.panSpeed = 0.8;
   controls.screenSpacePanning = true;
 
-  ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  // സർഫസ് വെളുത്ത് പോകാതെ വ്യക്തമായ കോൺട്രാസ്റ്റ് നൽകുന്ന ലൈറ്റുകൾ
+  ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
   scene.add(ambientLight);
 
-  hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.4);
+  hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.45);
   hemiLight.position.set(0, 0, 5000);
   scene.add(hemiLight);
 
@@ -345,10 +357,10 @@ function calibrateModelView() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3D DXF MULTI-PART & ORIGINAL COLOR PARSER (RESTORED WORKING LOGIC)
+// 3D DXF MULTI-PART & 100% ACCURATE ORIGINAL COLOR PARSER
 // ═══════════════════════════════════════════════════════════
 function loadDxfBuffer(textData, fileName) {
-  showLoader(`Reconstructing CAD parts & colors...`);
+  showLoader(`Reconstructing CAD parts & original colors...`);
   clearModelScene();
 
   setTimeout(() => {
@@ -362,18 +374,18 @@ function loadDxfBuffer(textData, fileName) {
 
       if (!dxf) throw new Error('Corrupted or unreadable DXF structure.');
 
-      // ആദ്യത്തെ കോഡിൽ ഉണ്ടായിരുന്ന അതേ കൃത്യമായ ലെയർ കളർ മാപ്പിംഗ്
+      // 1. ലെയർ കളർ മാപ്പിംഗ് (ആദ്യം ശരിയായി വർക്ക് ചെയ്ത അതേ ലോജിക്)
       const layerColors = {};
       if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
         Object.keys(dxf.tables.layer.layers).forEach(k => {
           const lyr = dxf.tables.layer.layers[k];
           if (lyr.color !== undefined) {
-            layerColors[k] = '#' + lyr.color.toString(16).padStart(6, '0');
+            layerColors[k] = lyr.color;
           }
         });
       }
 
-      const defaultColor = '#3b82f6';
+      const defaultColorHex = 0x3b82f6;
       const individualParts = [];
 
       function processEntity(ent, transformMatrix, parentName, parentColor) {
@@ -399,7 +411,7 @@ function loadDxfBuffer(textData, fileName) {
 
             const combinedMatrix = transformMatrix ? new THREE.Matrix4().multiplyMatrices(transformMatrix, m) : m;
             const currentName = blkName || parentName;
-            const currentColor = (ent.color !== undefined) ? ('#' + ent.color.toString(16).padStart(6, '0')) : parentColor;
+            const currentColor = (ent.color !== undefined) ? ent.color : parentColor;
 
             blk.entities.forEach(bEnt => {
               const cloneEnt = JSON.parse(JSON.stringify(bEnt));
@@ -429,19 +441,20 @@ function loadDxfBuffer(textData, fileName) {
         throw new Error('No renderable 3D entities found in this DXF.');
       }
 
-      // ഓരോ പാർട്ടിനും ഒറിജിനൽ ലെയർ/എൻ്റിറ്റി കളർ നൽകി വെവ്വേറെ പാക്കറ്റുകളാക്കുന്നു
+      // 2. ഓരോ പാർട്ടുകളെയും ഒറിജിനൽ കളർ സഹിതം വേർതിരിക്കുന്നു
       const partBuckets = {};
 
       individualParts.forEach((ent, idx) => {
         const lName = ent.layer || 'Default';
         let partId = ent._partName || `${lName}_Part_${idx + 1}`;
         
-        let resolvedColor = defaultColor;
+        // കളർ റീഡിംഗ് (16-ബേസ് ഹെക്സ് കൃത്യമായി ഫോർമാറ്റ് ചെയ്യുന്നു)
+        let resolvedColor = defaultColorHex;
         if (ent.color !== undefined) {
-          resolvedColor = '#' + ent.color.toString(16).padStart(6, '0');
-        } else if (ent._inheritedColor) {
+          resolvedColor = ent.color;
+        } else if (ent._inheritedColor !== undefined && ent._inheritedColor !== null) {
           resolvedColor = ent._inheritedColor;
-        } else if (layerColors[lName]) {
+        } else if (layerColors[lName] !== undefined) {
           resolvedColor = layerColors[lName];
         }
 
@@ -464,7 +477,7 @@ function loadDxfBuffer(textData, fileName) {
             partBuckets[partId].faces.push(v[3].x, v[3].y, v[3].z || 0);
           }
         }
-        // യഥാർത്ഥ വയർഫ്രെയിം ലൈനുകൾ
+        // സ്ട്രക്ചറൽ ഫ്രെയിം വയറുകൾ
         else if (['LINE', 'LWPOLYLINE', 'POLYLINE'].includes(ent.type)) {
           if (ent.type === 'LINE' && ent.vertices && ent.vertices.length >= 2) {
             partBuckets[partId].lines.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
@@ -482,17 +495,18 @@ function loadDxfBuffer(textData, fileName) {
 
       Object.keys(partBuckets).forEach(pKey => {
         const item = partBuckets[pKey];
+        const threeColor = new THREE.Color(item.color);
 
-        // 1. പ്ലേറ്റ് സർഫസ് മെഷ് (ത്രികോണ വരകൾ പൂർണ്ണമായി ഒഴിവാക്കി തനത് ഒറിജിനൽ കളറിൽ)
+        // 1. പ്ലേറ്റ് സർഫസ് മെഷ് (ത്രികോണ വരകൾ ഇല്ലാതെ, റിയൽ കളറിൽ, സ്മൂത്ത് എഡ്ജുകളോടെ)
         if (item.faces.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.faces, 3));
           geom.computeVertexNormals();
 
           const mat = new THREE.MeshStandardMaterial({
-            color: new THREE.Color(item.color),
+            color: threeColor,
             roughness: 0.35,
-            metalness: 0.2,
+            metalness: 0.25,
             side: THREE.DoubleSide
           });
 
@@ -500,21 +514,32 @@ function loadDxfBuffer(textData, fileName) {
           mesh.userData = {
             name: item.name,
             layerName: item.layer,
-            originalColor: new THREE.Color(item.color).getHex()
+            originalColor: threeColor.getHex()
           };
+
+          // ത്രികോണ വരകൾ ഒഴിവാക്കി, 35 ഡിഗ്രി ഔട്ടർ എഡ്ജ് മാത്രം ലൈറ്റ് ആയി നൽകുന്നു
+          try {
+            const edges = new THREE.EdgesGeometry(geom, 35);
+            const edgeLine = new THREE.LineSegments(
+              edges,
+              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
+            );
+            mesh.add(edgeLine);
+            edgeLinesList.push(edgeLine);
+          } catch (e) {}
 
           modelRoot.add(mesh);
           meshList.push(mesh);
           loadedCount++;
         }
 
-        // 2. ഡ്രോയിംഗിലുള്ള യഥാർത്ഥ ലൈനുകൾ മാത്രം
+        // 2. ഡ്രോയിംഗിലെ യഥാർത്ഥ ലൈനുകൾ
         if (item.lines.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.lines, 3));
 
           const lineMat = new THREE.LineBasicMaterial({ 
-            color: new THREE.Color(item.color), 
+            color: threeColor, 
             linewidth: 1.5 
           });
           const lineObj = new THREE.LineSegments(geom, lineMat);
@@ -522,7 +547,7 @@ function loadDxfBuffer(textData, fileName) {
           lineObj.userData = {
             name: item.name + '_Line',
             layerName: item.layer,
-            originalColor: new THREE.Color(item.color).getHex()
+            originalColor: threeColor.getHex()
           };
 
           modelRoot.add(lineObj);
@@ -597,6 +622,16 @@ async function loadStepOrIgesBuffer(buffer, fileName) {
         layerName: isStep ? 'STEP_Body' : 'IGES_Surface',
         originalColor: col.getHex()
       };
+
+      try {
+        const edges = new THREE.EdgesGeometry(geom, 35);
+        const edgeLine = new THREE.LineSegments(
+          edges,
+          new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
+        );
+        mesh.add(edgeLine);
+        edgeLinesList.push(edgeLine);
+      } catch (e) {}
 
       modelRoot.add(mesh);
       meshList.push(mesh);
@@ -725,6 +760,16 @@ function loadRhinoDoc(doc, originalFileName) {
               : 'Default',
             originalColor: resolvedColor.getHex()
           };
+
+          try {
+            const edges = new THREE.EdgesGeometry(threeGeom, 35);
+            const edgeLine = new THREE.LineSegments(
+              edges,
+              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
+            );
+            threeMesh.add(edgeLine);
+            edgeLinesList.push(edgeLine);
+          } catch (e) {}
 
           modelRoot.add(threeMesh);
           meshList.push(threeMesh);
@@ -1090,11 +1135,11 @@ function applyCurrentProfileToMeshes() {
   meshList.forEach(m => {
     if (!m.material) return;
     if (activeProfile === 'LITE') {
-      m.material.roughness = 0.5;
+      m.material.roughness = 0.55;
       m.material.metalness = 0.1;
     } else {
       m.material.roughness = 0.35;
-      m.material.metalness = 0.2;
+      m.material.metalness = 0.25;
     }
     if (isXRay) {
       m.material.transparent = true;
@@ -1578,7 +1623,6 @@ function updateControlsLockState() {
     controls.enabled = false;
     return;
   }
-  // View, Section, Inspect (Isolate) ടാബുകളിൽ ഫ്രീയായി മോഡൽ റൊട്ടേറ്റ് ചെയ്യാം
   if (['view', 'section', 'inspect'].includes(currentMode)) {
     controls.enabled = true;
   } else {
@@ -1670,7 +1714,7 @@ function setupEvents() {
     btnTheme.addEventListener('click', () => {
       isDarkMode = !isDarkMode;
       document.body.classList.toggle('dark-mode', isDarkMode);
-      document.getElementById('theme-icon').innerText = isDarkMode ? '🌙' : '☀️️';
+      document.getElementById('theme-icon').innerText = isDarkMode ? '🌙' : '☀️';
       if (scene) scene.background = new THREE.Color(isDarkMode ? 0x0a0f1d : 0xf1f5f9);
       localStorage.setItem('vt_viewer_theme', isDarkMode ? 'dark' : 'light');
     });
