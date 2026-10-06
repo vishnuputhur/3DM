@@ -52,6 +52,45 @@ const lastLoupePointer = { x: 0, y: 0 };
 let pointerDownPos = { x: 0, y: 0, time: 0 };
 
 // ═══════════════════════════════════════════════════════════
+// AUTOCAD ACI STANDARD 256 COLOR MAPPER (EXACT CAD COLORS)
+// ═══════════════════════════════════════════════════════════
+const ACI_COLORS = [
+  0x000000, 0xff0000, 0xffff00, 0x00ff00, 0x00ffff, 0x0000ff, 0xff00ff, 0xffffff,
+  0x808080, 0xc0c0c0, 0xff0000, 0xff7f7f, 0xcc0000, 0xcc6666, 0x990000, 0x994c4c,
+  0x660000, 0x663333, 0x330000, 0x331919, 0xff3f00, 0xff9f7f, 0xcc3300, 0xcc7f66,
+  0x992600, 0x995f4c, 0x661900, 0x663f33, 0x330c00, 0x331f19, 0xff7f00, 0xffbf7f,
+  0xcc6600, 0xcc9966, 0x994c00, 0x99734c, 0x663300, 0x664c33, 0x331900, 0x332619,
+  0xffbf00, 0xffdf7f, 0xcc9900, 0xccb366, 0x997300, 0x99864c, 0x664c00, 0x665933,
+  0x332600, 0x332c19, 0xffff00, 0xffff7f, 0xcccc00, 0xcccc66, 0x999900, 0x99994c,
+  0x666600, 0x666633, 0x333300, 0x333319, 0xbfff00, 0xdfff7f, 0x99cc00, 0xb3cc66,
+  0x739900, 0x86994c, 0x4c6600, 0x596633, 0x263300, 0x2c3319, 0x7fff00, 0xbfff7f,
+  0x66cc00, 0x99cc66, 0x4c9900, 0x73994c, 0x336600, 0x4c6633, 0x193300, 0x263319,
+  0x3fff00, 0x9fff7f, 0x33cc00, 0x7fcc66, 0x269900, 0x5f994c, 0x196600, 0x3f6633,
+  0x00ff00, 0x7fff7f, 0x00cc00, 0x66cc66, 0x009900, 0x4c994c, 0x006600, 0x336633,
+  0x00ff3f, 0x7fff9f, 0x00cc33, 0x66cc7f, 0x009926, 0x4c995f, 0x006619, 0x33663f,
+  0x00ff7f, 0x7fffbf, 0x00cc66, 0x66cc99, 0x00994c, 0x4c9973, 0x006633, 0x33664c,
+  0x00ffbf, 0x7fffdf, 0x00cc99, 0x66ccb3, 0x009973, 0x4c9986, 0x00664c, 0x336659,
+  0x00ffff, 0x7fffff, 0x00cccc, 0x66cccc, 0x009999, 0x4c9999, 0x006666, 0x336666,
+  0x00bfff, 0x7fdfff, 0x0099cc, 0x66b3cc, 0x007399, 0x4c8699, 0x004c66, 0x335966,
+  0x007fff, 0x7fbfff, 0x0066cc, 0x6699cc, 0x004c99, 0x4c7399, 0x003366, 0x334c66,
+  0x003fff, 0x7f9fff, 0x0033cc, 0x667fcc, 0x002699, 0x4c5f99, 0x001966, 0x333f66,
+  0x0000ff, 0x7f7fff, 0x0000cc, 0x6666cc, 0x000099, 0x4c4c99, 0x000066, 0x333366
+];
+
+function getCadColor(colorNum) {
+  if (colorNum === undefined || colorNum === null) return 0x0284c7;
+  const num = Math.abs(parseInt(colorNum, 10));
+  if (isNaN(num)) return 0x0284c7;
+  if (num > 0 && num < ACI_COLORS.length) {
+    return ACI_COLORS[num];
+  }
+  if (num >= 0x100000) {
+    return num; // Direct RGB TrueColor
+  }
+  return 0x0284c7;
+}
+
+// ═══════════════════════════════════════════════════════════
 // 1. INDEXEDDB PERSISTENT RECENT STORAGE
 // ═══════════════════════════════════════════════════════════
 const DB_NAME = 'VTSoft_3DM_Storage';
@@ -130,7 +169,7 @@ function encodeModelToBinaryVTS() {
   const parts = [];
 
   meshList.forEach(m => {
-    if (!m.isMesh || !m.geometry || !m.geometry.attributes.position) return;
+    if (!m.geometry || !m.geometry.attributes.position) return;
     const pos = m.geometry.attributes.position.array;
     const nameBytes = new TextEncoder().encode(m.userData.name || 'Part');
     const layerBytes = new TextEncoder().encode(m.userData.layerName || 'Default');
@@ -214,17 +253,6 @@ function loadBinaryVTSBuffer(buffer) {
     const mesh = new THREE.Mesh(geom, mat);
     mesh.userData = { name, layerName: layer, originalColor: color };
 
-    // എഡ്ജ് ലൈനുകൾ (35 ഡിഗ്രിയിൽ ക്ലീൻ ഔട്ട്ലൈൻ)
-    try {
-      const edges = new THREE.EdgesGeometry(geom, 35);
-      const edgeLine = new THREE.LineSegments(
-        edges,
-        new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
-      );
-      mesh.add(edgeLine);
-      edgeLinesList.push(edgeLine);
-    } catch (e) {}
-
     modelRoot.add(mesh);
     meshList.push(mesh);
   }
@@ -235,7 +263,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION WITH BALANCED LIGHTING
+// 3. THREE.JS INITIALIZATION
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -265,11 +293,10 @@ function initThree() {
   controls.panSpeed = 0.8;
   controls.screenSpacePanning = true;
 
-  // സർഫസ് വെളുത്ത് പോകാതെ വ്യക്തമായ കോൺട്രാസ്റ്റ് നൽകുന്ന ലൈറ്റുകൾ
-  ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+  ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
   scene.add(ambientLight);
 
-  hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.45);
+  hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.4);
   hemiLight.position.set(0, 0, 5000);
   scene.add(hemiLight);
 
@@ -357,10 +384,10 @@ function calibrateModelView() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3D DXF MULTI-PART & 100% ACCURATE ORIGINAL COLOR PARSER
+// 3D DXF MULTI-PART & PURE CAD COLOR RECOVERY (FIXED)
 // ═══════════════════════════════════════════════════════════
 function loadDxfBuffer(textData, fileName) {
-  showLoader(`Reconstructing CAD parts & original colors...`);
+  showLoader(`Restoring CAD model with original colors...`);
   clearModelScene();
 
   setTimeout(() => {
@@ -374,18 +401,15 @@ function loadDxfBuffer(textData, fileName) {
 
       if (!dxf) throw new Error('Corrupted or unreadable DXF structure.');
 
-      // 1. ലെയർ കളർ മാപ്പിംഗ് (ആദ്യം ശരിയായി വർക്ക് ചെയ്ത അതേ ലോജിക്)
+      // 1. ലെയർ കളറുകൾ AutoCAD ACI ടേബിളിൽ നിന്ന് കൃത്യമായി വേർതിരിക്കുന്നു
       const layerColors = {};
       if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
         Object.keys(dxf.tables.layer.layers).forEach(k => {
           const lyr = dxf.tables.layer.layers[k];
-          if (lyr.color !== undefined) {
-            layerColors[k] = lyr.color;
-          }
+          layerColors[k] = getCadColor(lyr.color);
         });
       }
 
-      const defaultColorHex = 0x3b82f6;
       const individualParts = [];
 
       function processEntity(ent, transformMatrix, parentName, parentColor) {
@@ -411,7 +435,9 @@ function loadDxfBuffer(textData, fileName) {
 
             const combinedMatrix = transformMatrix ? new THREE.Matrix4().multiplyMatrices(transformMatrix, m) : m;
             const currentName = blkName || parentName;
-            const currentColor = (ent.color !== undefined) ? ent.color : parentColor;
+            const currentColor = (ent.color !== undefined && ent.color !== 0 && ent.color !== 256)
+              ? getCadColor(ent.color)
+              : parentColor;
 
             blk.entities.forEach(bEnt => {
               const cloneEnt = JSON.parse(JSON.stringify(bEnt));
@@ -441,20 +467,19 @@ function loadDxfBuffer(textData, fileName) {
         throw new Error('No renderable 3D entities found in this DXF.');
       }
 
-      // 2. ഓരോ പാർട്ടുകളെയും ഒറിജിനൽ കളർ സഹിതം വേർതിരിക്കുന്നു
+      // 2. ഓരോ പാർട്ടിന്റെയും ഒറിജിനൽ കളറും വെർട്ടെക്സുകളും വേർതിരിക്കുന്നു
       const partBuckets = {};
 
       individualParts.forEach((ent, idx) => {
         const lName = ent.layer || 'Default';
         let partId = ent._partName || `${lName}_Part_${idx + 1}`;
         
-        // കളർ റീഡിംഗ് (16-ബേസ് ഹെക്സ് കൃത്യമായി ഫോർമാറ്റ് ചെയ്യുന്നു)
-        let resolvedColor = defaultColorHex;
-        if (ent.color !== undefined) {
-          resolvedColor = ent.color;
-        } else if (ent._inheritedColor !== undefined && ent._inheritedColor !== null) {
+        let resolvedColor = 0x0284c7;
+        if (ent.color !== undefined && ent.color !== 0 && ent.color !== 256) {
+          resolvedColor = getCadColor(ent.color);
+        } else if (ent._inheritedColor) {
           resolvedColor = ent._inheritedColor;
-        } else if (layerColors[lName] !== undefined) {
+        } else if (layerColors[lName]) {
           resolvedColor = layerColors[lName];
         }
 
@@ -477,7 +502,7 @@ function loadDxfBuffer(textData, fileName) {
             partBuckets[partId].faces.push(v[3].x, v[3].y, v[3].z || 0);
           }
         }
-        // സ്ട്രക്ചറൽ ഫ്രെയിം വയറുകൾ
+        // സ്ട്രക്ചറൽ ഫ്രെയിം വയറുകൾ / പ്ലേറ്റ് ഔട്ട്ലൈനുകൾ
         else if (['LINE', 'LWPOLYLINE', 'POLYLINE'].includes(ent.type)) {
           if (ent.type === 'LINE' && ent.vertices && ent.vertices.length >= 2) {
             partBuckets[partId].lines.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
@@ -495,18 +520,17 @@ function loadDxfBuffer(textData, fileName) {
 
       Object.keys(partBuckets).forEach(pKey => {
         const item = partBuckets[pKey];
-        const threeColor = new THREE.Color(item.color);
 
-        // 1. പ്ലേറ്റ് സർഫസ് മെഷ് (ത്രികോണ വരകൾ ഇല്ലാതെ, റിയൽ കളറിൽ, സ്മൂത്ത് എഡ്ജുകളോടെ)
+        // 1. പ്ലേറ്റ് സർഫസ് മെഷ് (ത്രികോണ വരകൾ പൂർണ്ണമായി ഒഴിവാക്കി, യഥാർത്ഥ കളറിൽ)
         if (item.faces.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.faces, 3));
           geom.computeVertexNormals();
 
           const mat = new THREE.MeshStandardMaterial({
-            color: threeColor,
+            color: item.color,
             roughness: 0.35,
-            metalness: 0.25,
+            metalness: 0.2,
             side: THREE.DoubleSide
           });
 
@@ -514,40 +538,29 @@ function loadDxfBuffer(textData, fileName) {
           mesh.userData = {
             name: item.name,
             layerName: item.layer,
-            originalColor: threeColor.getHex()
+            originalColor: item.color
           };
-
-          // ത്രികോണ വരകൾ ഒഴിവാക്കി, 35 ഡിഗ്രി ഔട്ടർ എഡ്ജ് മാത്രം ലൈറ്റ് ആയി നൽകുന്നു
-          try {
-            const edges = new THREE.EdgesGeometry(geom, 35);
-            const edgeLine = new THREE.LineSegments(
-              edges,
-              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
-            );
-            mesh.add(edgeLine);
-            edgeLinesList.push(edgeLine);
-          } catch (e) {}
 
           modelRoot.add(mesh);
           meshList.push(mesh);
           loadedCount++;
         }
 
-        // 2. ഡ്രോയിംഗിലെ യഥാർത്ഥ ലൈനുകൾ
+        // 2. ഡ്രോയിംഗിലുള്ള യഥാർത്ഥ ലൈനുകൾ (തനത് കളറോടെ)
         if (item.lines.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.lines, 3));
 
           const lineMat = new THREE.LineBasicMaterial({ 
-            color: threeColor, 
-            linewidth: 1.5 
+            color: item.color, 
+            linewidth: 2 
           });
           const lineObj = new THREE.LineSegments(geom, lineMat);
 
           lineObj.userData = {
-            name: item.name + '_Line',
+            name: item.name,
             layerName: item.layer,
-            originalColor: threeColor.getHex()
+            originalColor: item.color
           };
 
           modelRoot.add(lineObj);
@@ -622,16 +635,6 @@ async function loadStepOrIgesBuffer(buffer, fileName) {
         layerName: isStep ? 'STEP_Body' : 'IGES_Surface',
         originalColor: col.getHex()
       };
-
-      try {
-        const edges = new THREE.EdgesGeometry(geom, 35);
-        const edgeLine = new THREE.LineSegments(
-          edges,
-          new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
-        );
-        mesh.add(edgeLine);
-        edgeLinesList.push(edgeLine);
-      } catch (e) {}
 
       modelRoot.add(mesh);
       meshList.push(mesh);
@@ -760,16 +763,6 @@ function loadRhinoDoc(doc, originalFileName) {
               : 'Default',
             originalColor: resolvedColor.getHex()
           };
-
-          try {
-            const edges = new THREE.EdgesGeometry(threeGeom, 35);
-            const edgeLine = new THREE.LineSegments(
-              edges,
-              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1, transparent: true, opacity: 0.35 })
-            );
-            threeMesh.add(edgeLine);
-            edgeLinesList.push(edgeLine);
-          } catch (e) {}
 
           modelRoot.add(threeMesh);
           meshList.push(threeMesh);
@@ -1135,11 +1128,11 @@ function applyCurrentProfileToMeshes() {
   meshList.forEach(m => {
     if (!m.material) return;
     if (activeProfile === 'LITE') {
-      m.material.roughness = 0.55;
+      m.material.roughness = 0.5;
       m.material.metalness = 0.1;
     } else {
       m.material.roughness = 0.35;
-      m.material.metalness = 0.25;
+      m.material.metalness = 0.2;
     }
     if (isXRay) {
       m.material.transparent = true;
@@ -1623,6 +1616,7 @@ function updateControlsLockState() {
     controls.enabled = false;
     return;
   }
+  // View, Section, Inspect (Isolate) ടാബുകളിൽ ഫ്രീയായി മോഡൽ റൊട്ടേറ്റ് ചെയ്യാം
   if (['view', 'section', 'inspect'].includes(currentMode)) {
     controls.enabled = true;
   } else {
