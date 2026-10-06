@@ -13,7 +13,7 @@ let scene, camera, renderer, controls;
 const modelRoot = new THREE.Group();
 let meshList = [];
 let edgeLinesList = [];
-let dirLight1, dirLight2, hemiLight, ambientLight;
+let dirLight1, dirLight2, dirLight3, hemiLight, ambientLight;
 
 // MULTI-AXIS COMPOUND CLIPPING PLANES
 const clipPlanes = {
@@ -52,7 +52,7 @@ const lastLoupePointer = { x: 0, y: 0 };
 let pointerDownPos = { x: 0, y: 0, time: 0 };
 
 // ═══════════════════════════════════════════════════════════
-// AUTOCAD ACI STANDARD COLOR MAPPER
+// FULL AUTOCAD ACI STANDARD COLOR MAPPER
 // ═══════════════════════════════════════════════════════════
 const ACI_COLORS = [
   0x000000, 0xff0000, 0xffff00, 0x00ff00, 0x00ffff, 0x0000ff, 0xff00ff, 0xffffff,
@@ -64,20 +64,32 @@ const ACI_COLORS = [
   0x332600, 0x332c19, 0xffff00, 0xffff7f, 0xcccc00, 0xcccc66, 0x999900, 0x99994c,
   0x666600, 0x666633, 0x333300, 0x333319, 0xbfff00, 0xdfff7f, 0x99cc00, 0xb3cc66,
   0x739900, 0x86994c, 0x4c6600, 0x596633, 0x263300, 0x2c3319, 0x7fff00, 0xbfff7f,
-  0x66cc00, 0x99cc66, 0x4c9900, 0x73994c, 0x336600, 0x4c6633, 0x193300, 0x263319
+  0x66cc00, 0x99cc66, 0x4c9900, 0x73994c, 0x336600, 0x4c6633, 0x193300, 0x263319,
+  0x3fff00, 0x9fff7f, 0x33cc00, 0x7fcc66, 0x269900, 0x5f994c, 0x196600, 0x3f6633,
+  0x00ff00, 0x7fff7f, 0x00cc00, 0x66cc66, 0x009900, 0x4c994c, 0x006600, 0x336633,
+  0x00ff3f, 0x7fff9f, 0x00cc33, 0x66cc7f, 0x009926, 0x4c995f, 0x006619, 0x33663f,
+  0x00ff7f, 0x7fffbf, 0x00cc66, 0x66cc99, 0x00994c, 0x4c9973, 0x006633, 0x33664c,
+  0x00ffbf, 0x7fffdf, 0x00cc99, 0x66ccb3, 0x009973, 0x4c9986, 0x00664c, 0x336659,
+  0x00ffff, 0x7fffff, 0x00cccc, 0x66cccc, 0x009999, 0x4c9999, 0x006666, 0x336666,
+  0x00bfff, 0x7fdfff, 0x0099cc, 0x66b3cc, 0x007399, 0x4c8699, 0x004c66, 0x335966,
+  0x007fff, 0x7fbfff, 0x0066cc, 0x6699cc, 0x004c99, 0x4c7399, 0x003366, 0x334c66,
+  0x003fff, 0x7f9fff, 0x0033cc, 0x667fcc, 0x002699, 0x4c5f99, 0x001966, 0x333f66,
+  0x0000ff, 0x7f7fff, 0x0000cc, 0x6666cc, 0x000099, 0x4c4c99, 0x000066, 0x333366
 ];
 
-function getAciColor(colorVal, defaultHex = 0x3b82f6) {
-  if (colorVal === undefined || colorVal === null) return defaultHex;
+function resolveAciColor(colorVal, defaultHex = 0x38bdf8) {
+  if (colorVal === undefined || colorVal === null || colorVal === 256 || colorVal === 0) {
+    return defaultHex;
+  }
   if (typeof colorVal === 'number') {
-    if (colorVal >= 0 && colorVal < ACI_COLORS.length) return ACI_COLORS[colorVal];
-    if (colorVal > 255) return colorVal; // Already standard Hex RGB
+    if (colorVal > 0 && colorVal < ACI_COLORS.length) return ACI_COLORS[colorVal];
+    if (colorVal > 255) return colorVal; // TrueColor
   }
   return defaultHex;
 }
 
 // ═══════════════════════════════════════════════════════════
-// 1. INDEXEDDB PERSISTENT RECENT STORAGE
+// 1. INDEXEDDB STORAGE
 // ═══════════════════════════════════════════════════════════
 const DB_NAME = 'VTSoft_3DM_Storage';
 const DB_VERSION = 3;
@@ -232,15 +244,23 @@ function loadBinaryVTSBuffer(buffer) {
     const mat = new THREE.MeshStandardMaterial({
       color: color, 
       roughness: 0.35, 
-      metalness: 0.2, 
-      side: THREE.DoubleSide,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1
+      metalness: 0.25, 
+      side: THREE.DoubleSide
     });
 
     const mesh = new THREE.Mesh(geom, mat);
     mesh.userData = { name, layerName: layer, originalColor: color };
+
+    // ക്രിസ്പ് ഔട്ടർ എഡ്ജുകൾ
+    try {
+      const edges = new THREE.EdgesGeometry(geom, 35);
+      const edgeLine = new THREE.LineSegments(
+        edges,
+        new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1.2, transparent: true, opacity: 0.55 })
+      );
+      mesh.add(edgeLine);
+      edgeLinesList.push(edgeLine);
+    } catch (e) {}
 
     modelRoot.add(mesh);
     meshList.push(mesh);
@@ -252,7 +272,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION
+// 3. THREE.JS INITIALIZATION WITH 3-POINT DYNAMIC CONTRAST LIGHTING
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -282,20 +302,25 @@ function initThree() {
   controls.panSpeed = 0.8;
   controls.screenSpacePanning = true;
 
-  ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+  // സർഫസ് ആംഗിളുകളും കട്ട്ലൈനുകളും വ്യക്തമായി കാണാൻ കോൺട്രാസ്റ്റ് ലൈറ്റിംഗ്
+  ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
   scene.add(ambientLight);
 
-  hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.45);
+  hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.45);
   hemiLight.position.set(0, 0, 5000);
   scene.add(hemiLight);
 
   dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
-  dirLight1.position.set(5000, -5000, 8000);
+  dirLight1.position.set(6000, -5000, 7000);
   scene.add(dirLight1);
 
-  dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.45);
-  dirLight2.position.set(-5000, 5000, -3000);
+  dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.6);
+  dirLight2.position.set(-6000, 6000, -4000);
   scene.add(dirLight2);
+
+  dirLight3 = new THREE.DirectionalLight(0x64748b, 0.35);
+  dirLight3.position.set(0, 0, -8000); // അടിഭാഗവും പ്ലേറ്റ് ഫ്രെയിം ബോട്ടവും കാണാൻ
+  scene.add(dirLight3);
 
   scene.add(modelRoot);
   scene.add(dimensionLinesGroup);
@@ -347,7 +372,7 @@ function onWindowResize() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 4. MODEL LIFECYCLE & HIGH-SPEED ACCELERATED CAD ENGINES
+// 4. MODEL LIFECYCLE & HIGH-PRECISION DXF BATCH LOADER
 // ═══════════════════════════════════════════════════════════
 function clearModelScene() {
   while (modelRoot.children.length > 0) modelRoot.remove(modelRoot.children[0]);
@@ -373,10 +398,10 @@ function calibrateModelView() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3D DXF ULTRA-SMOOTH PARSER (INSERT BLOCKS + ACI COLORS + ZERO LAG)
+// 3D DXF ADVANCED MULTI-COLOR & BATCHED OUTLINE ENGINE
 // ═══════════════════════════════════════════════════════════
 function loadDxfBuffer(textData, fileName) {
-  showLoader(`Reconstructing Shipbuilding 3D DXF...`);
+  showLoader(`Reconstructing 3D CAD Elements...`);
   clearModelScene();
 
   setTimeout(() => {
@@ -390,25 +415,24 @@ function loadDxfBuffer(textData, fileName) {
 
       if (!dxf) throw new Error('Corrupted or unreadable DXF structure.');
 
-      // 1. ലെയർ കളറുകൾ കൃത്യമായി ACI വഴി മാപ്പ് ചെയ്യുന്നു
+      // 1. ലെയർ കളറുകൾ മാപ്പ് ചെയ്യുന്നു
       const layerColorMap = {};
       if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
         Object.keys(dxf.tables.layer.layers).forEach(k => {
           const lyr = dxf.tables.layer.layers[k];
-          layerColorMap[k] = getAciColor(lyr.color, 0x38bdf8);
+          layerColorMap[k] = resolveAciColor(lyr.color, 0x38bdf8);
         });
       }
 
-      // 2. INSERT (Nested Block References) അൺപാക്ക് ചെയ്ത് കൃത്യ സ്ഥാനത്ത് പ്രതിഷ്ഠിക്കുന്നു
+      // 2. INSERT (Nested Block References) അൺപാക്ക് ചെയ്ത് പൊസിഷനുകൾ കണക്കുകൂട്ടുന്നു
       const expandedEntities = [];
 
-      function processEntity(ent, transformMatrix) {
+      function processEntity(ent, transformMatrix, parentColor) {
         if (ent.type === 'INSERT') {
           const blkName = ent.name;
           if (dxf.blocks && dxf.blocks[blkName] && dxf.blocks[blkName].entities) {
             const blk = dxf.blocks[blkName];
             
-            // ലോക്കൽ ട്രാൻസ്ഫോർമേഷൻ മാട്രിക്സ് കണക്കാക്കുന്നു
             const m = new THREE.Matrix4();
             const posX = ent.position ? ent.position.x : 0;
             const posY = ent.position ? ent.position.y : 0;
@@ -425,17 +449,17 @@ function loadDxfBuffer(textData, fileName) {
             );
 
             const combinedMatrix = transformMatrix ? new THREE.Matrix4().multiplyMatrices(transformMatrix, m) : m;
+            const currentInsertColor = (ent.color !== undefined && ent.color !== 0 && ent.color !== 256)
+              ? resolveAciColor(ent.color)
+              : parentColor;
 
             blk.entities.forEach(bEnt => {
-              // ബ്ലോക്ക് എൻ്റിറ്റികൾക്ക് പാരന്റ് ലെയറും കളറും നൽകുന്നു
               const cloneEnt = JSON.parse(JSON.stringify(bEnt));
               if (!cloneEnt.layer || cloneEnt.layer === '0') cloneEnt.layer = ent.layer || 'Default';
-              if (cloneEnt.color === undefined) cloneEnt.color = ent.color;
-              processEntity(cloneEnt, combinedMatrix);
+              processEntity(cloneEnt, combinedMatrix, currentInsertColor);
             });
           }
         } else {
-          // ട്രാൻസ്ഫോർമേഷൻ മാട്രിക്സ് വെർട്ടെക്സുകളിൽ പ്രയോഗിക്കുന്നു
           if (transformMatrix) {
             const vTemp = new THREE.Vector3();
             if (ent.vertices) {
@@ -451,52 +475,68 @@ function loadDxfBuffer(textData, fileName) {
               });
             }
           }
+          ent._inheritedColor = parentColor;
           expandedEntities.push(ent);
         }
       }
 
-      // മെയിൻ എൻ്റിറ്റികളെ എക്സ്പാൻഡ് ചെയ്യുന്നു
-      (dxf.entities || []).forEach(ent => processEntity(ent, null));
+      (dxf.entities || []).forEach(ent => processEntity(ent, null, null));
 
       if (expandedEntities.length === 0) {
         throw new Error('No renderable 3D entities or frames found in this DXF.');
       }
 
-      // 3. ലെയർ അനുസരിച്ച് സർഫസുകളും ഫ്രെയിം വയറുകളും ഗ്രൂപ്പ് ചെയ്യുന്നു (Batching)
-      const layerFaces = {};
-      const layerLines = {};
+      // 3. കളറും ലെയറും അനുസരിച്ച് വെവ്വേറെ ഗ്രൂപ്പ് ചെയ്യുന്നു (Multi-Color Buckets)
+      const colorMeshBuckets = {};
+      const colorLineBuckets = {};
 
       expandedEntities.forEach(ent => {
         const lName = ent.layer || 'Default';
+        
+        // കളർ മുൻഗണനാ ഓർഡർ: Entity Color -> Inherited Block Color -> Layer Color -> Default
+        let resolvedColor = 0x38bdf8;
+        if (ent.color !== undefined && ent.color !== 0 && ent.color !== 256) {
+          resolvedColor = resolveAciColor(ent.color);
+        } else if (ent._inheritedColor) {
+          resolvedColor = ent._inheritedColor;
+        } else if (layerColorMap[lName]) {
+          resolvedColor = layerColorMap[lName];
+        }
 
-        // 3D സർഫസ് പ്ലേറ്റുകൾ (3DFACE, SOLID)
+        const bucketKey = `${lName}_${resolvedColor.toString(16)}`;
+
+        // 3D സർഫസ് പ്ലേറ്റുകൾ (3DFACE, SOLID, MESH)
         if (ent.type === '3DFACE' || ent.type === 'SOLID') {
           const v = ent.vertices;
           if (!v || v.length < 3) return;
 
-          if (!layerFaces[lName]) layerFaces[lName] = { coords: [], color: getAciColor(ent.color, layerColorMap[lName] || 0x38bdf8) };
+          if (!colorMeshBuckets[bucketKey]) {
+            colorMeshBuckets[bucketKey] = { coords: [], layer: lName, color: resolvedColor };
+          }
 
-          layerFaces[lName].coords.push(v[0].x, v[0].y, v[0].z || 0);
-          layerFaces[lName].coords.push(v[1].x, v[1].y, v[1].z || 0);
-          layerFaces[lName].coords.push(v[2].x, v[2].y, v[2].z || 0);
+          colorMeshBuckets[bucketKey].coords.push(v[0].x, v[0].y, v[0].z || 0);
+          colorMeshBuckets[bucketKey].coords.push(v[1].x, v[1].y, v[1].z || 0);
+          colorMeshBuckets[bucketKey].coords.push(v[2].x, v[2].y, v[2].z || 0);
 
           if (v.length >= 4 && (v[2].x !== v[3].x || v[2].y !== v[3].y || (v[2].z || 0) !== (v[3].z || 0))) {
-            layerFaces[lName].coords.push(v[0].x, v[0].y, v[0].z || 0);
-            layerFaces[lName].coords.push(v[2].x, v[2].y, v[2].z || 0);
-            layerFaces[lName].coords.push(v[3].x, v[3].y, v[3].z || 0);
+            colorMeshBuckets[bucketKey].coords.push(v[0].x, v[0].y, v[0].z || 0);
+            colorMeshBuckets[bucketKey].coords.push(v[2].x, v[2].y, v[2].z || 0);
+            colorMeshBuckets[bucketKey].coords.push(v[3].x, v[3].y, v[3].z || 0);
           }
         }
-        // സ്ട്രക്ചറൽ ഫ്രെയിമുകൾ, ലൈനുകൾ, സ്റ്റിഫ്നറുകൾ
+        // സ്ട്രക്ചറൽ ഫ്രെയിം ലൈനുകൾ
         else if (['LINE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE'].includes(ent.type)) {
-          if (!layerLines[lName]) layerLines[lName] = { coords: [], color: getAciColor(ent.color, layerColorMap[lName] || 0x0284c7) };
+          if (!colorLineBuckets[bucketKey]) {
+            colorLineBuckets[bucketKey] = { coords: [], layer: lName, color: resolvedColor };
+          }
 
           if (ent.type === 'LINE' && ent.vertices && ent.vertices.length >= 2) {
-            layerLines[lName].coords.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
-            layerLines[lName].coords.push(ent.vertices[1].x, ent.vertices[1].y, ent.vertices[1].z || 0);
+            colorLineBuckets[bucketKey].coords.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
+            colorLineBuckets[bucketKey].coords.push(ent.vertices[1].x, ent.vertices[1].y, ent.vertices[1].z || 0);
           } else if (ent.vertices && ent.vertices.length >= 2) {
             for (let i = 0; i < ent.vertices.length - 1; i++) {
-              layerLines[lName].coords.push(ent.vertices[i].x, ent.vertices[i].y, ent.vertices[i].z || 0);
-              layerLines[lName].coords.push(ent.vertices[i + 1].x, ent.vertices[i + 1].y, ent.vertices[i + 1].z || 0);
+              colorLineBuckets[bucketKey].coords.push(ent.vertices[i].x, ent.vertices[i].y, ent.vertices[i].z || 0);
+              colorLineBuckets[bucketKey].coords.push(ent.vertices[i + 1].x, ent.vertices[i + 1].y, ent.vertices[i + 1].z || 0);
             }
           }
         }
@@ -504,37 +544,51 @@ function loadDxfBuffer(textData, fileName) {
 
       let loadedCount = 0;
 
-      // 4. പ്ലേറ്റുകൾ സ്മൂത്ത് ഷേഡിംഗോടെ റെൻഡർ ചെയ്യുന്നു (EdgesGeometry ഒഴിവാക്കി ലാഗ് ഇല്ലാതാക്കുന്നു)
-      Object.keys(layerFaces).forEach(lName => {
-        const item = layerFaces[lName];
+      // 4. സർഫസുകൾ റെൻഡർ ചെയ്യുന്നു + സ്മാർട്ട് ക്രീസ് എഡ്ജുകൾ (Edges with Clear Boundaries)
+      Object.keys(colorMeshBuckets).forEach(k => {
+        const item = colorMeshBuckets[k];
         if (item.coords.length === 0) return;
 
         const geom = new THREE.BufferGeometry();
         geom.setAttribute('position', new THREE.Float32BufferAttribute(item.coords, 3));
-        geom.computeVertexNormals(); // റിയലിസ്റ്റിക് സ്മൂത്ത് കർവുകൾ നൽകുന്നു
+        geom.computeVertexNormals();
 
         const mat = new THREE.MeshStandardMaterial({
           color: item.color,
           roughness: 0.35,
           metalness: 0.25,
-          side: THREE.DoubleSide
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: 1,
+          polygonOffsetUnits: 1
         });
 
         const mesh = new THREE.Mesh(geom, mat);
         mesh.userData = {
-          name: `${lName}_Plates`,
-          layerName: lName,
+          name: `${item.layer}_Body`,
+          layerName: item.layer,
           originalColor: item.color
         };
+
+        // 35° ആംഗിളിൽ ഔട്ടർ പ്ലേറ്റ് ബൗണ്ടറികൾ മാത്രം വരയ്ക്കുന്നു (സൂപ്പർ ഷാർപ്പ് ലുക്ക്)
+        try {
+          const edges = new THREE.EdgesGeometry(geom, 35);
+          const edgeLine = new THREE.LineSegments(
+            edges,
+            new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1.2, transparent: true, opacity: 0.65 })
+          );
+          mesh.add(edgeLine);
+          edgeLinesList.push(edgeLine);
+        } catch (e) {}
 
         modelRoot.add(mesh);
         meshList.push(mesh);
         loadedCount++;
       });
 
-      // 5. ഫ്രെയിമുകളും സ്റ്റിഫ്നറുകളും ഒരൊറ്റ ലൈൻ ഗ്രൂപ്പായി സ്പീഡിൽ റെൻഡർ ചെയ്യുന്നു
-      Object.keys(layerLines).forEach(lName => {
-        const item = layerLines[lName];
+      // 5. ഫ്രെയിമുകളും ലൈനുകളും റെൻഡർ ചെയ്യുന്നു
+      Object.keys(colorLineBuckets).forEach(k => {
+        const item = colorLineBuckets[k];
         if (item.coords.length === 0) return;
 
         const geom = new THREE.BufferGeometry();
@@ -544,8 +598,8 @@ function loadDxfBuffer(textData, fileName) {
         const lineSegments = new THREE.LineSegments(geom, lineMat);
 
         lineSegments.userData = {
-          name: `${lName}_Frames`,
-          layerName: lName,
+          name: `${item.layer}_Frame`,
+          layerName: item.layer,
           originalColor: item.color
         };
 
@@ -562,7 +616,6 @@ function loadDxfBuffer(textData, fileName) {
       applyCurrentProfileToMeshes();
       populateColorPalette();
 
-      // സേവിംഗ് പ്രക്രിയ
       setTimeout(async () => {
         try {
           const buf = encodeModelToBinaryVTS();
@@ -610,7 +663,7 @@ async function loadStepOrIgesBuffer(buffer, fileName) {
       const mat = new THREE.MeshStandardMaterial({
         color: col,
         roughness: 0.35,
-        metalness: 0.2,
+        metalness: 0.25,
         side: THREE.DoubleSide
       });
 
@@ -620,6 +673,16 @@ async function loadStepOrIgesBuffer(buffer, fileName) {
         layerName: isStep ? 'STEP_Body' : 'IGES_Surface',
         originalColor: col.getHex()
       };
+
+      try {
+        const edges = new THREE.EdgesGeometry(geom, 35);
+        const edgeLine = new THREE.LineSegments(
+          edges,
+          new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1.2, transparent: true, opacity: 0.55 })
+        );
+        mesh.add(edgeLine);
+        edgeLinesList.push(edgeLine);
+      } catch (e) {}
 
       modelRoot.add(mesh);
       meshList.push(mesh);
@@ -685,7 +748,7 @@ function loadRhinoDoc(doc, originalFileName) {
 
     const objects = doc.objects();
     const count = objects ? objects.count : 0;
-    const edgeThreshold = 55;
+    const edgeThreshold = 45;
 
     for (let i = 0; i < count; i++) {
       try {
@@ -737,7 +800,7 @@ function loadRhinoDoc(doc, originalFileName) {
           const material = new THREE.MeshStandardMaterial({
             color: resolvedColor, 
             roughness: 0.35, 
-            metalness: 0.2, 
+            metalness: 0.25, 
             side: THREE.DoubleSide
           });
           const threeMesh = new THREE.Mesh(threeGeom, material);
@@ -754,7 +817,7 @@ function loadRhinoDoc(doc, originalFileName) {
             const edges = new THREE.EdgesGeometry(threeGeom, edgeThreshold);
             const edgeLine = new THREE.LineSegments(
               edges,
-              new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 1, transparent: true, opacity: 0.28, depthTest: true })
+              new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 1.2, transparent: true, opacity: 0.55 })
             );
             threeMesh.add(edgeLine);
             edgeLinesList.push(edgeLine);
@@ -1128,7 +1191,7 @@ function applyCurrentProfileToMeshes() {
       m.material.metalness = 0.1;
     } else {
       m.material.roughness = 0.35;
-      m.material.metalness = 0.2;
+      m.material.metalness = 0.25;
     }
     if (isXRay) {
       m.material.transparent = true;
