@@ -13,7 +13,7 @@ let scene, camera, renderer, controls;
 const modelRoot = new THREE.Group();
 let meshList = [];
 let edgeLinesList = [];
-let dirLight1, dirLight2, dirLight3, hemiLight, ambientLight;
+let dirLight1, dirLight2, hemiLight, ambientLight;
 
 // MULTI-AXIS COMPOUND CLIPPING PLANES
 const clipPlanes = {
@@ -134,7 +134,7 @@ function encodeModelToBinaryVTS() {
     const pos = m.geometry.attributes.position.array;
     const nameBytes = new TextEncoder().encode(m.userData.name || 'Part');
     const layerBytes = new TextEncoder().encode(m.userData.layerName || 'Default');
-    const color = (m.material && m.material.color) ? m.material.color.getHex() : 0x0284c7;
+    const color = (m.material && m.material.color) ? m.material.color.getHex() : 0x3b82f6;
 
     const namePad = pad4(nameBytes.length);
     const layerPad = pad4(layerBytes.length);
@@ -224,7 +224,7 @@ function loadBinaryVTSBuffer(buffer) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. THREE.JS INITIALIZATION WITH CLEAR NATURAL LIGHTING
+// 3. THREE.JS INITIALIZATION
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('viewport');
@@ -254,10 +254,10 @@ function initThree() {
   controls.panSpeed = 0.8;
   controls.screenSpacePanning = true;
 
-  ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+  ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
   scene.add(ambientLight);
 
-  hemiLight = new THREE.HemisphereLight(0xffffff, 0x475569, 0.45);
+  hemiLight = new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.4);
   hemiLight.position.set(0, 0, 5000);
   scene.add(hemiLight);
 
@@ -345,10 +345,10 @@ function calibrateModelView() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3D DXF MULTI-PART & ACCURATE ORIGINAL COLOR PARSER
+// 3D DXF MULTI-PART & ORIGINAL COLOR PARSER (RESTORED WORKING LOGIC)
 // ═══════════════════════════════════════════════════════════
 function loadDxfBuffer(textData, fileName) {
-  showLoader(`Loading DXF parts & original colors...`);
+  showLoader(`Reconstructing CAD parts & colors...`);
   clearModelScene();
 
   setTimeout(() => {
@@ -362,18 +362,18 @@ function loadDxfBuffer(textData, fileName) {
 
       if (!dxf) throw new Error('Corrupted or unreadable DXF structure.');
 
-      // 1. യഥാർത്ഥ ലെയർ കളറുകൾ നേരിട്ട് ശേഖരിക്കുന്നു
+      // ആദ്യത്തെ കോഡിൽ ഉണ്ടായിരുന്ന അതേ കൃത്യമായ ലെയർ കളർ മാപ്പിംഗ്
       const layerColors = {};
       if (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) {
         Object.keys(dxf.tables.layer.layers).forEach(k => {
           const lyr = dxf.tables.layer.layers[k];
           if (lyr.color !== undefined) {
-            // ലെയർ കളർ നമ്പർ ഹെക്സ് ആക്കുന്നു
             layerColors[k] = '#' + lyr.color.toString(16).padStart(6, '0');
           }
         });
       }
 
+      const defaultColor = '#3b82f6';
       const individualParts = [];
 
       function processEntity(ent, transformMatrix, parentName, parentColor) {
@@ -429,15 +429,14 @@ function loadDxfBuffer(textData, fileName) {
         throw new Error('No renderable 3D entities found in this DXF.');
       }
 
-      // 2. ഓരോ പാർട്ടിനും അവയുടെ ഒറിജിനൽ കളർ ഉറപ്പാക്കി ഗ്രൂപ്പ് ചെയ്യുന്നു
+      // ഓരോ പാർട്ടിനും ഒറിജിനൽ ലെയർ/എൻ്റിറ്റി കളർ നൽകി വെവ്വേറെ പാക്കറ്റുകളാക്കുന്നു
       const partBuckets = {};
 
       individualParts.forEach((ent, idx) => {
         const lName = ent.layer || 'Default';
         let partId = ent._partName || `${lName}_Part_${idx + 1}`;
         
-        // ഒറിജിനൽ കളർ നിർണ്ണയിക്കുന്നു
-        let resolvedColor = '#38bdf8';
+        let resolvedColor = defaultColor;
         if (ent.color !== undefined) {
           resolvedColor = '#' + ent.color.toString(16).padStart(6, '0');
         } else if (ent._inheritedColor) {
@@ -450,7 +449,7 @@ function loadDxfBuffer(textData, fileName) {
           partBuckets[partId] = { faces: [], lines: [], layer: lName, color: resolvedColor, name: partId };
         }
 
-        // 3D സർഫസ് പ്ലേറ്റുകൾ
+        // 3D സർഫസ് ഫേസുകൾ
         if (ent.type === '3DFACE' || ent.type === 'SOLID') {
           const v = ent.vertices;
           if (!v || v.length < 3) return;
@@ -465,7 +464,7 @@ function loadDxfBuffer(textData, fileName) {
             partBuckets[partId].faces.push(v[3].x, v[3].y, v[3].z || 0);
           }
         }
-        // സ്ട്രക്ചറൽ ഫ്രെയിം വയറുകൾ
+        // യഥാർത്ഥ വയർഫ്രെയിം ലൈനുകൾ
         else if (['LINE', 'LWPOLYLINE', 'POLYLINE'].includes(ent.type)) {
           if (ent.type === 'LINE' && ent.vertices && ent.vertices.length >= 2) {
             partBuckets[partId].lines.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
@@ -484,7 +483,7 @@ function loadDxfBuffer(textData, fileName) {
       Object.keys(partBuckets).forEach(pKey => {
         const item = partBuckets[pKey];
 
-        // 1. പ്ലേറ്റ് സർഫസ് മെഷ് (ത്രികോണ വരകൾ പൂർണ്ണമായി ഒഴിവാക്കി, യഥാർത്ഥ കളറോടെ)
+        // 1. പ്ലേറ്റ് സർഫസ് മെഷ് (ത്രികോണ വരകൾ പൂർണ്ണമായി ഒഴിവാക്കി തനത് ഒറിജിനൽ കളറിൽ)
         if (item.faces.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.faces, 3));
@@ -509,7 +508,7 @@ function loadDxfBuffer(textData, fileName) {
           loadedCount++;
         }
 
-        // 2. ഡ്രോയിംഗിലെ യഥാർത്ഥ ലൈനുകൾ മാത്രം
+        // 2. ഡ്രോയിംഗിലുള്ള യഥാർത്ഥ ലൈനുകൾ മാത്രം
         if (item.lines.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.lines, 3));
@@ -1671,7 +1670,7 @@ function setupEvents() {
     btnTheme.addEventListener('click', () => {
       isDarkMode = !isDarkMode;
       document.body.classList.toggle('dark-mode', isDarkMode);
-      document.getElementById('theme-icon').innerText = isDarkMode ? '🌙' : '☀️';
+      document.getElementById('theme-icon').innerText = isDarkMode ? '🌙' : '☀️️';
       if (scene) scene.background = new THREE.Color(isDarkMode ? 0x0a0f1d : 0xf1f5f9);
       localStorage.setItem('vt_viewer_theme', isDarkMode ? 'dark' : 'light');
     });
