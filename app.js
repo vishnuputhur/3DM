@@ -83,7 +83,7 @@ function resolveAciColor(colorVal, defaultHex = 0x38bdf8) {
   }
   if (typeof colorVal === 'number') {
     if (colorVal > 0 && colorVal < ACI_COLORS.length) return ACI_COLORS[colorVal];
-    if (colorVal > 255) return colorVal; // TrueColor
+    if (colorVal > 255) return colorVal;
   }
   return defaultHex;
 }
@@ -374,6 +374,8 @@ function clearModelScene() {
   resetAllClippingPlanes();
   selectedObject = null;
   selectedLocalBox = null;
+  const formBtn = document.getElementById('btn-forming-iso');
+  if (formBtn) formBtn.style.display = 'none';
 }
 
 function calibrateModelView() {
@@ -403,7 +405,6 @@ function loadDxfBuffer(textData, fileName) {
 
       if (!dxf) throw new Error('Corrupted or unreadable DXF structure.');
 
-      // 1. ഒറിജിനൽ ലെയർ കളർ മാപ്പർ (കൃത്യമായ അതേ വർക്കിംഗ് കോഡ്)
       const layerColorMap = {};
       const layerTable = (dxf.tables && dxf.tables.layer && dxf.tables.layer.layers) ? dxf.tables.layer.layers : (dxf.tables && dxf.tables.layers) ? dxf.tables.layers : {};
       
@@ -414,7 +415,6 @@ function loadDxfBuffer(textData, fileName) {
         }
       });
 
-      // 2. INSERT (Nested Block References) അൺപാക്ക് ചെയ്ത് ഒറിജിനൽ പാർട്ട് നെയിം സൂക്ഷിക്കുന്നു
       const expandedEntities = [];
 
       function processEntity(ent, transformMatrix, parentColor, parentBlock) {
@@ -477,7 +477,6 @@ function loadDxfBuffer(textData, fileName) {
         throw new Error('No renderable 3D entities or frames found in this DXF.');
       }
 
-      // 3. പ്ലേറ്റുകളെ ഒറ്റ ത്രികോണങ്ങളാക്കാതെ പാർട്ട് ലെവലിൽ സ്മാർട്ടായി ഗ്രൂപ്പ് ചെയ്യുന്നു
       const partBuckets = {};
 
       expandedEntities.forEach((ent, idx) => {
@@ -492,7 +491,6 @@ function loadDxfBuffer(textData, fileName) {
           resolvedColor = layerColorMap[lName];
         }
 
-        // ഓരോ ബ്ലോക്കും അല്ലെങ്കിൽ ലെയറും അനുസരിച്ച് ഗ്രൂപ്പ് കീ നിർണ്ണയിക്കുന്നു
         const partKey = ent._blockRefName 
           ? `BLK_${ent._blockRefName}_${resolvedColor.toString(16)}` 
           : `LYR_${lName}_${resolvedColor.toString(16)}`;
@@ -509,7 +507,6 @@ function loadDxfBuffer(textData, fileName) {
           };
         }
 
-        // 3D സർഫസ് പ്ലേറ്റുകൾ
         if (ent.type === '3DFACE' || ent.type === 'SOLID') {
           const v = ent.vertices;
           if (!v || v.length < 3) return;
@@ -523,9 +520,7 @@ function loadDxfBuffer(textData, fileName) {
             partBuckets[partKey].faceCoords.push(v[2].x, v[2].y, v[2].z || 0);
             partBuckets[partKey].faceCoords.push(v[3].x, v[3].y, v[3].z || 0);
           }
-        }
-        // സ്ട്രക്ചറൽ ഫ്രെയിം ലൈനുകൾ
-        else if (['LINE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE'].includes(ent.type)) {
+        } else if (['LINE', 'LWPOLYLINE', 'POLYLINE', 'SPLINE'].includes(ent.type)) {
           if (ent.type === 'LINE' && ent.vertices && ent.vertices.length >= 2) {
             partBuckets[partKey].lineCoords.push(ent.vertices[0].x, ent.vertices[0].y, ent.vertices[0].z || 0);
             partBuckets[partKey].lineCoords.push(ent.vertices[1].x, ent.vertices[1].y, ent.vertices[1].z || 0);
@@ -540,11 +535,9 @@ function loadDxfBuffer(textData, fileName) {
 
       let loadedCount = 0;
 
-      // 4. മുഴുവൻ പാർട്ടുകളെയും ഒറിജിനൽ ഷേപ്പിലും കളറിലും റെൻഡർ ചെയ്യുന്നു
       Object.keys(partBuckets).forEach(k => {
         const item = partBuckets[k];
 
-        // A. പ്ലേറ്റ് സർഫസ് മെഷുകൾ (സെലക്ട് ചെയ്യുമ്പോൾ മുഴുവൻ പാർട്ടിന്റെ ഷേപ്പ് വരും)
         if (item.faceCoords.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.faceCoords, 3));
@@ -569,7 +562,6 @@ function loadDxfBuffer(textData, fileName) {
           loadedCount++;
         }
 
-        // B. ഫ്രെയിം വർക്കുകൾ
         if (item.lineCoords.length > 0) {
           const geom = new THREE.BufferGeometry();
           geom.setAttribute('position', new THREE.Float32BufferAttribute(item.lineCoords, 3));
@@ -1359,20 +1351,19 @@ function clearAngleMeasurement() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 11. INSPECT & MEMBER THICKNESS / WEIGHT CALCULATOR
+// 11. INSPECT & WEIGHT CALCULATOR
 // ═══════════════════════════════════════════════════════════
 const STEEL_DENSITY = 7.85e-6;
 
 function handleInspectClick(hit) {
   selectedObject = hit.object;
-
-  // സെലക്ട് ചെയ്ത പാർട്ട് മാത്രം തെളിഞ്ഞു നിൽക്കാൻ നേരിയ എമിഷൻ
   meshList.forEach(m => {
     if (m.material && m.material.emissive) m.material.emissive.setHex(0x000000);
   });
-  if (selectedObject.material && selectedObject.material.emissive) {
-    selectedObject.material.emissive.setHex(0x1e293b);
-  }
+  if (selectedObject.material && selectedObject.material.emissive) selectedObject.material.emissive.setHex(0x38bdf8);
+
+  const formBtn = document.getElementById('btn-forming-iso');
+  if (formBtn) formBtn.style.display = 'block';
 
   document.getElementById('meta-part-name').innerText = selectedObject.userData.name || 'Ship Part';
   document.getElementById('meta-part-layer').innerText = selectedObject.userData.layerName || 'Default';
@@ -1386,24 +1377,13 @@ function handleInspectClick(hit) {
   document.getElementById('part-by').innerText = size.y.toFixed(1);
   document.getElementById('part-bz').innerText = size.z.toFixed(1);
 
-  // മൂന്ന് അളവുകൾ ക്രമീകരിക്കുന്നു: L (നീളം), B (വീതി), T (തിക്ക്നസ്സ്)
   const sortedDims = [size.x, size.y, size.z].sort((a, b) => b - a);
-  const L = sortedDims[0];
-  const B = sortedDims[1];
-  const T = Math.max(sortedDims[2], 0.5);
-
-  // തിക്ക്നസ്സ് ഡിസ്പ്ലേ ചെയ്യുന്നു
-  const thickEl = document.getElementById('meta-part-thick') || document.getElementById('part-bt');
-  if (thickEl) thickEl.innerText = T.toFixed(1) + ' mm';
-
+  const L = sortedDims[0], B = sortedDims[1], T = Math.max(sortedDims[2], 0.5);
   const weightKg = (L * B * T * 0.7) * STEEL_DENSITY;
-  let weightStr = (weightKg < 1) ? (weightKg * 1000).toFixed(0) + ' g' : (weightKg < 1000) ? weightKg.toFixed(2) + ' KG' : (weightKg / 1000).toFixed(3) + ' T';
-  
-  const wEl = document.getElementById('meta-part-weight');
-  if (wEl) wEl.innerText = weightStr;
 
-  const perimEl = document.getElementById('meta-part-perim');
-  if (perimEl) perimEl.innerText = (2 * (L + B)).toFixed(1) + ' mm';
+  let weightStr = (weightKg < 1) ? (weightKg * 1000).toFixed(0) + ' g' : (weightKg < 1000) ? weightKg.toFixed(2) + ' KG' : (weightKg / 1000).toFixed(3) + ' T';
+  document.getElementById('meta-part-weight').innerText = weightStr;
+  document.getElementById('meta-part-perim').innerText = (2 * (L + B)).toFixed(1) + ' mm';
 }
 
 function highlightAxisDimension(axis) {
@@ -1684,6 +1664,7 @@ function switchMode(newMode) {
 
 function setupEvents() {
   const dom = renderer.domElement;
+  const formBtn = document.getElementById('btn-forming-iso');
 
   ['view', 'coords', 'measure', 'girth', 'angle', 'section', 'inspect'].forEach(m => {
     const btn = document.getElementById(`mode-${m}`);
@@ -1875,17 +1856,18 @@ function setupEvents() {
   if (btnHidePart) {
     btnHidePart.addEventListener('click', () => {
       if (selectedObject) { selectedObject.visible = false; clearDimensionHelper(); }
+      if (formBtn) formBtn.style.display = 'none';
     });
   }
 
-  // ISOLATE മെമ്പർ + തിക്ക്നസ്സ് കൃത്യമായി ഫോക്കസ് ചെയ്യുന്നു
   const btnIsoPart = document.getElementById('btn-isolate-part');
   if (btnIsoPart) {
     btnIsoPart.addEventListener('click', () => {
       if (!selectedObject) return;
       meshList.forEach(m => m.visible = (m === selectedObject));
 
-      // സെലക്ട് ചെയ്ത മെമ്പറിലേക്ക് ക്യാമറ സ്മൂത്തായി ഫോക്കസ് ചെയ്യുന്നു
+      if (formBtn) formBtn.style.display = 'block';
+
       const b = new THREE.Box3().setFromObject(selectedObject);
       const c = b.getCenter(new THREE.Vector3());
       controls.target.copy(c);
@@ -1899,6 +1881,28 @@ function setupEvents() {
     btnUnhideAll.addEventListener('click', () => {
       meshList.forEach(m => m.visible = true);
       updateControlsLockState();
+
+      if (formBtn) formBtn.style.display = 'none';
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // MODULAR BRIDGE: LAUNCH FORMING STUDIO VIA SEPARATE FILE
+  // ═══════════════════════════════════════════════════════════
+  if (formBtn) {
+    formBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!selectedObject || !selectedObject.geometry) {
+        alert('പ്ലേറ്റ് കണ്ടെത്തിയില്ല. Inspect മോഡിൽ ഒരു പ്ലേറ്റിൽ ടാപ്പ് ചെയ്ത ശേഷം FORM അമർത്തുക.');
+        return;
+      }
+
+      // calling the standalone module function in forming-studio.js
+      if (window.openDirectFormingStudio) {
+        window.openDirectFormingStudio(selectedObject);
+      }
     });
   }
 
