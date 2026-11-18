@@ -8,7 +8,7 @@
   <script src="OrbitControls.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background: #090d16; color: #f8fafc; touch-action: none; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #090d16; color: #f8fafc; touch-action: none; user-select: none; -webkit-user-select: none; }
     #canvas-container { width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1; }
 
     .top-bar {
@@ -28,14 +28,14 @@
       z-index: 15; pointer-events: none;
     }
     .mode-banner {
-      background: rgba(15, 23, 42, 0.9); border: 1px solid #334155;
+      background: rgba(15, 23, 42, 0.92); border: 1px solid #334155;
       color: #e2e8f0; padding: 6px 9px; border-radius: 8px;
       font-size: 11px; font-weight: 600; line-height: 1.3;
-      backdrop-filter: blur(6px); max-width: 48%; pointer-events: auto;
+      backdrop-filter: blur(6px); max-width: 50%; pointer-events: auto;
     }
 
     .probe-hud {
-      background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(8px);
       border: 1px solid #0284c7; border-radius: 9px; padding: 6px 10px;
       text-align: right; transition: opacity 0.2s, transform 0.2s; min-width: 145px; pointer-events: auto;
     }
@@ -79,7 +79,7 @@
     @media (min-width: 768px) {
       .bottom-dock {
         left: 50%; right: auto; transform: translateX(-50%);
-        background: rgba(15, 23, 42, 0.9); padding: 6px 10px;
+        background: rgba(15, 23, 42, 0.92); padding: 6px 10px;
         border-radius: 14px; border: 1px solid #334155;
       }
       .dock-btn { min-width: 115px !important; padding: 9px 14px !important; font-size: 12px !important; }
@@ -298,7 +298,7 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      if (controls) controls.update();
+      if (controls && controls.enabled) controls.update();
       updateHTMLLabels();
       renderer.render(scene, camera);
     }
@@ -427,7 +427,7 @@
       corners.forEach((basePt, idx) => {
         const topPt = lifted[idx];
         const pinDot = new THREE.Mesh(
-          new THREE.SphereGeometry(5, 10, 10),
+          new THREE.SphereGeometry(6, 10, 10),
           new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false })
         );
         pinDot.position.copy(basePt);
@@ -540,24 +540,24 @@
       const nx = ((cx - rect.left) / rect.width) * 2 - 1;
       const ny = -((cy - rect.top) / rect.height) * 2 + 1;
 
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      const hits = raycaster.intersectObject(plateMesh, false);
+
       const pos = plateMesh.geometry.attributes.position.array;
       const tmp = new THREE.Vector3(), proj = new THREE.Vector3();
-      let bestPxDist = 38, bestSnapPt = null;
+      let bestPxDist = 42, bestSnapPt = null;
 
       for (let i = 0; i < pos.length; i += 3) {
         tmp.set(pos[i], pos[i + 1], pos[i + 2]);
         proj.copy(tmp).project(camera);
-        if (proj.z > 1) continue;
+        if (proj.z > 1 || proj.z < -1) continue;
         const sx = (proj.x * 0.5 + 0.5) * rect.width + rect.left;
         const sy = (-proj.y * 0.5 + 0.5) * rect.height + rect.top;
         const dPx = Math.hypot(sx - cx, sy - cy);
         if (dPx < bestPxDist) { bestPxDist = dPx; bestSnapPt = tmp.clone(); }
       }
       if (bestSnapPt) return bestSnapPt;
-
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
-      const hits = raycaster.intersectObject(plateMesh, false);
       return (hits.length > 0) ? hits[0].point.clone() : null;
     }
 
@@ -567,6 +567,8 @@
       magEl.style.display = 'block';
       magEl.style.left = cx + 'px';
       magEl.style.top = cy + 'px';
+
+      renderer.render(scene, camera);
 
       const ctx = magCanvas.getContext('2d');
       const srcCanvas = renderer.domElement;
@@ -592,24 +594,28 @@
         if (!isPickingDrag) return;
         isPickingDrag = false;
         document.getElementById('magnifier').style.display = 'none';
-        controls.enabled = true;
 
-        const pickedPt = pending3DPoint || findBestPlatePointAtScreen(lastPointerX, lastPointerY);
-        pending3DPoint = null;
+        try {
+          const pickedPt = pending3DPoint || findBestPlatePointAtScreen(lastPointerX, lastPointerY);
+          pending3DPoint = null;
 
-        if (pickedPt) {
-          if (manualCorners.length >= 4) manualCorners = [];
-          manualCorners.push(pickedPt);
-          const count = manualCorners.length;
-          applyCornersToFrame(manualCorners);
+          if (pickedPt) {
+            if (manualCorners.length >= 4) manualCorners = [];
+            manualCorners.push(pickedPt);
+            const count = manualCorners.length;
+            applyCornersToFrame(manualCorners);
 
-          if (count < 4) {
-            setMode('view', `✅ C${count} Locked! Zoom to Corner ${count + 1}, then tap "Select Point"`);
+            if (count < 4) {
+              setMode('view', `✅ C${count} Locked! Zoom to Corner ${count + 1}, then tap "Select Point"`);
+            } else {
+              setMode('measure', `✅ All 4 Corners Locked! Tap plate to measure`);
+            }
           } else {
-            setMode('measure', `✅ All 4 Corners Locked! Tap plate to measure`);
+            setMode('view', `⚠️ Missed plate. Zoom & tap "Select Point" again`);
           }
-        } else {
-          setMode('view', `⚠️ Missed plate edge. Tap "Select Point" & touch on plate`);
+        } catch (err) {
+          console.error('Corner pick error:', err);
+          setMode('view', `⚠️ Try selecting point again`);
         }
       }
 
@@ -618,30 +624,31 @@
         lastPointerX = e.clientX; lastPointerY = e.clientY;
 
         if (interactionMode === 'pick_one') {
+          e.stopImmediatePropagation();
           isPickingDrag = true;
           controls.enabled = false;
           pending3DPoint = findBestPlatePointAtScreen(e.clientX, e.clientY);
           updateMagnifier(e.clientX, e.clientY);
         }
-      });
+      }, true);
 
-      dom.addEventListener('pointermove', (e) => {
+      window.addEventListener('pointermove', (e) => {
         if (isPickingDrag && interactionMode === 'pick_one') {
           lastPointerX = e.clientX; lastPointerY = e.clientY;
           const pt = findBestPlatePointAtScreen(e.clientX, e.clientY);
           if (pt) pending3DPoint = pt;
           updateMagnifier(e.clientX, e.clientY);
         }
-      });
+      }, true);
 
-      dom.addEventListener('pointerup', (e) => {
+      window.addEventListener('pointerup', (e) => {
         if (isPickingDrag) {
           if (e.clientX || e.clientY) { lastPointerX = e.clientX; lastPointerY = e.clientY; }
           finishPickRelease();
           return;
         }
-        if (interactionMode === 'measure' && manualCorners.length === 4) {
-          if (Math.hypot(e.clientX - downX, e.clientY - downY) < 12 && (Date.now() - downTime) < 450) {
+        if (interactionMode === 'measure' && manualCorners.length === 4 && e.target === dom) {
+          if (Math.hypot(e.clientX - downX, e.clientY - downY) < 14 && (Date.now() - downTime) < 500) {
             const hitPt = findBestPlatePointAtScreen(e.clientX, e.clientY);
             if (hitPt) {
               lastHitPt = hitPt.clone(); lastScreenX = e.clientX; lastScreenY = e.clientY;
@@ -649,9 +656,11 @@
             }
           }
         }
-      });
+      }, true);
 
-      dom.addEventListener('pointercancel', finishPickRelease);
+      window.addEventListener('pointercancel', () => {
+        if (isPickingDrag) finishPickRelease();
+      }, true);
     }
 
     function generateStations() {
@@ -763,7 +772,6 @@
     function setMode(mode, customMsg) {
       interactionMode = mode;
       document.getElementById('magnifier').style.display = 'none';
-      if (controls) controls.enabled = true;
 
       const btnPick = document.getElementById('btn-select-point');
       const btnMeasure = document.getElementById('btn-mode-measure');
@@ -773,6 +781,7 @@
       btnMeasure.classList.remove('active');
 
       if (mode === 'pick_one') {
+        if (controls) controls.enabled = false;
         btnPick.classList.add('pick-armed');
         const nextNum = (manualCorners.length >= 4) ? 1 : (manualCorners.length + 1);
         banner.innerText = customMsg || `🎯 Touch & release on Corner ${nextNum}`;
@@ -782,10 +791,12 @@
           setMode('view', `⚠️ Select all 4 corners first (${manualCorners.length}/4 done)`);
           return;
         }
+        if (controls) controls.enabled = true;
         btnMeasure.classList.add('active');
         banner.innerText = customMsg || '📏 Tap plate to measure drop & edges';
         banner.style.borderColor = '#0284c7'; banner.style.color = '#38bdf8';
       } else {
+        if (controls) controls.enabled = true;
         const nextNum = manualCorners.length + 1;
         banner.innerText = customMsg || `🔍 Zoom to Corner ${nextNum}, then tap "Select Point"`;
         banner.style.borderColor = '#475569'; banner.style.color = '#e2e8f0';
@@ -813,6 +824,10 @@
 
     function setupUI() {
       document.getElementById('btn-select-point').addEventListener('click', () => {
+        if (interactionMode === 'pick_one') {
+          setMode('view');
+          return;
+        }
         if (manualCorners.length >= 4) {
           manualCorners = [];
           applyCornersToFrame([]);
