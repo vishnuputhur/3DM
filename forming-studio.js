@@ -1,43 +1,7 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════════════
-// 1. BRIDGE FOR MAIN VIEWER (index.html -> forming.html)
-// ═══════════════════════════════════════════════════════════
-window.openDirectFormingStudio = function(meshObj) {
-  if (!meshObj || !meshObj.geometry) {
-    alert('ദയവായി ഒരു ഷെൽ പ്ലേറ്റ് ആദ്യം സെലക്ട് ചെയ്യുക.');
-    return;
-  }
-
-  meshObj.updateMatrixWorld(true);
-  let geom = meshObj.geometry.clone();
-  geom.applyMatrix4(meshObj.matrixWorld);
-  if (geom.index) geom = geom.toNonIndexed();
-
-  const posAttr = geom.attributes.position;
-  if (!posAttr || posAttr.array.length < 9) {
-    alert('തിരഞ്ഞെടുത്ത പ്ലേറ്റിന്റെ ജ്യാമിതി ശരിയല്ല.');
-    return;
-  }
-
-  const platePayload = {
-    name: (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Shell Plate',
-    plateNo: (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '',
-    color: (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8,
-    vertices: Array.from(posAttr.array)
-  };
-
-  try {
-    localStorage.setItem('vt_forming_plate_data', JSON.stringify(platePayload));
-    window.location.href = 'forming.html';
-  } catch (err) {
-    console.error('Failed to transfer plate data:', err);
-    alert('പ്ലേറ്റ് ഡാറ്റ ട്രാൻസ്ഫർ ചെയ്യുന്നതിൽ പിഴവ് സംഭവിച്ചു.');
-  }
-};
-
-// ═══════════════════════════════════════════════════════════
-// 2. INDEXED-DB STORAGE FOR PLATES & MULTI-LINES
+// 1. INDEXED-DB STORAGE (SHARED BETWEEN VIEWER & FORMING PAGE)
 // ═══════════════════════════════════════════════════════════
 const DB_NAME = 'VTSoftFormingDB';
 const STORE_NAME = 'plates';
@@ -87,6 +51,76 @@ async function dbDeletePlate(id) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// 2. ORIGINAL VIEWER HANDOFF (NEVER HANGS ON LARGE PLATES)
+// ═══════════════════════════════════════════════════════════
+window.openDirectFormingStudio = async function(meshObj) {
+  if (!meshObj || !meshObj.geometry) {
+    alert('ദയവായി ഒരു ഷെൽ പ്ലേറ്റ് ആദ്യം സെലക്ട് ചെയ്യുക.');
+    return;
+  }
+
+  meshObj.updateMatrixWorld(true);
+  let geom = meshObj.geometry.clone();
+  geom.applyMatrix4(meshObj.matrixWorld);
+  if (geom.index) geom = geom.toNonIndexed();
+
+  const posAttr = geom.attributes.position;
+  if (!posAttr || posAttr.array.length < 9) {
+    alert('തിരഞ്ഞെടുത്ത പ്ലേറ്റിന്റെ ജ്യാമിതി ശരിയല്ല.');
+    return;
+  }
+
+  const plateName = (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Shell Plate';
+  const plateNo = (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '';
+  const plateColor = (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8;
+  const vertsArray = Array.from(posAttr.array);
+
+  const payload = {
+    name: plateName,
+    plateNo: plateNo,
+    color: plateColor,
+    vertices: vertsArray
+  };
+
+  // 1. Save into IndexedDB first (handles huge meshes without 5MB localStorage limit)
+  try {
+    const existing = await dbGetAllPlates();
+    const match = existing.find(p => p.name === plateName && p.vertices && p.vertices.length === vertsArray.length);
+    const activeId = match ? match.id : ('plate_' + Date.now());
+
+    const record = match ? {
+      ...match,
+      updatedAt: Date.now()
+    } : {
+      id: activeId,
+      plateNo: plateNo || ('P-' + (existing.length + 1)),
+      name: plateName,
+      color: plateColor,
+      vertices: vertsArray,
+      lines: [],
+      updatedAt: Date.now()
+    };
+
+    await dbSavePlate(record);
+    localStorage.setItem('vt_active_forming_id', activeId);
+  } catch (dbErr) {
+    console.warn('IndexedDB save fallback:', dbErr);
+  }
+
+  // 2. Also keep original localStorage keys for backward compatibility
+  try {
+    const jsonStr = JSON.stringify(payload);
+    localStorage.setItem('vt_forming_plate_data', jsonStr);
+    localStorage.setItem('active_forming_part', jsonStr);
+  } catch (lsErr) {
+    // Ignore QuotaExceededError if plate is huge; IndexedDB already has it!
+  }
+
+  // 3. Navigate cleanly to forming.html
+  window.location.href = 'forming.html';
+};
+
+// ═══════════════════════════════════════════════════════════
 // 3. FORMING STUDIO 3D ENGINE (RUNS ON forming.html)
 // ═══════════════════════════════════════════════════════════
 let scene, camera, renderer, controls;
@@ -107,7 +141,7 @@ let activeLineId = null;
 
 function initFormingStudioPage() {
   const container = document.getElementById('canvas-container');
-  if (!container) return; // Skip if loaded inside index.html
+  if (!container) return; // Only run on forming.html
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d16);
@@ -155,26 +189,39 @@ function animate() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 4. BOOT: LOAD FROM VIEWER REDIRECT OR DIRECT SAVED LIBRARY
+// 4. BOOT: LOAD PLATE FROM VIEWER OR SAVED LIBRARY
 // ═══════════════════════════════════════════════════════════
 async function bootPlateLoader() {
+  const activeId = localStorage.getItem('vt_active_forming_id');
   const rawRedirect = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
 
+  // Clear one-time redirect flags after reading
+  localStorage.removeItem('vt_active_forming_id');
+  localStorage.removeItem('vt_forming_plate_data');
+  localStorage.removeItem('active_forming_part');
+
+  const allPlates = await dbGetAllPlates();
+
+  // Case A: Opened directly from index.html via IndexedDB ID
+  if (activeId) {
+    const target = allPlates.find(p => p.id === activeId);
+    if (target) {
+      loadPlateRecord(target);
+      return;
+    }
+  }
+
+  // Case B: Opened from index.html via original localStorage keys
   if (rawRedirect) {
     try {
       const parsed = JSON.parse(rawRedirect);
-      localStorage.removeItem('vt_forming_plate_data');
-      localStorage.removeItem('active_forming_part');
-
-      const existing = await dbGetAllPlates();
-      const match = existing.find(p => p.name === parsed.name && p.vertices.length === parsed.vertices.length);
-
+      const match = allPlates.find(p => p.name === parsed.name && p.vertices.length === parsed.vertices.length);
       if (match) {
         loadPlateRecord(match);
       } else {
         const newRec = {
           id: 'plate_' + Date.now(),
-          plateNo: parsed.plateNo || 'P-' + (existing.length + 1),
+          plateNo: parsed.plateNo || 'P-' + (allPlates.length + 1),
           name: parsed.name || 'Shell Plate',
           color: parsed.color !== undefined ? parsed.color : 0x38bdf8,
           vertices: Array.from(parsed.vertices),
@@ -186,15 +233,14 @@ async function bootPlateLoader() {
       }
       return;
     } catch (e) {
-      console.error(e);
+      console.error('Error parsing redirected plate:', e);
     }
   }
 
-  // Direct visit -> load most recent saved plate or show welcome card
-  const saved = await dbGetAllPlates();
-  if (saved.length > 0) {
-    saved.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    loadPlateRecord(saved[0]);
+  // Case C: Direct link visit to forming.html -> load most recent saved plate
+  if (allPlates.length > 0) {
+    allPlates.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    loadPlateRecord(allPlates[0]);
   } else {
     document.getElementById('welcome-card').classList.remove('hidden');
   }
