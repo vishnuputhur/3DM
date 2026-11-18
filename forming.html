@@ -11,17 +11,28 @@
     body, html { width: 100%; height: 100%; overflow: hidden; background: #090d16; color: #f8fafc; touch-action: none; user-select: none; -webkit-user-select: none; }
     #canvas-container { width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1; }
 
+    /* Top Header */
     .top-bar {
       position: absolute; top: 8px; left: 8px; right: 8px; height: 42px;
-      display: flex; justify-content: space-between; align-items: center;
+      display: flex; justify-content: space-between; align-items: center; gap: 6px;
       background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(10px);
       padding: 0 10px; border-radius: 10px; border: 1px solid #1e293b; z-index: 20;
     }
-    .top-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .btn-back { background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; flex-shrink: 0; }
-    .top-bar h1 { font-size: 13px; font-weight: 700; color: #38bdf8; white-space: nowrap; }
-    .badge { font-size: 10px; background: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .btn-top {
+      background: #1e293b; color: #f8fafc; border: 1px solid #334155;
+      padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
+      text-decoration: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .btn-save-plate { background: #059669; border-color: #10b981; color: #fff; }
+    .top-bar h1 { font-size: 13px; font-weight: 700; color: #38bdf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .plate-tag {
+      font-size: 10px; background: #0369a1; padding: 3px 7px; border-radius: 6px;
+      font-weight: 600; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
 
+    /* Status Banner (Non-Overlapping) */
     .sub-hud-row {
       position: absolute; top: 56px; left: 8px; right: 8px;
       display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
@@ -29,51 +40,62 @@
     }
     .mode-banner {
       background: rgba(15, 23, 42, 0.92); border: 1px solid #334155;
-      color: #e2e8f0; padding: 6px 9px; border-radius: 8px;
+      color: #e2e8f0; padding: 6px 10px; border-radius: 8px;
       font-size: 11px; font-weight: 600; line-height: 1.3;
-      backdrop-filter: blur(6px); max-width: 50%; pointer-events: auto;
+      backdrop-filter: blur(6px); max-width: 65%; pointer-events: auto;
     }
 
-    .probe-hud {
-      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(8px);
-      border: 1px solid #0284c7; border-radius: 9px; padding: 6px 10px;
-      text-align: right; transition: opacity 0.2s, transform 0.2s; min-width: 145px; pointer-events: auto;
-    }
-    .probe-hud.hidden { opacity: 0; pointer-events: none; transform: translateY(-8px); }
-    .probe-label { font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-    .probe-val { font-size: 18px; font-weight: 800; color: #facc15; font-family: monospace; line-height: 1.15; }
-    .probe-grid {
-      margin-top: 4px; padding-top: 4px; border-top: 1px solid #1e293b;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; font-size: 10px; font-family: monospace; text-align: left;
-    }
-    .probe-grid span { color: #94a3b8; }
-    .probe-grid b { color: #38bdf8; float: right; }
-
-    .side-offset-wrapper {
-      position: absolute; left: 0; top: 52%; transform: translateY(-50%);
-      z-index: 18; display: flex; align-items: center;
+    /* Collapsible Right Measurement Table Drawer */
+    .table-wrapper {
+      position: absolute; right: 0; top: 56px; bottom: 64px;
+      z-index: 18; display: flex; align-items: flex-start;
       transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
     }
-    .side-offset-wrapper.collapsed { transform: translate(-100%, -50%); }
-    .side-offset-panel {
-      background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
-      border: 1px solid #334155; border-left: none; border-radius: 0 10px 10px 0;
-      padding: 7px 5px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    .table-wrapper.collapsed { transform: translateX(100%); }
+    .table-toggle-tab {
+      position: absolute; right: 100%; top: 10px;
+      background: rgba(15, 23, 42, 0.95); border: 1px solid #0284c7; border-right: none;
+      color: #38bdf8; padding: 8px 6px; border-radius: 8px 0 0 8px;
+      font-size: 10px; font-weight: 800; cursor: pointer; pointer-events: auto;
+      writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em;
+      box-shadow: -3px 2px 10px rgba(0,0,0,0.45);
     }
-    .offset-toggle-tab {
-      position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
-      background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-left: none;
-      color: #38bdf8; width: 22px; height: 44px; border-radius: 0 8px 8px 0;
-      display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; cursor: pointer;
+    .measure-panel {
+      width: 245px; max-width: 72vw; max-height: 100%;
+      background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px);
+      border: 1px solid #334155; border-right: none; border-radius: 12px 0 0 12px;
+      padding: 10px; overflow-y: auto; pointer-events: auto;
+      box-shadow: -4px 4px 18px rgba(0,0,0,0.55);
     }
-    .offset-title { font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
-    .offset-val { font-size: 10px; font-weight: 800; color: #facc15; font-family: monospace; }
-    .offset-step-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; }
-    .vertical-slider-wrap { height: 95px; width: 26px; display: flex; align-items: center; justify-content: center; }
-    #side-offset-slider { width: 90px; height: 5px; transform: rotate(-90deg); accent-color: #0284c7; }
+    .m-sec-title { font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .trace-box {
+      background: #090d16; border: 1px solid #1e293b; border-radius: 8px;
+      padding: 7px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.45;
+    }
+    .trace-box b { color: #facc15; }
+    .trace-box span { color: #94a3b8; }
 
+    .m-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: monospace; }
+    .m-table th { background: #1e293b; color: #94a3b8; padding: 5px 6px; text-align: left; font-size: 10px; }
+    .m-table td { padding: 5px 6px; border-bottom: 1px solid #1e293b; color: #f8fafc; }
+    .m-table td.val-col { color: #facc15; font-weight: 800; text-align: right; }
+
+    /* Clean Background-Free Fixed-Size 3D Text Labels (TOP, FWD, P1, S, E) */
+    .clean-3d-text {
+      position: absolute; pointer-events: none; z-index: 10;
+      font-family: monospace; font-weight: 800; font-size: 11px;
+      transform: translate(-50%, -50%); white-space: nowrap;
+      text-shadow: 0 1px 3px #000, 0 0 4px #000;
+    }
+    .txt-top { color: #39ff14; font-size: 11px; letter-spacing: 0.06em; }
+    .txt-fwd { color: #facc15; font-size: 11px; letter-spacing: 0.06em; }
+    .txt-pt  { color: #38bdf8; font-size: 10px; transform: translate(6px, -10px); }
+    .txt-end { color: #f43f5e; font-size: 11px; transform: translate(6px, -12px); }
+
+    /* Bottom Action Dock */
     .bottom-dock {
-      position: absolute; bottom: 12px; left: 8px; right: 8px;
+      position: absolute; bottom: 10px; left: 8px; right: 8px;
       display: flex; gap: 5px; justify-content: center; align-items: center; z-index: 20;
     }
     @media (min-width: 768px) {
@@ -82,18 +104,19 @@
         background: rgba(15, 23, 42, 0.92); padding: 6px 10px;
         border-radius: 14px; border: 1px solid #334155;
       }
-      .dock-btn { min-width: 115px !important; padding: 9px 14px !important; font-size: 12px !important; }
+      .dock-btn { min-width: 110px !important; padding: 0 12px !important; font-size: 12px !important; }
     }
     .dock-btn {
       flex: 1; min-width: 0; height: 38px;
       background: rgba(15, 23, 42, 0.95); color: #f8fafc; border: 1px solid #334155;
       padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 10px rgba(0,0,0,0.4);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dock-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
     .dock-btn.pick-armed { background: #059669; border-color: #34d399; color: #fff; animation: pulsePick 1.2s infinite; }
-    .dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.72; }
+    .dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.65; }
     .dock-btn.hidden { display: none; }
 
     @keyframes pulsePick {
@@ -101,10 +124,11 @@
       50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
     }
 
+    /* Magnifier Loupe */
     #magnifier {
       position: fixed; width: 110px; height: 110px; border-radius: 50%;
       border: 3px solid #10b981; box-shadow: 0 8px 24px rgba(0,0,0,0.85);
-      pointer-events: none; z-index: 40; display: none; overflow: hidden;
+      pointer-events: none; z-index: 45; display: none; overflow: hidden;
       background: #090d16; transform: translate(-50%, -125%);
     }
     #magnifier canvas { width: 100%; height: 100%; display: block; }
@@ -115,147 +139,246 @@
         linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%);
     }
 
-    .corner-callout { position: absolute; pointer-events: none; z-index: 12; display: flex; align-items: center; transform: translate(6px, -20px); }
-    .callout-arrow { width: 12px; height: 1.5px; background: #10b981; transform: rotate(-35deg); transform-origin: left center; margin-right: 2px; }
-    .callout-tag { background: rgba(5, 150, 105, 0.92); color: #fff; border: 1px solid #a7f3d0; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 800; }
-    .edge-label { position: absolute; background: rgba(9, 13, 22, 0.85); color: #facc15; border: 1px solid #10b981; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 700; pointer-events: none; transform: translate(-50%, -50%); z-index: 11; white-space: nowrap; }
-
-    .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 25; display: none; }
-    .drawer-backdrop.open { display: block; }
-    .settings-drawer { position: fixed; bottom: 0; left: 0; right: 0; max-height: 75vh; background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0; padding: 16px; z-index: 30; overflow-y: auto; transform: translateY(100%); transition: transform 0.25s ease-out; }
-    .settings-drawer.open { transform: translateY(0); }
-    @media (min-width: 768px) {
-      .settings-drawer { left: auto; right: 16px; bottom: auto; top: 60px; width: 340px; border-radius: 14px; border: 1px solid #334155; transform: translateX(130%); }
-      .settings-drawer.open { transform: translateX(0); }
+    /* Bottom / Side Modals (Lines Manager, Saved Plates, Settings) */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 30; display: none; }
+    .modal-backdrop.open { display: block; }
+    .sheet-drawer {
+      position: fixed; bottom: 0; left: 0; right: 0; max-height: 76vh;
+      background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0;
+      padding: 16px; z-index: 35; overflow-y: auto;
+      transform: translateY(100%); transition: transform 0.25s ease-out;
     }
-    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
-    .drawer-header h2 { font-size: 13px; color: #38bdf8; text-transform: uppercase; }
-    .btn-close-drawer { background: #1e293b; border: 1px solid #334155; color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .sheet-drawer.open { transform: translateY(0); }
+    @media (min-width: 768px) {
+      .sheet-drawer {
+        left: 50%; right: auto; bottom: auto; top: 50%; width: 420px;
+        border-radius: 14px; border: 1px solid #334155;
+        transform: translate(-50%, -50%) scale(0.95); opacity: 0; pointer-events: none;
+      }
+      .sheet-drawer.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+    }
+    .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
+    .sheet-header h2 { font-size: 13px; color: #38bdf8; text-transform: uppercase; }
+    .btn-close-sheet { background: #1e293b; border: 1px solid #334155; color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+    .list-card {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      background: #090d16; padding: 10px; border-radius: 8px; border: 1px solid #1e293b;
+      margin-bottom: 8px; font-size: 12px;
+    }
+    .list-card.selected { border-color: #0284c7; background: rgba(2, 132, 199, 0.14); }
+    .list-card-info { flex: 1; min-width: 0; cursor: pointer; }
+    .list-card-title { font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list-card-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+    .card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .icon-btn {
+      background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+      padding: 6px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .icon-btn.danger { background: #7f1d1d; border-color: #991b1b; color: #fecaca; }
+    .icon-btn.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
+
     .input-group { margin-bottom: 12px; }
     .input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: #94a3b8; }
-    .input-group input[type="number"], .input-group select { width: 100%; padding: 8px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
-    .btn-row { display: flex; gap: 8px; margin-top: 8px; }
-    .btn { flex: 1; padding: 9px; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
-    .btn-primary { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; }
-    .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
-    .btn-danger { background: #7f1d1d; color: #fecaca; border: 1px solid #991b1b; }
-    .tmpl-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-    .tmpl-item { display: flex; justify-content: space-between; align-items: center; background: #090d16; padding: 9px 10px; border-radius: 8px; border: 1px solid #1e293b; font-size: 12px; }
-    .tmpl-dxf-btn { background: #059669; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; }
-    #touch-pin { position: absolute; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #facc15; background: rgba(250, 204, 21, 0.5); transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 13; }
+    .input-group input { width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
+    .btn-full { width: 100%; padding: 10px; border: none; border-radius: 8px; background: #0284c7; color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
+
+    /* Empty Landing State when opened directly with no plates */
+    .welcome-card {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-radius: 16px;
+      padding: 20px; width: 90%; max-width: 380px; text-align: center; z-index: 16;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+    .welcome-card.hidden { display: none; }
+    .welcome-card h2 { font-size: 16px; color: #38bdf8; margin-bottom: 6px; }
+    .welcome-card p { font-size: 12px; color: #94a3b8; margin-bottom: 14px; line-height: 1.4; }
   </style>
 </head>
 <body>
 
+  <!-- Top Bar -->
   <div class="top-bar">
     <div class="top-left">
-      <a href="index.html" class="btn-back">⬅ Viewer</a>
+      <a href="index.html" class="btn-top">⬅ Viewer</a>
       <h1>📐 Forming Studio</h1>
     </div>
-    <span class="badge" id="plate-badge">Plate</span>
+    <div class="top-right">
+      <span class="plate-tag" id="plate-badge">No Plate</span>
+      <button class="btn-top btn-save-plate" id="btn-open-save-plate">💾 Save</button>
+    </div>
   </div>
 
+  <!-- Mode Status Banner -->
   <div class="sub-hud-row">
-    <div class="mode-banner" id="mode-banner">🔍 Zoom to Corner 1, then tap "Select Point"</div>
-    <div class="probe-hud" id="probe-hud">
-      <div class="probe-label">Plane Drop Depth</div>
-      <div class="probe-val" id="hud-probe-depth">0.0 mm</div>
-      <div class="probe-grid">
-        <div><span>Left:</span> <b id="hud-dist-left">-</b></div>
-        <div><span>Right:</span> <b id="hud-dist-right">-</b></div>
-        <div><span>Top:</span> <b id="hud-dist-top">-</b></div>
-        <div><span>Bot:</span> <b id="hud-dist-bot">-</b></div>
+    <div class="mode-banner" id="mode-banner">🔍 Zoom plate or open Saved Plates</div>
+  </div>
+
+  <!-- Welcome / Direct Access Card -->
+  <div class="welcome-card hidden" id="welcome-card">
+    <h2>📐 Shell Forming Studio</h2>
+    <p>Select a previously saved shell plate below, or open a plate from the 3D Viewer.</p>
+    <button class="btn-full" id="btn-welcome-saved">📂 Open Saved Plates</button>
+  </div>
+
+  <!-- Collapsible Right Square-Drop Measurement Table -->
+  <div class="table-wrapper collapsed" id="table-wrapper">
+    <button class="table-toggle-tab" id="btn-toggle-table">📊 MEASUREMENTS</button>
+    <div class="measure-panel">
+      <div class="m-sec-title">
+        <span id="tbl-line-title">No Line Selected</span>
       </div>
+      <div class="trace-box" id="tbl-trace-info">
+        Draw a line to see edge tracing distances & 90° square drop heights.
+      </div>
+      <table class="m-table">
+        <thead>
+          <tr>
+            <th>Pt</th>
+            <th>Dist</th>
+            <th style="text-align:right;">90° Drop</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-points-body"></tbody>
+      </table>
     </div>
   </div>
 
-  <div class="side-offset-wrapper" id="side-offset-wrapper">
-    <div class="side-offset-panel">
-      <div class="offset-title">Offset</div>
-      <div class="offset-val" id="side-offset-val">0mm</div>
-      <button class="offset-step-btn" id="btn-offset-up">+</button>
-      <div class="vertical-slider-wrap">
-        <input type="range" id="side-offset-slider" min="0" max="500" value="0" step="5" />
-      </div>
-      <button class="offset-step-btn" id="btn-offset-down">−</button>
-    </div>
-    <button class="offset-toggle-tab" id="btn-collapse-offset" title="Hide/Show Offset">◀</button>
-  </div>
-
-  <div id="magnifier"><canvas id="mag-canvas" width="110" height="110"></canvas></div>
+  <!-- Clean Background-Free 3D Text Labels -->
   <div id="labels-layer"></div>
-  <div id="touch-pin"></div>
+  <div id="magnifier"><canvas id="mag-canvas" width="110" height="110"></canvas></div>
 
+  <!-- Bottom Action Dock -->
   <div class="bottom-dock">
-    <button class="dock-btn" id="btn-select-point">🎯 Select Point (1/4)</button>
-    <button class="dock-btn undo-btn hidden" id="btn-dock-undo">↩ Undo</button>
-    <button class="dock-btn" id="btn-mode-measure">📏 Measure</button>
-    <button class="dock-btn" id="btn-toggle-hud">👁️ HUD</button>
-    <button class="dock-btn" id="btn-open-settings">⚙️ DXF</button>
+    <button class="dock-btn" id="btn-create-line">📏 Create Line</button>
+    <button class="dock-btn undo-btn hidden" id="btn-undo-pt">↩ Undo</button>
+    <button class="dock-btn" id="btn-open-lines">📋 Lines (<span id="lbl-line-count">0</span>)</button>
+    <button class="dock-btn" id="btn-open-plates">📂 Saved</button>
+    <button class="dock-btn" id="btn-open-settings">⚙️</button>
   </div>
 
-  <div class="drawer-backdrop" id="drawer-backdrop"></div>
-  <div class="settings-drawer" id="settings-drawer">
-    <div class="drawer-header">
-      <h2>⚙️ Forming & Template Settings</h2>
-      <button class="btn-close-drawer" id="btn-close-settings">✕ Close</button>
-    </div>
+  <!-- Backdrop -->
+  <div class="modal-backdrop" id="modal-backdrop"></div>
 
+  <!-- 1. Lines Manager Sheet -->
+  <div class="sheet-drawer" id="sheet-lines">
+    <div class="sheet-header">
+      <h2>📋 Saved String Lines</h2>
+      <button class="btn-close-sheet" onclick="closeAllSheets()">✕ Close</button>
+    </div>
+    <div id="lines-list-container"></div>
+  </div>
+
+  <!-- 2. Saved Plates Library Sheet -->
+  <div class="sheet-drawer" id="sheet-plates">
+    <div class="sheet-header">
+      <h2>📂 Saved Shell Plates</h2>
+      <button class="btn-close-sheet" onclick="closeAllSheets()">✕ Close</button>
+    </div>
+    <div id="plates-list-container"></div>
+  </div>
+
+  <!-- 3. Save Plate Name Modal -->
+  <div class="sheet-drawer" id="sheet-save-plate">
+    <div class="sheet-header">
+      <h2>💾 Save Shell Plate</h2>
+      <button class="btn-close-sheet" onclick="closeAllSheets()">✕ Close</button>
+    </div>
     <div class="input-group">
-      <label>Corner Reset</label>
-      <div class="btn-row">
-        <button class="btn btn-secondary" id="btn-undo-corner">↩ Undo Last Point</button>
-        <button class="btn btn-danger" id="btn-clear-corners">🗑️ Reset All 4 Points</button>
-      </div>
+      <label>Plate Number / Block</label>
+      <input type="text" id="inp-plate-no" placeholder="e.g., Hull-102 / P-14" />
     </div>
-
     <div class="input-group">
-      <label>Template Slice Direction</label>
-      <select id="inp-slice-axis">
-        <option value="u">Along Length (C1 → C2)</option>
-        <option value="v">Along Width (C1 → C4)</option>
-      </select>
+      <label>Plate Name / Description</label>
+      <input type="text" id="inp-plate-name" placeholder="e.g., Port Bilge Strake" />
     </div>
+    <button class="btn-full" id="btn-confirm-save-plate">✅ Save Plate & Lines</button>
+  </div>
 
+  <!-- 4. Settings Sheet -->
+  <div class="sheet-drawer" id="sheet-settings">
+    <div class="sheet-header">
+      <h2>⚙️ Forming Settings</h2>
+      <button class="btn-close-sheet" onclick="closeAllSheets()">✕ Close</button>
+    </div>
     <div class="input-group">
-      <label>Station Pitch (mm)</label>
-      <input type="number" id="inp-interval" value="300" step="50" min="100" max="1500" />
+      <label>Line Division Pitch (mm) — Default 200 mm</label>
+      <input type="number" id="inp-pitch" value="200" step="50" min="50" max="1000" />
     </div>
-
-    <div class="input-group">
-      <label>Wood Base Margin for CNC (mm)</label>
-      <input type="number" id="inp-wood-margin" value="100" min="50" max="300" />
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-primary" id="btn-recalc">⚡ Update Templates</button>
-      <button class="btn btn-secondary" id="btn-toggle-plane">🌐 Mesh On/Off</button>
-    </div>
-
-    <div style="margin-top:16px; border-top:1px solid #1e293b; padding-top:12px;">
-      <h2 style="font-size:12px; color:#94a3b8; margin-bottom:8px;">DOWNLOAD 2D WOOD CNC DXF</h2>
-      <div class="tmpl-list" id="template-export-list"></div>
-    </div>
+    <button class="btn-full" id="btn-apply-settings">⚡ Apply & Recalculate Lines</button>
   </div>
 
   <div id="canvas-container"></div>
 
   <script>
-    let scene, camera, renderer, controls;
-    let plateMesh = null, datumPlaneMesh = null;
-    let stationsGroup = new THREE.Group(), stringGroup = new THREE.Group(), probeGroup = new THREE.Group();
-    let generatedTemplates = [];
-    let interactionMode = 'view';
-    let manualCorners = [];
-    let htmlLabels = [];
-    let planeOffset = 0;
-    let lastHitPt = null, lastScreenX = 0, lastScreenY = 0;
+    // ═══════════════════════════════════════════════════════════
+    // INDEXED-DB STORAGE FOR PLATES & MULTI-LINES
+    // ═══════════════════════════════════════════════════════════
+    const DB_NAME = 'VTSoftFormingDB';
+    const STORE_NAME = 'plates';
 
-    let localFrame = {
-      C1: new THREE.Vector3(), C2: new THREE.Vector3(), C3: new THREE.Vector3(), C4: new THREE.Vector3(),
-      center: new THREE.Vector3(), uDir: new THREE.Vector3(), vDir: new THREE.Vector3(), nDir: new THREE.Vector3(),
-      length: 0, width: 0
-    };
+    function openFormingDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function dbSavePlate(record) {
+      const db = await openFormingDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(record);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function dbGetAllPlates() {
+      const db = await openFormingDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function dbDeletePlate(id) {
+      const db = await openFormingDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(id);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // APP STATE & THREE.JS SCENE
+    // ═══════════════════════════════════════════════════════════
+    let scene, camera, renderer, controls;
+    let plateMesh = null;
+    let linesVisualGroup = new THREE.Group();
+    let tempPickGroup = new THREE.Group();
+
+    let currentPlate = null; // { id, plateNo, name, color, vertices, lines: [], updatedAt }
+    let plateEdgesInfo = []; // Detected 4 boundary edges for tracing distances
+    let topEdgeMid = null, fwdEdgeMid = null;
+    let htmlLabels = [];
+
+    // Modes: 'view' | 'pick_start' | 'pick_end'
+    let mode = 'view';
+    let tempStartPt = null;
+    let divisionPitch = 200;
+    let activeLineId = null;
 
     function init() {
       scene = new THREE.Scene();
@@ -273,14 +396,16 @@
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
 
-      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-      dirLight.position.set(5000, -5000, 8000);
-      scene.add(dirLight);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+      const d1 = new THREE.DirectionalLight(0xffffff, 0.85);
+      d1.position.set(5000, -5000, 8000);
+      scene.add(d1);
+      const d2 = new THREE.DirectionalLight(0xffffff, 0.45);
+      d2.position.set(-5000, 5000, -6000);
+      scene.add(d2);
 
-      scene.add(stationsGroup);
-      scene.add(stringGroup);
-      scene.add(probeGroup);
+      scene.add(linesVisualGroup);
+      scene.add(tempPickGroup);
 
       window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -288,11 +413,9 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
-      loadPlateData();
-      setupCanvasInteractions();
+      setupInteractions();
       setupUI();
-      updateCornerControlsUI();
-      setMode('view');
+      bootPlateLoader();
       animate();
     }
 
@@ -303,24 +426,86 @@
       renderer.render(scene, camera);
     }
 
-    function loadPlateData() {
-      let raw = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
-      if (!raw) {
-        document.getElementById('plate-badge').innerText = 'No Plate';
-        return;
-      }
-      let data = JSON.parse(raw);
-      document.getElementById('plate-badge').innerText = data.name || 'Shell Plate';
+    // ═══════════════════════════════════════════════════════════
+    // BOOT: LOAD FROM VIEWER REDIRECT OR DIRECT SAVED LIBRARY
+    // ═══════════════════════════════════════════════════════════
+    async function bootPlateLoader() {
+      const rawRedirect = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
 
-      const floatArr = (data.vertices instanceof Float32Array) ? data.vertices : new Float32Array(data.vertices);
+      if (rawRedirect) {
+        try {
+          const parsed = JSON.parse(rawRedirect);
+          // Clear redirect buffer so direct visits later open saved plates cleanly
+          localStorage.removeItem('vt_forming_plate_data');
+          localStorage.removeItem('active_forming_part');
+
+          const existing = await dbGetAllPlates();
+          const match = existing.find(p => p.name === parsed.name && p.vertices.length === parsed.vertices.length);
+
+          if (match) {
+            loadPlateRecord(match);
+          } else {
+            const newRec = {
+              id: 'plate_' + Date.now(),
+              plateNo: parsed.plateNo || 'P-' + (existing.length + 1),
+              name: parsed.name || 'Shell Plate',
+              color: parsed.color !== undefined ? parsed.color : 0x38bdf8,
+              vertices: Array.from(parsed.vertices),
+              lines: [],
+              updatedAt: Date.now()
+            };
+            await dbSavePlate(newRec);
+            loadPlateRecord(newRec);
+          }
+          return;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // Direct visit to forming_studio.html -> load most recent saved plate or show welcome
+      const saved = await dbGetAllPlates();
+      if (saved.length > 0) {
+        saved.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        loadPlateRecord(saved[0]);
+      } else {
+        document.getElementById('welcome-card').classList.remove('hidden');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // LOAD PLATE + COLOR TOP (NEON GREEN) & FORWARD (YELLOW) EDGES
+    // ═══════════════════════════════════════════════════════════
+    function loadPlateRecord(record) {
+      document.getElementById('welcome-card').classList.add('hidden');
+      currentPlate = record;
+      tempStartPt = null;
+      activeLineId = null;
+
+      if (plateMesh) { scene.remove(plateMesh); plateMesh = null; }
+      while (linesVisualGroup.children.length > 0) linesVisualGroup.remove(linesVisualGroup.children[0]);
+      while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+
+      document.getElementById('plate-badge').innerText = `${record.plateNo}: ${record.name}`;
+      document.getElementById('inp-plate-no').value = record.plateNo || '';
+      document.getElementById('inp-plate-name').value = record.name || '';
+
+      const floatArr = new Float32Array(record.vertices);
       const geom = new THREE.BufferGeometry();
       geom.setAttribute('position', new THREE.BufferAttribute(floatArr, 3));
       geom.computeVertexNormals();
 
-      plateMesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial({
-        color: (data.color !== undefined) ? data.color : 0x38bdf8,
-        roughness: 0.35, metalness: 0.25, side: THREE.DoubleSide
-      }));
+      // Identify Top (Highest Avg Z) & Forward (Highest Avg X) Thickness Edge Faces
+      classifyAndColorPlateEdges(geom, record.color || 0x38bdf8);
+
+      const mat = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.38,
+        metalness: 0.22,
+        side: THREE.DoubleSide
+      });
+
+      plateMesh = new THREE.Mesh(geom, mat);
       scene.add(plateMesh);
 
       geom.computeBoundingBox();
@@ -332,140 +517,362 @@
       controls.target.copy(center);
       camera.position.set(center.x + maxDim * 0.7, center.y - maxDim * 0.7, center.z + maxDim * 0.8);
       controls.update();
-    }
 
-    function applyCornersToFrame(corners) {
-      if (datumPlaneMesh) { scene.remove(datumPlaneMesh); datumPlaneMesh = null; }
-      while (stationsGroup.children.length > 0) stationsGroup.remove(stationsGroup.children[0]);
-
-      updateCornerControlsUI();
-
-      if (corners.length < 4) {
-        drawPinsAndStrings(corners, 0);
-        return;
+      // If plate already has saved lines, select the latest one
+      if (currentPlate.lines && currentPlate.lines.length > 0) {
+        const lastLine = currentPlate.lines[currentPlate.lines.length - 1];
+        lastLine.visible = true;
+        activeLineId = lastLine.id;
       }
 
-      const [c1, c2, c3, c4] = corners;
-      localFrame.C1.copy(c1); localFrame.C2.copy(c2); localFrame.C3.copy(c3); localFrame.C4.copy(c4);
-      localFrame.center.copy(c1).add(c2).add(c3).add(c4).multiplyScalar(0.25);
-
-      const u1 = new THREE.Vector3().subVectors(c2, c1);
-      const u2 = new THREE.Vector3().subVectors(c3, c4);
-      localFrame.uDir.copy(u1).add(u2).normalize();
-
-      const v1 = new THREE.Vector3().subVectors(c4, c1);
-      const v2 = new THREE.Vector3().subVectors(c3, c2);
-      localFrame.vDir.copy(v1).add(v2).normalize();
-
-      localFrame.nDir.crossVectors(localFrame.uDir, localFrame.vDir).normalize();
-      if (localFrame.nDir.z < 0) localFrame.nDir.negate();
-      localFrame.vDir.crossVectors(localFrame.nDir, localFrame.uDir).normalize();
-
-      localFrame.length = (u1.length() + u2.length()) * 0.5;
-      localFrame.width = (v1.length() + v2.length()) * 0.5;
-
-      buildExact4CornerMesh();
-      generateStations();
+      rebuildAllSavedLinesVisuals();
+      setMode('view');
     }
 
-    function buildExact4CornerMesh() {
-      if (datumPlaneMesh) { scene.remove(datumPlaneMesh); datumPlaneMesh = null; }
-      if (manualCorners.length < 4) return;
+    function classifyAndColorPlateEdges(geom, baseHex) {
+      const pos = geom.attributes.position.array;
+      const norm = geom.attributes.normal.array;
+      const triCount = pos.length / 9;
 
-      const offsetVec = localFrame.nDir.clone().multiplyScalar(planeOffset);
-      const p1 = localFrame.C1.clone().add(offsetVec);
-      const p2 = localFrame.C2.clone().add(offsetVec);
-      const p3 = localFrame.C3.clone().add(offsetVec);
-      const p4 = localFrame.C4.clone().add(offsetVec);
+      const baseColor = new THREE.Color(baseHex);
+      const neonGreen = new THREE.Color(0x39ff14); // Top Edge (Highest Z)
+      const fwdYellow = new THREE.Color(0xfacc15); // Forward Edge (Highest X)
 
-      drawPinsAndStrings(manualCorners, planeOffset);
+      const colors = new Float32Array(pos.length);
 
-      const segsU = 10, segsV = 10;
-      const vertices = [], indices = [];
+      // Compute triangle areas & normals to separate main broad surfaces from thin edge thickness strips
+      const tris = [];
+      let maxArea = 0;
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+      const ab = new THREE.Vector3(), ac = new THREE.Vector3(), cross = new THREE.Vector3();
 
-      for (let iv = 0; iv <= segsV; iv++) {
-        const v = iv / segsV;
-        const leftPt = new THREE.Vector3().lerpVectors(p1, p4, v);
-        const rightPt = new THREE.Vector3().lerpVectors(p2, p3, v);
-        for (let iu = 0; iu <= segsU; iu++) {
-          const u = iu / segsU;
-          const pt = new THREE.Vector3().lerpVectors(leftPt, rightPt, u);
-          vertices.push(pt.x, pt.y, pt.z);
-        }
+      for (let i = 0; i < triCount; i++) {
+        const idx = i * 9;
+        a.set(pos[idx], pos[idx + 1], pos[idx + 2]);
+        b.set(pos[idx + 3], pos[idx + 4], pos[idx + 5]);
+        c.set(pos[idx + 6], pos[idx + 7], pos[idx + 8]);
+
+        ab.subVectors(b, a);
+        ac.subVectors(c, a);
+        const area = cross.crossVectors(ab, ac).length() * 0.5;
+        if (area > maxArea) maxArea = area;
+
+        const n = new THREE.Vector3(norm[idx], norm[idx + 1], norm[idx + 2]).normalize();
+        const centroid = new THREE.Vector3().add(a).add(b).add(c).multiplyScalar(1 / 3);
+        tris.push({ i, area, n, centroid, a: a.clone(), b: b.clone(), c: c.clone(), isEdge: false, group: -1 });
       }
 
-      for (let iv = 0; iv < segsV; iv++) {
-        for (let iu = 0; iu < segsU; iu++) {
-          const a = iv * (segsU + 1) + iu;
-          const b = a + 1;
-          const c = (iv + 1) * (segsU + 1) + iu;
-          const d = c + 1;
-          indices.push(a, b, d, a, d, c);
+      // Compute average normal of broad faces
+      const broadNormal = new THREE.Vector3();
+      tris.forEach(t => {
+        if (t.area > maxArea * 0.15) {
+          const sign = (broadNormal.lengthSq() > 0 && t.n.dot(broadNormal) < 0) ? -1 : 1;
+          broadNormal.addScaledVector(t.n, sign * t.area);
         }
-      }
+      });
+      broadNormal.normalize();
 
-      const geom = new THREE.BufferGeometry();
-      geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geom.setIndex(indices);
-
-      datumPlaneMesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({
-        color: 0x0284c7, wireframe: true, transparent: true, opacity: 0.45
-      }));
-      scene.add(datumPlaneMesh);
-    }
-
-    function drawPinsAndStrings(corners, offsetVal) {
-      while (stringGroup.children.length > 0) stringGroup.remove(stringGroup.children[0]);
-      document.getElementById('labels-layer').innerHTML = '';
-      htmlLabels = [];
-
-      if (corners.length === 0) return;
-
-      const offsetVec = localFrame.nDir.clone().multiplyScalar(offsetVal);
-      const lifted = corners.map(c => (corners.length === 4 ? c.clone().add(offsetVec) : c.clone()));
-
-      corners.forEach((basePt, idx) => {
-        const topPt = lifted[idx];
-        const pinDot = new THREE.Mesh(
-          new THREE.SphereGeometry(6, 10, 10),
-          new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false })
-        );
-        pinDot.position.copy(basePt);
-        stringGroup.add(pinDot);
-
-        if (corners.length === 4 && offsetVal > 0) {
-          stringGroup.add(new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([basePt, topPt]),
-            new THREE.LineBasicMaterial({ color: 0xfacc15, depthTest: false })
-          ));
+      // Edge thickness triangles have normals roughly perpendicular to broad surface normal
+      const edgeTris = [];
+      tris.forEach(t => {
+        if (Math.abs(t.n.dot(broadNormal)) < 0.45) {
+          t.isEdge = true;
+          edgeTris.push(t);
         }
-
-        const el = document.createElement('div');
-        el.className = 'corner-callout';
-        el.innerHTML = `<div class="callout-arrow"></div><div class="callout-tag">C${idx + 1}</div>`;
-        document.getElementById('labels-layer').appendChild(el);
-        htmlLabels.push({ el, pos3D: basePt.clone() });
       });
 
-      if (lifted.length >= 2) {
-        const linePts = [...lifted];
-        if (lifted.length === 4) linePts.push(lifted[0]);
+      // Cluster edge triangles by normal direction into the 4 sides of the plate
+      const clusters = [];
+      edgeTris.forEach(t => {
+        let bestCluster = null;
+        let bestDot = 0.78;
+        clusters.forEach(cl => {
+          const d = t.n.dot(cl.avgNormal);
+          if (d > bestDot) { bestDot = d; bestCluster = cl; }
+        });
+        if (bestCluster) {
+          bestCluster.items.push(t);
+          bestCluster.avgNormal.add(t.n).normalize();
+        } else {
+          clusters.push({ avgNormal: t.n.clone(), items: [t] });
+        }
+      });
 
-        stringGroup.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(linePts),
-          new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 3, depthTest: false })
-        ));
+      // Compute average Z, average X, and endpoints for each edge cluster
+      plateEdgesInfo = clusters.map((cl, idx) => {
+        let sumX = 0, sumZ = 0;
+        const pts = [];
+        cl.items.forEach(t => {
+          sumX += t.centroid.x;
+          sumZ += t.centroid.z;
+          pts.push(t.a, t.b, t.c);
+        });
+        const avgX = sumX / cl.items.length;
+        const avgZ = sumZ / cl.items.length;
 
-        for (let i = 0; i < linePts.length - 1; i++) {
-          const dist = linePts[i].distanceTo(linePts[i + 1]);
-          const mid = new THREE.Vector3().addVectors(linePts[i], linePts[i + 1]).multiplyScalar(0.5);
-          const el = document.createElement('div');
-          el.className = 'edge-label';
-          el.innerText = `${dist.toFixed(0)} mm`;
-          document.getElementById('labels-layer').appendChild(el);
-          htmlLabels.push({ el, pos3D: mid });
+        // Find two extreme endpoints along this edge
+        let pStart = pts[0], pEnd = pts[0], maxD2 = -1;
+        for (let i = 0; i < pts.length; i += 2) {
+          for (let j = i + 1; j < pts.length; j += 2) {
+            const d2 = pts[i].distanceToSquared(pts[j]);
+            if (d2 > maxD2) { maxD2 = d2; pStart = pts[i]; pEnd = pts[j]; }
+          }
+        }
+        // Order endpoints: if mostly vertical, pStart = Top (higher Z); else pStart = Fwd (higher X)
+        if (Math.abs(pStart.z - pEnd.z) >= Math.abs(pStart.x - pEnd.x)) {
+          if (pEnd.z > pStart.z) [pStart, pEnd] = [pEnd, pStart];
+        } else {
+          if (pEnd.x > pStart.x) [pStart, pEnd] = [pEnd, pStart];
+        }
+
+        const mid = new THREE.Vector3().addVectors(pStart, pEnd).multiplyScalar(0.5);
+        return { id: idx, items: cl.items, avgX, avgZ, pStart, pEnd, mid, role: 'SIDE' };
+      });
+
+      // Identify TOP edge (Highest avgZ) and FORWARD edge (Highest avgX)
+      let topCluster = null, fwdCluster = null;
+      if (plateEdgesInfo.length > 0) {
+        topCluster = [...plateEdgesInfo].sort((a, b) => b.avgZ - a.avgZ)[0];
+        topCluster.role = 'TOP';
+        topEdgeMid = topCluster.mid.clone();
+
+        const remaining = plateEdgesInfo.filter(c => c !== topCluster);
+        if (remaining.length > 0) {
+          fwdCluster = remaining.sort((a, b) => b.avgX - a.avgX)[0];
+          fwdCluster.role = 'FWD';
+          fwdEdgeMid = fwdCluster.mid.clone();
         }
       }
+
+      // Assign vertex colors
+      const topSet = new Set(topCluster ? topCluster.items : []);
+      const fwdSet = new Set(fwdCluster ? fwdCluster.items : []);
+
+      tris.forEach(t => {
+        let col = baseColor;
+        if (topSet.has(t)) col = neonGreen;
+        else if (fwdSet.has(t)) col = fwdYellow;
+
+        const baseIdx = t.i * 9;
+        for (let v = 0; v < 3; v++) {
+          colors[baseIdx + v * 3] = col.r;
+          colors[baseIdx + v * 3 + 1] = col.g;
+          colors[baseIdx + v * 3 + 2] = col.b;
+        }
+      });
+
+      geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // EDGE TRACING & 90° SQUARE-TO-LINE MEASUREMENT ENGINE
+    // ═══════════════════════════════════════════════════════════
+    function computeEdgeTraceForPoint(pt) {
+      if (!plateEdgesInfo || plateEdgesInfo.length === 0) {
+        return { edgeLabel: 'Plate Surface', endAName: 'End 1', distA: 0, endBName: 'End 2', distB: 0 };
+      }
+
+      let bestEdge = plateEdgesInfo[0];
+      let bestDist = Infinity;
+      const line3 = new THREE.Line3();
+      const closePt = new THREE.Vector3();
+
+      plateEdgesInfo.forEach(edge => {
+        line3.set(edge.pStart, edge.pEnd);
+        line3.closestPointToPoint(pt, true, closePt);
+        const d = pt.distanceTo(closePt);
+        if (d < bestDist) {
+          bestDist = d;
+          bestEdge = edge;
+        }
+      });
+
+      const isVert = Math.abs(bestEdge.pStart.z - bestEdge.pEnd.z) >= Math.abs(bestEdge.pStart.x - bestEdge.pEnd.x);
+      const edgeName = bestEdge.role === 'TOP' ? 'TOP Edge (Green)' :
+                       bestEdge.role === 'FWD' ? 'FWD Edge (Yellow)' :
+                       (isVert ? 'Aft/Side Vertical Edge' : 'Bottom Edge');
+
+      return {
+        edgeLabel: edgeName,
+        endAName: isVert ? 'Top Corner' : 'Fwd Corner',
+        distA: pt.distanceTo(bestEdge.pStart),
+        endBName: isVert ? 'Bot Corner' : 'Aft Corner',
+        distB: pt.distanceTo(bestEdge.pEnd)
+      };
+    }
+
+    function calculateLineSquareMeasurements(startVec, endVec, pitch) {
+      const totalLen = startVec.distanceTo(endVec);
+      const lineDir = new THREE.Vector3().subVectors(endVec, startVec).normalize();
+
+      // Determine plate broad surface normal near midpoint
+      const midPt = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
+      const plateNormal = estimatePlateNormalNear(midPt);
+
+      // Build exact 90° Square direction perpendicular to the String Line toward the plate surface
+      // sqDir = plateNormal - (plateNormal · lineDir) * lineDir
+      const sqDir = plateNormal.clone().addScaledVector(lineDir, -plateNormal.dot(lineDir));
+      if (sqDir.lengthSq() < 0.0001) sqDir.copy(plateNormal);
+      sqDir.normalize();
+
+      const raycaster = new THREE.Raycaster();
+      const stations = [];
+      let idx = 1;
+
+      for (let d = pitch; d < totalLen - 5; d += pitch) {
+        const linePt = startVec.clone().addScaledVector(lineDir, d);
+
+        // Cast 90° square ray in both +sqDir and -sqDir to hit the plate surface cleanly
+        let hitPt = null;
+        let minDrop = Infinity;
+
+        [sqDir, sqDir.clone().negate()].forEach(dir => {
+          const origin = linePt.clone().addScaledVector(dir, -5);
+          raycaster.set(origin, dir);
+          const hits = raycaster.intersectObject(plateMesh, false);
+          if (hits.length > 0) {
+            const hPt = hits[0].point;
+            const drop = linePt.distanceTo(hPt);
+            if (drop < minDrop) {
+              minDrop = drop;
+              hitPt = hPt.clone();
+            }
+          }
+        });
+
+        // Fallback closest vertex projection if edge triangle gap occurs
+        if (!hitPt) {
+          hitPt = findClosestPlateSurfacePoint(linePt);
+          minDrop = linePt.distanceTo(hitPt);
+        }
+
+        stations.push({
+          label: `P${idx}`,
+          distFromStart: d,
+          dropHeight: minDrop,
+          linePt: { x: linePt.x, y: linePt.y, z: linePt.z },
+          platePt: { x: hitPt.x, y: hitPt.y, z: hitPt.z }
+        });
+        idx++;
+      }
+
+      return {
+        totalLength: totalLen,
+        startTrace: computeEdgeTraceForPoint(startVec),
+        endTrace: computeEdgeTraceForPoint(endVec),
+        stations
+      };
+    }
+
+    function estimatePlateNormalNear(pt) {
+      const pos = plateMesh.geometry.attributes.position.array;
+      const norm = plateMesh.geometry.attributes.normal.array;
+      let bestD2 = Infinity;
+      const bestN = new THREE.Vector3(0, 0, 1);
+      const tmp = new THREE.Vector3();
+
+      for (let i = 0; i < pos.length; i += 3) {
+        tmp.set(pos[i], pos[i + 1], pos[i + 2]);
+        const d2 = tmp.distanceToSquared(pt);
+        if (d2 < bestD2) {
+          bestD2 = d2;
+          bestN.set(norm[i], norm[i + 1], norm[i + 2]).normalize();
+        }
+      }
+      return bestN;
+    }
+
+    function findClosestPlateSurfacePoint(pt) {
+      const pos = plateMesh.geometry.attributes.position.array;
+      let bestD2 = Infinity;
+      const bestP = pt.clone(), tmp = new THREE.Vector3();
+      for (let i = 0; i < pos.length; i += 3) {
+        tmp.set(pos[i], pos[i + 1], pos[i + 2]);
+        const d2 = tmp.distanceToSquared(pt);
+        if (d2 < bestD2) { bestD2 = d2; bestP.copy(tmp); }
+      }
+      return bestP;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // RENDER SAVED LINES, 90° DROP BARS & CLEAN 3D TEXT LABELS
+    // ═══════════════════════════════════════════════════════════
+    function rebuildAllSavedLinesVisuals() {
+      while (linesVisualGroup.children.length > 0) linesVisualGroup.remove(linesVisualGroup.children[0]);
+      const layer = document.getElementById('labels-layer');
+      layer.innerHTML = '';
+      htmlLabels = [];
+
+      // 1. Always show clean background-free TOP and FWD labels
+      if (topEdgeMid) addClean3DLabel('TOP', topEdgeMid, 'txt-top');
+      if (fwdEdgeMid) addClean3DLabel('FWD', fwdEdgeMid, 'txt-fwd');
+
+      if (!currentPlate || !currentPlate.lines) return;
+      document.getElementById('lbl-line-count').innerText = currentPlate.lines.length;
+
+      let selectedLineObj = null;
+
+      currentPlate.lines.forEach(line => {
+        if (line.id === activeLineId) selectedLineObj = line;
+        if (!line.visible) return;
+
+        const isSelected = (line.id === activeLineId);
+        const sVec = new THREE.Vector3(line.start.x, line.start.y, line.start.z);
+        const eVec = new THREE.Vector3(line.end.x, line.end.y, line.end.z);
+
+        // String Line (Bright Cyan if active, muted green if background visible)
+        const lineMat = new THREE.LineBasicMaterial({
+          color: isSelected ? 0x38bdf8 : 0x10b981,
+          linewidth: isSelected ? 3 : 1.5,
+          depthTest: false
+        });
+        linesVisualGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sVec, eVec]), lineMat));
+
+        // Start & End small spheres
+        [sVec, eVec].forEach(p => {
+          const dot = new THREE.Mesh(
+            new THREE.SphereGeometry(isSelected ? 6 : 4, 10, 10),
+            new THREE.MeshBasicMaterial({ color: 0xf43f5e, depthTest: false })
+          );
+          dot.position.copy(p);
+          linesVisualGroup.add(dot);
+        });
+
+        if (isSelected) {
+          addClean3DLabel(`${line.name} (S)`, sVec, 'txt-end');
+          addClean3DLabel(`E`, eVec, 'txt-end');
+
+          // Draw 90° Square Drop Lines and P1, P2, P3 labels
+          line.stations.forEach(st => {
+            const pTop = new THREE.Vector3(st.linePt.x, st.linePt.y, st.linePt.z);
+            const pBot = new THREE.Vector3(st.platePt.x, st.platePt.y, st.platePt.z);
+
+            linesVisualGroup.add(new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints([pTop, pBot]),
+              new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2, depthTest: false })
+            ));
+
+            const pDot = new THREE.Mesh(
+              new THREE.SphereGeometry(3.5, 8, 8),
+              new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false })
+            );
+            pDot.position.copy(pTop);
+            linesVisualGroup.add(pDot);
+
+            addClean3DLabel(`${st.label}: ${st.dropHeight.toFixed(1)}`, pTop, 'txt-pt');
+          });
+        }
+      });
+
+      updateMeasurementTableUI(selectedLineObj);
+    }
+
+    function addClean3DLabel(text, pos3D, cssClass) {
+      const el = document.createElement('div');
+      el.className = `clean-3d-text ${cssClass}`;
+      el.innerText = text;
+      document.getElementById('labels-layer').appendChild(el);
+      htmlLabels.push({ el, pos3D: pos3D.clone() });
     }
 
     function updateHTMLLabels() {
@@ -473,68 +880,54 @@
       const w = window.innerWidth, h = window.innerHeight;
       htmlLabels.forEach(item => {
         const v = item.pos3D.clone().project(camera);
-        if (v.z > 1) item.el.style.display = 'none';
-        else {
-          item.el.style.display = 'flex';
+        if (v.z > 1 || v.z < -1) {
+          item.el.style.display = 'none';
+        } else {
+          item.el.style.display = 'block';
           item.el.style.left = ((v.x * 0.5 + 0.5) * w) + 'px';
           item.el.style.top = ((-(v.y * 0.5) + 0.5) * h) + 'px';
         }
       });
     }
 
-    function getPointOn4CornerPlane(uNorm, vNorm) {
-      const offsetVec = localFrame.nDir.clone().multiplyScalar(planeOffset);
-      const p1 = localFrame.C1.clone().add(offsetVec);
-      const p2 = localFrame.C2.clone().add(offsetVec);
-      const p3 = localFrame.C3.clone().add(offsetVec);
-      const p4 = localFrame.C4.clone().add(offsetVec);
+    function updateMeasurementTableUI(line) {
+      const titleEl = document.getElementById('tbl-line-title');
+      const traceEl = document.getElementById('tbl-trace-info');
+      const tbody = document.getElementById('tbl-points-body');
+      tbody.innerHTML = '';
 
-      const leftPt = new THREE.Vector3().lerpVectors(p1, p4, vNorm);
-      const rightPt = new THREE.Vector3().lerpVectors(p2, p3, vNorm);
-      return new THREE.Vector3().lerpVectors(leftPt, rightPt, uNorm);
-    }
-
-    function measureFrom4CornerPlane(hitPt, cx, cy) {
-      const fromC1 = new THREE.Vector3().subVectors(hitPt, localFrame.C1);
-      const distLeft = Math.max(0, fromC1.dot(localFrame.uDir));
-      const distRight = Math.max(0, localFrame.length - distLeft);
-      const distTop = Math.max(0, fromC1.dot(localFrame.vDir));
-      const distBot = Math.max(0, localFrame.width - distTop);
-
-      const uNorm = Math.min(1, Math.max(0, distLeft / (localFrame.length || 1)));
-      const vNorm = Math.min(1, Math.max(0, distTop / (localFrame.width || 1)));
-
-      const planePt = getPointOn4CornerPlane(uNorm, vNorm);
-      const dropDepth = hitPt.distanceTo(planePt);
-
-      document.getElementById('hud-probe-depth').innerText = dropDepth.toFixed(1) + ' mm';
-      document.getElementById('hud-dist-left').innerText = distLeft.toFixed(0);
-      document.getElementById('hud-dist-right').innerText = distRight.toFixed(0);
-      document.getElementById('hud-dist-top').innerText = distTop.toFixed(0);
-      document.getElementById('hud-dist-bot').innerText = distBot.toFixed(0);
-
-      if (cx !== undefined && cy !== undefined) {
-        const pin = document.getElementById('touch-pin');
-        pin.style.left = cx + 'px'; pin.style.top = cy + 'px'; pin.style.display = 'block';
+      if (!line) {
+        titleEl.innerText = 'No Line Selected';
+        traceEl.innerHTML = 'Tap <b>Create Line</b> or select a saved line from <b>Lines</b>.';
+        return;
       }
 
-      while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
-      probeGroup.add(new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([hitPt, planePt]),
-        new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 3 })
-      ));
+      titleEl.innerText = `${line.name} (Len: ${line.totalLength.toFixed(0)} mm)`;
+      const st = line.startTrace;
+      const en = line.endTrace;
+      traceEl.innerHTML = `
+        <div><b>Start (S):</b> ${st.edgeLabel}</div>
+        <div><span>↳ ${st.endAName}:</span> <b>${st.distA.toFixed(0)}mm</b> | <span>${st.endBName}:</span> <b>${st.distB.toFixed(0)}mm</b></div>
+        <div style="margin-top:4px;"><b>End (E):</b> ${en.edgeLabel}</div>
+        <div><span>↳ ${en.endAName}:</span> <b>${en.distA.toFixed(0)}mm</b> | <span>${en.endBName}:</span> <b>${en.distB.toFixed(0)}mm</b></div>
+      `;
 
-      const leftEdgePt = getPointOn4CornerPlane(0, vNorm);
-      const rightEdgePt = getPointOn4CornerPlane(1, vNorm);
-      const topEdgePt = getPointOn4CornerPlane(uNorm, 0);
-      const botEdgePt = getPointOn4CornerPlane(uNorm, 1);
+      if (line.stations.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="color:#94a3b8; text-align:center;">Line shorter than ${divisionPitch}mm pitch</td></tr>`;
+        return;
+      }
 
-      const crossMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
-      probeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([leftEdgePt, rightEdgePt]), crossMat));
-      probeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([topEdgePt, botEdgePt]), crossMat));
+      line.stations.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><b>${s.label}</b></td><td>${s.distFromStart} mm</td><td class="val-col">${s.dropHeight.toFixed(1)} mm</td>`;
+        tbody.appendChild(tr);
+      });
     }
 
-    function findBestPlatePointAtScreen(cx, cy) {
+    // ═══════════════════════════════════════════════════════════
+    // ZOOM-SAFE POINT PICKER + MAGNIFIER LOUPE
+    // ═══════════════════════════════════════════════════════════
+    function findPlatePointAtScreen(cx, cy) {
       if (!plateMesh || !camera || !renderer) return null;
       const rect = renderer.domElement.getBoundingClientRect();
       const nx = ((cx - rect.left) / rect.width) * 2 - 1;
@@ -543,22 +936,22 @@
       const raycaster = new THREE.Raycaster();
       raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
       const hits = raycaster.intersectObject(plateMesh, false);
+      if (hits.length > 0) return hits[0].point.clone();
 
+      // Vertex proximity fallback if finger is slightly on edge border
       const pos = plateMesh.geometry.attributes.position.array;
       const tmp = new THREE.Vector3(), proj = new THREE.Vector3();
-      let bestPxDist = 42, bestSnapPt = null;
-
+      let bestPx = 32, bestPt = null;
       for (let i = 0; i < pos.length; i += 3) {
         tmp.set(pos[i], pos[i + 1], pos[i + 2]);
         proj.copy(tmp).project(camera);
         if (proj.z > 1 || proj.z < -1) continue;
         const sx = (proj.x * 0.5 + 0.5) * rect.width + rect.left;
         const sy = (-proj.y * 0.5 + 0.5) * rect.height + rect.top;
-        const dPx = Math.hypot(sx - cx, sy - cy);
-        if (dPx < bestPxDist) { bestPxDist = dPx; bestSnapPt = tmp.clone(); }
+        const d = Math.hypot(sx - cx, sy - cy);
+        if (d < bestPx) { bestPx = d; bestPt = tmp.clone(); }
       }
-      if (bestSnapPt) return bestSnapPt;
-      return (hits.length > 0) ? hits[0].point.clone() : null;
+      return bestPt;
     }
 
     function updateMagnifier(cx, cy) {
@@ -569,316 +962,351 @@
       magEl.style.top = cy + 'px';
 
       renderer.render(scene, camera);
-
       const ctx = magCanvas.getContext('2d');
-      const srcCanvas = renderer.domElement;
+      const src = renderer.domElement;
       const dpr = renderer.getPixelRatio();
-      const rect = srcCanvas.getBoundingClientRect();
-
+      const rect = src.getBoundingClientRect();
       const sx = (cx - rect.left) * dpr;
       const sy = (cy - rect.top) * dpr;
-      const zoomSample = 46 * dpr;
+      const sample = 44 * dpr;
 
       ctx.clearRect(0, 0, magCanvas.width, magCanvas.height);
-      ctx.drawImage(srcCanvas, sx - zoomSample / 2, sy - zoomSample / 2, zoomSample, zoomSample, 0, 0, magCanvas.width, magCanvas.height);
+      ctx.drawImage(src, sx - sample / 2, sy - sample / 2, sample, sample, 0, 0, magCanvas.width, magCanvas.height);
     }
 
-    function setupCanvasInteractions() {
+    function setupInteractions() {
       const dom = renderer.domElement;
       let isPickingDrag = false;
-      let lastPointerX = 0, lastPointerY = 0;
-      let pending3DPoint = null;
-      let downX = 0, downY = 0, downTime = 0;
+      let lastX = 0, lastY = 0;
+      let pendingPt = null;
 
-      function finishPickRelease() {
+      async function handleReleasePick() {
         if (!isPickingDrag) return;
         isPickingDrag = false;
         document.getElementById('magnifier').style.display = 'none';
 
-        try {
-          const pickedPt = pending3DPoint || findBestPlatePointAtScreen(lastPointerX, lastPointerY);
-          pending3DPoint = null;
+        const pt = pendingPt || findPlatePointAtScreen(lastX, lastY);
+        pendingPt = null;
 
-          if (pickedPt) {
-            if (manualCorners.length >= 4) manualCorners = [];
-            manualCorners.push(pickedPt);
-            const count = manualCorners.length;
-            applyCornersToFrame(manualCorners);
+        if (!pt) {
+          setMode('view', '⚠️ Missed plate. Zoom & tap "Create Line" again');
+          return;
+        }
 
-            if (count < 4) {
-              setMode('view', `✅ C${count} Locked! Zoom to Corner ${count + 1}, then tap "Select Point"`);
-            } else {
-              setMode('measure', `✅ All 4 Corners Locked! Tap plate to measure`);
-            }
-          } else {
-            setMode('view', `⚠️ Missed plate. Zoom & tap "Select Point" again`);
-          }
-        } catch (err) {
-          console.error('Corner pick error:', err);
-          setMode('view', `⚠️ Try selecting point again`);
+        if (mode === 'pick_start') {
+          tempStartPt = pt.clone();
+          while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+          const dot = new THREE.Mesh(
+            new THREE.SphereGeometry(6, 10, 10),
+            new THREE.MeshBasicMaterial({ color: 0xf43f5e, depthTest: false })
+          );
+          dot.position.copy(tempStartPt);
+          tempPickGroup.add(dot);
+
+          // Automatically switch back to safe zoom mode so user can zoom to End Point
+          setMode('view', '✅ Start (S) Locked! Zoom to End Point, then tap "Pick End (2/2)"');
+        } else if (mode === 'pick_end' && tempStartPt) {
+          while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+
+          const calc = calculateLineSquareMeasurements(tempStartPt, pt, divisionPitch);
+          const lineNum = (currentPlate.lines ? currentPlate.lines.length : 0) + 1;
+          const newLine = {
+            id: 'line_' + Date.now(),
+            name: `Line ${lineNum}`,
+            visible: true,
+            start: { x: tempStartPt.x, y: tempStartPt.y, z: tempStartPt.z },
+            end: { x: pt.x, y: pt.y, z: pt.z },
+            totalLength: calc.totalLength,
+            startTrace: calc.startTrace,
+            endTrace: calc.endTrace,
+            stations: calc.stations
+          };
+
+          // Hide older lines automatically for clarity (user can toggle them on in Lines tab)
+          currentPlate.lines.forEach(l => l.visible = false);
+          currentPlate.lines.push(newLine);
+          currentPlate.updatedAt = Date.now();
+          activeLineId = newLine.id;
+          tempStartPt = null;
+
+          await dbSavePlate(currentPlate);
+          rebuildAllSavedLinesVisuals();
+
+          // Expand measurement table automatically so user sees values immediately
+          document.getElementById('table-wrapper').classList.remove('collapsed');
+          setMode('view', `✅ ${newLine.name} Created & Saved!`);
         }
       }
 
       dom.addEventListener('pointerdown', (e) => {
-        downX = e.clientX; downY = e.clientY; downTime = Date.now();
-        lastPointerX = e.clientX; lastPointerY = e.clientY;
-
-        if (interactionMode === 'pick_one') {
+        lastX = e.clientX; lastY = e.clientY;
+        if (mode === 'pick_start' || mode === 'pick_end') {
           e.stopImmediatePropagation();
           isPickingDrag = true;
           controls.enabled = false;
-          pending3DPoint = findBestPlatePointAtScreen(e.clientX, e.clientY);
+          pendingPt = findPlatePointAtScreen(e.clientX, e.clientY);
           updateMagnifier(e.clientX, e.clientY);
         }
       }, true);
 
       window.addEventListener('pointermove', (e) => {
-        if (isPickingDrag && interactionMode === 'pick_one') {
-          lastPointerX = e.clientX; lastPointerY = e.clientY;
-          const pt = findBestPlatePointAtScreen(e.clientX, e.clientY);
-          if (pt) pending3DPoint = pt;
+        if (isPickingDrag) {
+          lastX = e.clientX; lastY = e.clientY;
+          const pt = findPlatePointAtScreen(e.clientX, e.clientY);
+          if (pt) pendingPt = pt;
           updateMagnifier(e.clientX, e.clientY);
         }
       }, true);
 
       window.addEventListener('pointerup', (e) => {
         if (isPickingDrag) {
-          if (e.clientX || e.clientY) { lastPointerX = e.clientX; lastPointerY = e.clientY; }
-          finishPickRelease();
-          return;
-        }
-        if (interactionMode === 'measure' && manualCorners.length === 4 && e.target === dom) {
-          if (Math.hypot(e.clientX - downX, e.clientY - downY) < 14 && (Date.now() - downTime) < 500) {
-            const hitPt = findBestPlatePointAtScreen(e.clientX, e.clientY);
-            if (hitPt) {
-              lastHitPt = hitPt.clone(); lastScreenX = e.clientX; lastScreenY = e.clientY;
-              measureFrom4CornerPlane(hitPt, e.clientX, e.clientY);
-            }
-          }
+          if (e.clientX || e.clientY) { lastX = e.clientX; lastY = e.clientY; }
+          handleReleasePick();
         }
       }, true);
 
       window.addEventListener('pointercancel', () => {
-        if (isPickingDrag) finishPickRelease();
+        if (isPickingDrag) handleReleasePick();
       }, true);
     }
 
-    function generateStations() {
-      while (stationsGroup.children.length > 0) stationsGroup.remove(stationsGroup.children[0]);
-      generatedTemplates = [];
-      if (!plateMesh || manualCorners.length < 4) return;
-
-      const interval = parseFloat(document.getElementById('inp-interval').value) || 300;
-      const woodMargin = parseFloat(document.getElementById('inp-wood-margin').value) || 100;
-      const sliceMode = document.getElementById('inp-slice-axis').value;
-      const sliceDir = (sliceMode === 'u') ? localFrame.uDir : localFrame.vDir;
-      const span = (sliceMode === 'u') ? localFrame.length : localFrame.width;
-
-      const listEl = document.getElementById('template-export-list');
-      listEl.innerHTML = '';
-      let idx = 1;
-
-      for (let d = interval / 2; d < span; d += interval) {
-        const cutPlanePos = localFrame.C1.clone().addScaledVector(sliceDir, d);
-        const cutPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(sliceDir, cutPlanePos);
-        const segs = sliceMesh(plateMesh, cutPlane);
-        if (segs.length < 2) continue;
-        const pts = sortPoints(segs);
-        if (pts.length < 2) continue;
-
-        stationsGroup.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 })
-        ));
-
-        const tmplName = `${sliceMode === 'u' ? 'Stn' : 'WL'}_${idx}_${Math.round(d)}mm`;
-        generatedTemplates.push({ name: tmplName, pts, margin: woodMargin });
-
-        const div = document.createElement('div');
-        div.className = 'tmpl-item';
-        div.innerHTML = `<span><b>${tmplName}</b></span><button class="tmpl-dxf-btn" onclick="exportDXF(${generatedTemplates.length - 1})">Download DXF</button>`;
-        listEl.appendChild(div);
-        idx++;
-      }
-    }
-
-    function sliceMesh(mesh, plane) {
-      const pos = mesh.geometry.attributes.position.array;
-      const segments = [];
-      for (let i = 0; i < pos.length; i += 9) {
-        const a = new THREE.Vector3(pos[i], pos[i+1], pos[i+2]);
-        const b = new THREE.Vector3(pos[i+3], pos[i+4], pos[i+5]);
-        const c = new THREE.Vector3(pos[i+6], pos[i+7], pos[i+8]);
-        const da = plane.distanceToPoint(a), db = plane.distanceToPoint(b), dc = plane.distanceToPoint(c);
-        const pts = [];
-        if (da * db < 0) pts.push(new THREE.Vector3().lerpVectors(a, b, da / (da - db)));
-        if (db * dc < 0) pts.push(new THREE.Vector3().lerpVectors(b, c, db / (db - dc)));
-        if (dc * da < 0) pts.push(new THREE.Vector3().lerpVectors(c, a, dc / (dc - da)));
-        if (pts.length === 2) segments.push({ a: pts[0], b: pts[1] });
-      }
-      return segments;
-    }
-
-    function sortPoints(segs) {
-      const pts = [segs[0].a, segs[0].b];
-      const pool = segs.slice(1);
-      while (pool.length > 0) {
-        const tip = pts[pts.length - 1];
-        let found = -1, rev = false;
-        for (let i = 0; i < pool.length; i++) {
-          if (tip.distanceTo(pool[i].a) < 1.5) { found = i; rev = false; break; }
-          if (tip.distanceTo(pool[i].b) < 1.5) { found = i; rev = true; break; }
-        }
-        if (found !== -1) { const s = pool.splice(found, 1)[0]; pts.push(rev ? s.a : s.b); }
-        else break;
-      }
-      return pts;
-    }
-
-    window.exportDXF = function(idx) {
-      const item = generatedTemplates[idx];
-      if (!item) return;
-      const pts3D = item.pts, origin = pts3D[0], endPt = pts3D[pts3D.length - 1];
-      const chord = new THREE.Vector3().subVectors(endPt, origin).normalize();
-      const pts2D = pts3D.map(p => {
-        const diff = new THREE.Vector3().subVectors(p, origin);
-        return { x: diff.dot(chord), y: diff.dot(localFrame.nDir) };
-      });
-      const baseLine = Math.min(...pts2D.map(p => p.y)) - item.margin;
-
-      let dxf = "0\nSECTION\n2\nENTITIES\n";
-      for (let i = 0; i < pts2D.length - 1; i++) {
-        dxf += `0\nLINE\n8\nPLATE_CURVE\n10\n${pts2D[i].x.toFixed(2)}\n20\n${pts2D[i].y.toFixed(2)}\n11\n${pts2D[i+1].x.toFixed(2)}\n21\n${pts2D[i+1].y.toFixed(2)}\n`;
-      }
-      const s = pts2D[0], e = pts2D[pts2D.length - 1];
-      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${s.x.toFixed(2)}\n20\n${s.y.toFixed(2)}\n11\n${s.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
-      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${e.x.toFixed(2)}\n20\n${e.y.toFixed(2)}\n11\n${e.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
-      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${s.x.toFixed(2)}\n20\n${baseLine.toFixed(2)}\n11\n${e.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n0\nENDSEC\n0\nEOF\n`;
-
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([dxf], { type: 'application/dxf' }));
-      a.download = `${item.name}.dxf`;
-      a.click();
-    };
-
-    function updateCornerControlsUI() {
-      const btnPick = document.getElementById('btn-select-point');
-      const btnUndo = document.getElementById('btn-dock-undo');
-      const count = manualCorners.length;
-      btnUndo.classList.toggle('hidden', count === 0);
-      btnPick.innerText = (count < 4) ? `🎯 Select Point (${count + 1}/4)` : `🔄 Re-Pick (4/4)`;
-    }
-
-    function setMode(mode, customMsg) {
-      interactionMode = mode;
+    // ═══════════════════════════════════════════════════════════
+    // UI MODES, SAVED PLATES & MULTI-LINE MANAGER
+    // ═══════════════════════════════════════════════════════════
+    function setMode(newMode, customMsg) {
+      mode = newMode;
       document.getElementById('magnifier').style.display = 'none';
 
-      const btnPick = document.getElementById('btn-select-point');
-      const btnMeasure = document.getElementById('btn-mode-measure');
+      const btnCreate = document.getElementById('btn-create-line');
+      const btnUndo = document.getElementById('btn-undo-pt');
       const banner = document.getElementById('mode-banner');
 
-      btnPick.classList.remove('pick-armed');
-      btnMeasure.classList.remove('active');
+      btnCreate.classList.remove('pick-armed', 'active');
+      btnUndo.classList.toggle('hidden', !tempStartPt);
 
-      if (mode === 'pick_one') {
-        if (controls) controls.enabled = false;
-        btnPick.classList.add('pick-armed');
-        const nextNum = (manualCorners.length >= 4) ? 1 : (manualCorners.length + 1);
-        banner.innerText = customMsg || `🎯 Touch & release on Corner ${nextNum}`;
+      if (newMode === 'pick_start') {
+        controls.enabled = false;
+        btnCreate.classList.add('pick-armed');
+        btnCreate.innerText = '🎯 Touch Start (1/2)';
+        banner.innerText = customMsg || '🎯 Touch & release on Start Point (Magnifier Active)';
         banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
-      } else if (mode === 'measure') {
-        if (manualCorners.length < 4) {
-          setMode('view', `⚠️ Select all 4 corners first (${manualCorners.length}/4 done)`);
-          return;
-        }
-        if (controls) controls.enabled = true;
-        btnMeasure.classList.add('active');
-        banner.innerText = customMsg || '📏 Tap plate to measure drop & edges';
-        banner.style.borderColor = '#0284c7'; banner.style.color = '#38bdf8';
+      } else if (newMode === 'pick_end') {
+        controls.enabled = false;
+        btnCreate.classList.add('pick-armed');
+        btnCreate.innerText = '🎯 Touch End (2/2)';
+        banner.innerText = customMsg || '🎯 Touch & release on End Point';
+        banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
       } else {
-        if (controls) controls.enabled = true;
-        const nextNum = manualCorners.length + 1;
-        banner.innerText = customMsg || `🔍 Zoom to Corner ${nextNum}, then tap "Select Point"`;
-        banner.style.borderColor = '#475569'; banner.style.color = '#e2e8f0';
+        controls.enabled = true;
+        if (tempStartPt) {
+          btnCreate.classList.add('active');
+          btnCreate.innerText = '🎯 Pick End (2/2)';
+          banner.innerText = customMsg || '🔍 Zoom to End Point, then tap "Pick End (2/2)"';
+        } else {
+          btnCreate.innerText = '📏 Create Line';
+          banner.innerText = customMsg || '🔍 Zoom freely. Tap "Create Line" to measure';
+        }
+        banner.style.borderColor = '#334155'; banner.style.color = '#e2e8f0';
       }
     }
 
-    function undoLastCorner() {
-      if (manualCorners.length === 0) return;
-      manualCorners.pop();
-      while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
-      document.getElementById('touch-pin').style.display = 'none';
-      applyCornersToFrame(manualCorners);
-      setMode('view', `↩ Removed C${manualCorners.length + 1}. Zoom & tap "Select Point"`);
+    function openSheet(id) {
+      closeAllSheets();
+      document.getElementById('modal-backdrop').classList.add('open');
+      document.getElementById(id).classList.add('open');
     }
 
-    function updateSideOffset(val) {
-      planeOffset = Math.max(0, Math.min(500, val));
-      document.getElementById('side-offset-slider').value = planeOffset;
-      document.getElementById('side-offset-val').innerText = planeOffset + 'mm';
-      if (manualCorners.length === 4) {
-        buildExact4CornerMesh();
-        if (lastHitPt) measureFrom4CornerPlane(lastHitPt, lastScreenX, lastScreenY);
+    window.closeAllSheets = function() {
+      document.getElementById('modal-backdrop').classList.remove('open');
+      document.querySelectorAll('.sheet-drawer').forEach(el => el.classList.remove('open'));
+    };
+
+    function renderLinesManager() {
+      const container = document.getElementById('lines-list-container');
+      container.innerHTML = '';
+
+      if (!currentPlate || !currentPlate.lines || currentPlate.lines.length === 0) {
+        container.innerHTML = '<p style="font-size:12px; color:#94a3b8; text-align:center; padding:14px;">No lines drawn on this plate yet.</p>';
+        return;
       }
+
+      currentPlate.lines.forEach((line, idx) => {
+        const isSel = (line.id === activeLineId);
+        const card = document.createElement('div');
+        card.className = 'list-card' + (isSel ? ' selected' : '');
+        card.innerHTML = `
+          <div class="list-card-info" onclick="selectSavedLine('${line.id}')">
+            <div class="list-card-title">${line.name} (${line.totalLength.toFixed(0)} mm)</div>
+            <div class="list-card-sub">${line.stations.length} pts • ${line.startTrace.edgeLabel}</div>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn ${line.visible ? 'primary' : ''}" onclick="toggleLineVisibility('${line.id}')">${line.visible ? '👁️ On' : '🙈 Off'}</button>
+            <button class="icon-btn danger" onclick="deleteSavedLine('${line.id}')">🗑️</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
     }
+
+    window.selectSavedLine = async function(lineId) {
+      if (!currentPlate) return;
+      activeLineId = lineId;
+      const line = currentPlate.lines.find(l => l.id === lineId);
+      if (line) line.visible = true;
+      await dbSavePlate(currentPlate);
+      rebuildAllSavedLinesVisuals();
+      document.getElementById('table-wrapper').classList.remove('collapsed');
+      closeAllSheets();
+    };
+
+    window.toggleLineVisibility = async function(lineId) {
+      if (!currentPlate) return;
+      const line = currentPlate.lines.find(l => l.id === lineId);
+      if (line) {
+        line.visible = !line.visible;
+        if (line.visible) activeLineId = line.id;
+        await dbSavePlate(currentPlate);
+        rebuildAllSavedLinesVisuals();
+        renderLinesManager();
+      }
+    };
+
+    window.deleteSavedLine = async function(lineId) {
+      if (!currentPlate) return;
+      currentPlate.lines = currentPlate.lines.filter(l => l.id !== lineId);
+      if (activeLineId === lineId) {
+        activeLineId = currentPlate.lines.length > 0 ? currentPlate.lines[currentPlate.lines.length - 1].id : null;
+      }
+      await dbSavePlate(currentPlate);
+      rebuildAllSavedLinesVisuals();
+      renderLinesManager();
+    };
+
+    async function renderSavedPlatesList() {
+      const container = document.getElementById('plates-list-container');
+      container.innerHTML = '<p style="font-size:12px; color:#94a3b8;">Loading saved plates...</p>';
+      const plates = await dbGetAllPlates();
+      plates.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+      container.innerHTML = '';
+      if (plates.length === 0) {
+        container.innerHTML = '<p style="font-size:12px; color:#94a3b8; text-align:center; padding:14px;">No saved plates found. Select a plate from Viewer first.</p>';
+        return;
+      }
+
+      plates.forEach(p => {
+        const isCurrent = (currentPlate && currentPlate.id === p.id);
+        const card = document.createElement('div');
+        card.className = 'list-card' + (isCurrent ? ' selected' : '');
+        card.innerHTML = `
+          <div class="list-card-info" onclick="openSavedPlateById('${p.id}')">
+            <div class="list-card-title">${p.plateNo || 'Plate'} — ${p.name}</div>
+            <div class="list-card-sub">${(p.lines || []).length} saved lines • ${new Date(p.updatedAt).toLocaleDateString()}</div>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn primary" onclick="openSavedPlateById('${p.id}')">Open</button>
+            <button class="icon-btn danger" onclick="removeSavedPlate('${p.id}')">🗑️</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    window.openSavedPlateById = async function(id) {
+      const plates = await dbGetAllPlates();
+      const target = plates.find(p => p.id === id);
+      if (target) {
+        loadPlateRecord(target);
+        closeAllSheets();
+      }
+    };
+
+    window.removeSavedPlate = async function(id) {
+      await dbDeletePlate(id);
+      renderSavedPlatesList();
+    };
 
     function setupUI() {
-      document.getElementById('btn-select-point').addEventListener('click', () => {
-        if (interactionMode === 'pick_one') {
-          setMode('view');
+      // Create Line Button (2-step safe zoom workflow)
+      document.getElementById('btn-create-line').addEventListener('click', () => {
+        if (!currentPlate) return;
+        if (mode === 'pick_start' || mode === 'pick_end') {
+          setMode('view'); // Cancel armed state
           return;
         }
-        if (manualCorners.length >= 4) {
-          manualCorners = [];
-          applyCornersToFrame([]);
-          while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
-          document.getElementById('touch-pin').style.display = 'none';
+        if (!tempStartPt) {
+          setMode('pick_start');
+        } else {
+          setMode('pick_end');
         }
-        setMode('pick_one');
       });
 
-      document.getElementById('btn-dock-undo').addEventListener('click', undoLastCorner);
-      document.getElementById('btn-undo-corner').addEventListener('click', undoLastCorner);
-      document.getElementById('btn-mode-measure').addEventListener('click', () => setMode('measure'));
-
-      const offsetWrapper = document.getElementById('side-offset-wrapper');
-      const collapseBtn = document.getElementById('btn-collapse-offset');
-      collapseBtn.addEventListener('click', () => {
-        const isCollapsed = offsetWrapper.classList.toggle('collapsed');
-        collapseBtn.innerText = isCollapsed ? '▶' : '◀';
+      // Undo Start Point
+      document.getElementById('btn-undo-pt').addEventListener('click', () => {
+        tempStartPt = null;
+        while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+        setMode('view', '↩ Start point cancelled.');
       });
 
-      document.getElementById('side-offset-slider').addEventListener('input', (e) => updateSideOffset(parseFloat(e.target.value) || 0));
-      document.getElementById('btn-offset-up').addEventListener('click', () => updateSideOffset(planeOffset + 10));
-      document.getElementById('btn-offset-down').addEventListener('click', () => updateSideOffset(planeOffset - 10));
-
-      const btnHud = document.getElementById('btn-toggle-hud');
-      const hud = document.getElementById('probe-hud');
-      btnHud.addEventListener('click', () => {
-        const isHidden = hud.classList.toggle('hidden');
-        btnHud.innerText = isHidden ? '👁️ Show' : '👁️ HUD';
+      // Toggle Right Measurement Table
+      document.getElementById('btn-toggle-table').addEventListener('click', () => {
+        document.getElementById('table-wrapper').classList.toggle('collapsed');
       });
 
-      const drawer = document.getElementById('settings-drawer');
-      const backdrop = document.getElementById('drawer-backdrop');
-      const openDrawer = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
-      const closeDrawer = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
-
-      document.getElementById('btn-open-settings').addEventListener('click', openDrawer);
-      document.getElementById('btn-close-settings').addEventListener('click', closeDrawer);
-      backdrop.addEventListener('click', closeDrawer);
-
-      document.getElementById('btn-clear-corners').addEventListener('click', () => {
-        manualCorners = [];
-        applyCornersToFrame([]);
-        while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
-        document.getElementById('touch-pin').style.display = 'none';
-        setMode('view');
-        closeDrawer();
+      // Open Lines Manager
+      document.getElementById('btn-open-lines').addEventListener('click', () => {
+        renderLinesManager();
+        openSheet('sheet-lines');
       });
 
-      document.getElementById('btn-recalc').addEventListener('click', () => { generateStations(); closeDrawer(); });
-      document.getElementById('btn-toggle-plane').addEventListener('click', () => { if (datumPlaneMesh) datumPlaneMesh.visible = !datumPlaneMesh.visible; });
+      // Open Saved Plates Library
+      document.getElementById('btn-open-plates').addEventListener('click', () => {
+        renderSavedPlatesList();
+        openSheet('sheet-plates');
+      });
+      document.getElementById('btn-welcome-saved').addEventListener('click', () => {
+        renderSavedPlatesList();
+        openSheet('sheet-plates');
+      });
+
+      // Save Plate Modal
+      document.getElementById('btn-open-save-plate').addEventListener('click', () => {
+        if (!currentPlate) return;
+        openSheet('sheet-save-plate');
+      });
+
+      document.getElementById('btn-confirm-save-plate').addEventListener('click', async () => {
+        if (!currentPlate) return;
+        currentPlate.plateNo = document.getElementById('inp-plate-no').value.trim() || 'Plate';
+        currentPlate.name = document.getElementById('inp-plate-name').value.trim() || 'Shell Plate';
+        currentPlate.updatedAt = Date.now();
+        await dbSavePlate(currentPlate);
+        document.getElementById('plate-badge').innerText = `${currentPlate.plateNo}: ${currentPlate.name}`;
+        closeAllSheets();
+        setMode('view', `💾 Saved as ${currentPlate.plateNo}: ${currentPlate.name}`);
+      });
+
+      // Settings Sheet (200mm Pitch Change)
+      document.getElementById('btn-open-settings').addEventListener('click', () => openSheet('sheet-settings'));
+      document.getElementById('btn-apply-settings').addEventListener('click', async () => {
+        const val = parseFloat(document.getElementById('inp-pitch').value);
+        if (val >= 50) {
+          divisionPitch = val;
+          if (currentPlate && currentPlate.lines) {
+            currentPlate.lines.forEach(line => {
+              const sVec = new THREE.Vector3(line.start.x, line.start.y, line.start.z);
+              const eVec = new THREE.Vector3(line.end.x, line.end.y, line.end.z);
+              const calc = calculateLineSquareMeasurements(sVec, eVec, divisionPitch);
+              line.stations = calc.stations;
+            });
+            await dbSavePlate(currentPlate);
+            rebuildAllSavedLinesVisuals();
+          }
+        }
+        closeAllSheets();
+      });
+
+      document.getElementById('modal-backdrop').addEventListener('click', closeAllSheets);
     }
 
     window.addEventListener('DOMContentLoaded', init);
