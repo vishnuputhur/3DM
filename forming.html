@@ -7,181 +7,170 @@
   <script src="three.min.js"></script>
   <script src="OrbitControls.js"></script>
   <style>
-    :root {
-      --bg: #090d16;
-      --card-bg: rgba(15, 23, 42, 0.94);
-      --border: #1e293b;
-      --accent: #0284c7;
-      --green: #10b981;
-      --yellow: #facc15;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-    }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); touch-action: none; }
-    #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #090d16; color: #f8fafc; touch-action: none; }
+    #canvas-container { width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1; }
 
-    /* Compact Top Bar */
     .top-bar {
       position: absolute; top: 10px; left: 10px; right: 10px;
       display: flex; justify-content: space-between; align-items: center;
-      background: var(--card-bg); backdrop-filter: blur(10px);
-      padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border);
-      z-index: 15;
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(10px);
+      padding: 8px 12px; border-radius: 10px; border: 1px solid #1e293b; z-index: 15;
     }
-    .top-bar-left { display: flex; align-items: center; gap: 8px; }
+    .top-left { display: flex; align-items: center; gap: 8px; }
     .btn-back {
       background: #1e293b; color: #f8fafc; border: 1px solid #334155;
-      padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700;
-      text-decoration: none; display: flex; align-items: center; gap: 4px;
+      padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none;
     }
     .top-bar h1 { font-size: 14px; font-weight: 700; color: #38bdf8; }
-    .badge { font-size: 11px; background: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 600; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { font-size: 11px; background: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 600; max-width: 135px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    /* Compact Floating Measurement HUD */
+    .mode-banner {
+      position: absolute; top: 56px; left: 10px;
+      background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981;
+      color: #6ee7b7; padding: 6px 10px; border-radius: 8px;
+      font-size: 11px; font-weight: 600; z-index: 14; max-width: 52%; backdrop-filter: blur(6px);
+    }
+
+    /* Side Vertical Offset Bar */
+    .side-offset-panel {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
+      border: 1px solid #334155; border-radius: 12px; padding: 8px 6px;
+      z-index: 15; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .side-offset-panel.hidden { display: none; }
+    .offset-title { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+    .offset-val { font-size: 11px; font-weight: 800; color: #facc15; font-family: monospace; }
+    .offset-step-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: 1px solid #334155;
+      background: #1e293b; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
+    }
+    .vertical-slider-wrap { height: 110px; width: 28px; display: flex; align-items: center; justify-content: center; }
+    #side-offset-slider { width: 105px; height: 6px; transform: rotate(-90deg); accent-color: #0284c7; }
+
     .probe-hud {
-      position: absolute; top: 58px; right: 10px;
+      position: absolute; top: 56px; right: 10px;
       background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);
       border: 1px solid #0284c7; border-radius: 10px; padding: 8px 12px;
-      z-index: 14; text-align: right; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-      pointer-events: none; transition: opacity 0.2s;
-      min-width: 165px;
+      z-index: 14; text-align: right; pointer-events: none; transition: opacity 0.2s; min-width: 162px;
     }
-    .probe-hud.hidden { opacity: 0; pointer-events: none; }
-    .probe-label { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-muted); text-transform: uppercase; }
-    .probe-val { font-size: 22px; font-weight: 800; color: var(--yellow); font-family: monospace; line-height: 1.1; }
+    .probe-hud.hidden { opacity: 0; }
+    .probe-label { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+    .probe-val { font-size: 22px; font-weight: 800; color: #facc15; font-family: monospace; line-height: 1.1; }
     .probe-grid {
       margin-top: 6px; padding-top: 6px; border-top: 1px solid #1e293b;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px;
-      font-size: 11px; font-family: monospace; text-align: left;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 11px; font-family: monospace; text-align: left;
     }
-    .probe-grid span { color: var(--text-muted); }
+    .probe-grid span { color: #94a3b8; }
     .probe-grid b { color: #38bdf8; float: right; }
 
-    /* Mode Status Banner */
-    .mode-banner {
-      position: absolute; top: 58px; left: 10px;
-      background: rgba(16, 185, 129, 0.18); border: 1px solid var(--green);
-      color: #6ee7b7; padding: 6px 10px; border-radius: 8px;
-      font-size: 11px; font-weight: 600; z-index: 14; max-width: 52%;
-      backdrop-filter: blur(6px);
-    }
-
-    /* Bottom Mobile Action Dock */
     .bottom-dock {
       position: absolute; bottom: 14px; left: 10px; right: 10px;
-      display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
-      z-index: 15;
+      display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; z-index: 15;
     }
     .dock-btn {
-      flex: 1; min-width: 75px; max-width: 140px;
-      background: var(--card-bg); color: var(--text); border: 1px solid #334155;
+      flex: 1; min-width: 75px; max-width: 145px;
+      background: rgba(15, 23, 42, 0.94); color: #f8fafc; border: 1px solid #334155;
       padding: 10px 8px; border-radius: 10px; font-size: 12px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
-      backdrop-filter: blur(10px); box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
     .dock-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
     .dock-btn.corner-active { background: #059669; border-color: #34d399; color: #fff; }
 
-    /* Slide-Up Settings & DXF Drawer */
-    .drawer-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 25; display: none;
+    /* Magnifier Loupe */
+    #magnifier {
+      position: fixed; width: 116px; height: 116px; border-radius: 50%;
+      border: 3px solid #38bdf8; box-shadow: 0 8px 25px rgba(0,0,0,0.75);
+      pointer-events: none; z-index: 40; display: none; overflow: hidden;
+      background: #090d16; transform: translate(-50%, -125%);
     }
-    .drawer-backdrop.open { display: block; }
+    #magnifier canvas { width: 100%; height: 100%; display: block; }
+    #magnifier::after {
+      content: ''; position: absolute; inset: 0;
+      background:
+        linear-gradient(to right, transparent 49%, rgba(250,204,21,0.85) 49.5%, rgba(250,204,21,0.85) 50.5%, transparent 51%),
+        linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.85) 49.5%, rgba(250,204,21,0.85) 50.5%, transparent 51%);
+    }
 
+    /* Offset Arrow Callout Labels */
+    .corner-callout {
+      position: absolute; pointer-events: none; z-index: 12;
+      display: flex; align-items: center; transform: translate(6px, -22px);
+    }
+    .callout-arrow {
+      width: 14px; height: 1.5px; background: #10b981;
+      transform: rotate(-35deg); transform-origin: left center; margin-right: 2px;
+    }
+    .callout-tag {
+      background: rgba(5, 150, 105, 0.92); color: #fff; border: 1px solid #a7f3d0;
+      padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 800;
+    }
+    .edge-label {
+      position: absolute; background: rgba(9, 13, 22, 0.85); color: #facc15;
+      border: 1px solid #10b981; padding: 1px 5px; border-radius: 4px;
+      font-size: 10px; font-family: monospace; font-weight: 700;
+      pointer-events: none; transform: translate(-50%, -50%); z-index: 11; white-space: nowrap;
+    }
+
+    .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 25; display: none; }
+    .drawer-backdrop.open { display: block; }
     .settings-drawer {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      max-height: 78vh; background: #0f172a;
-      border-top: 1px solid #334155; border-radius: 18px 18px 0 0;
-      padding: 16px; z-index: 30; overflow-y: auto;
-      transform: translateY(100%); transition: transform 0.25s ease-out;
-      box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+      position: fixed; bottom: 0; left: 0; right: 0; max-height: 78vh;
+      background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0;
+      padding: 16px; z-index: 30; overflow-y: auto; transform: translateY(100%); transition: transform 0.25s ease-out;
     }
     .settings-drawer.open { transform: translateY(0); }
-
     @media (min-width: 768px) {
       .settings-drawer {
-        left: 12px; right: auto; bottom: auto; top: 64px;
-        width: 340px; border-radius: 14px; border: 1px solid #334155;
-        transform: translateX(-120%);
+        left: 65px; right: auto; bottom: auto; top: 62px; width: 345px;
+        border-radius: 14px; border: 1px solid #334155; transform: translateX(-130%);
       }
       .settings-drawer.open { transform: translateX(0); }
     }
-
-    .drawer-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #1e293b;
-    }
-    .drawer-header h2 { font-size: 14px; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.04em; }
-    .btn-close-drawer {
-      background: #1e293b; border: 1px solid #334155; color: #fff;
-      padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;
-    }
-
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #1e293b; }
+    .drawer-header h2 { font-size: 13px; color: #38bdf8; text-transform: uppercase; }
+    .btn-close-drawer { background: #1e293b; border: 1px solid #334155; color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
     .input-group { margin-bottom: 12px; }
-    .input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: var(--text-muted); }
-    .input-group input[type="range"] { width: 100%; accent-color: #0284c7; height: 24px; }
-    .input-group input[type="number"], .input-group select {
-      width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155;
-      border-radius: 8px; color: #fff; font-size: 13px; outline: none; font-family: monospace;
-    }
-
+    .input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: #94a3b8; }
+    .input-group input[type="number"], .input-group select { width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
     .btn-row { display: flex; gap: 8px; margin-top: 8px; }
-    .btn {
-      flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 700;
-      font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
-    }
+    .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
     .btn-primary { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; }
     .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
     .btn-danger { background: #7f1d1d; color: #fecaca; border: 1px solid #991b1b; }
-
-    .template-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-    .tmpl-item {
-      display: flex; justify-content: space-between; align-items: center;
-      background: #090d16; padding: 10px; border-radius: 8px; border: 1px solid #1e293b;
-      font-size: 12px;
-    }
-    .tmpl-dxf-btn {
-      background: #059669; color: #fff; border: none; padding: 6px 10px;
-      border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700;
-    }
-
-    /* 3D Floating HTML Labels for Edge Lengths & Drop */
-    .label-3d {
-      position: absolute; background: rgba(9, 13, 22, 0.85); color: #facc15;
-      border: 1px solid #10b981; padding: 2px 6px; border-radius: 4px;
-      font-size: 10px; font-family: monospace; font-weight: 700;
-      pointer-events: none; transform: translate(-50%, -50%); z-index: 10;
-      white-space: nowrap;
-    }
-    .label-3d.corner-tag { background: #059669; color: #fff; border-color: #fff; }
-
-    #touch-pin {
-      position: absolute; width: 14px; height: 14px; border-radius: 50%;
-      border: 2px solid #facc15; background: rgba(250, 204, 21, 0.45);
-      transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 12;
-    }
+    .tmpl-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .tmpl-item { display: flex; justify-content: space-between; align-items: center; background: #090d16; padding: 10px; border-radius: 8px; border: 1px solid #1e293b; font-size: 12px; }
+    .tmpl-dxf-btn { background: #059669; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; }
+    #touch-pin { position: absolute; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #facc15; background: rgba(250, 204, 21, 0.5); transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 13; }
   </style>
 </head>
 <body>
 
-  <!-- Top Bar -->
   <div class="top-bar">
-    <div class="top-bar-left">
-      <a href="index.html" class="btn-back">⬅ Back</a>
+    <div class="top-left">
+      <a href="index.html" class="btn-back">⬅ Viewer</a>
       <h1>📐 Forming Studio</h1>
     </div>
     <span class="badge" id="plate-badge">Plate</span>
   </div>
 
-  <!-- Mode Instruction Banner -->
-  <div class="mode-banner" id="mode-banner">
-    📏 Tap plate to measure drop & edge distances
+  <div class="mode-banner" id="mode-banner">📍 Zoom in, touch & release on Corner 1 of 4</div>
+
+  <!-- Side Plane Offset Control -->
+  <div class="side-offset-panel" id="side-offset-panel">
+    <div class="offset-title">Offset</div>
+    <div class="offset-val" id="side-offset-val">0mm</div>
+    <button class="offset-step-btn" id="btn-offset-up">+</button>
+    <div class="vertical-slider-wrap">
+      <input type="range" id="side-offset-slider" min="0" max="500" value="0" step="5" />
+    </div>
+    <button class="offset-step-btn" id="btn-offset-down">−</button>
   </div>
 
-  <!-- Compact Probe HUD (Can be Hidden) -->
   <div class="probe-hud" id="probe-hud">
-    <div class="probe-label">String Drop Depth</div>
+    <div class="probe-label">Plane Drop Depth</div>
     <div class="probe-val" id="hud-probe-depth">0.0 mm</div>
     <div class="probe-grid">
       <div><span>Left:</span> <b id="hud-dist-left">-</b></div>
@@ -191,19 +180,17 @@
     </div>
   </div>
 
-  <!-- 3D Labels Container -->
+  <div id="magnifier"><canvas id="mag-canvas" width="116" height="116"></canvas></div>
   <div id="labels-layer"></div>
   <div id="touch-pin"></div>
 
-  <!-- Bottom Mobile Action Bar -->
   <div class="bottom-dock">
-    <button class="dock-btn active" id="btn-mode-measure">📏 Measure</button>
-    <button class="dock-btn" id="btn-mode-corners">📍 Pick 4 Corners</button>
+    <button class="dock-btn" id="btn-mode-measure">📏 Measure</button>
+    <button class="dock-btn corner-active" id="btn-mode-corners">📍 Pick 4 Corners</button>
     <button class="dock-btn" id="btn-toggle-hud">👁️ Hide HUD</button>
     <button class="dock-btn" id="btn-open-settings">⚙️ Settings / DXF</button>
   </div>
 
-  <!-- Settings & Template Export Drawer -->
   <div class="drawer-backdrop" id="drawer-backdrop"></div>
   <div class="settings-drawer" id="settings-drawer">
     <div class="drawer-header">
@@ -214,21 +201,13 @@
     <div class="input-group">
       <label>Corner Selection Tools</label>
       <div class="btn-row">
-        <button class="btn btn-secondary" id="btn-undo-corner">↩ Undo Last Corner</button>
-        <button class="btn btn-danger" id="btn-auto-corners">🔄 Auto 4 Corners</button>
+        <button class="btn btn-secondary" id="btn-undo-corner">↩ Undo Corner</button>
+        <button class="btn btn-danger" id="btn-clear-corners">🗑️ Clear All</button>
       </div>
     </div>
 
     <div class="input-group">
-      <div style="display:flex; justify-content:space-between;">
-        <label>String Plane Lift from Corners (mm)</label>
-        <span id="lbl-plane-offset" style="font-size:11px; color:#38bdf8; font-weight:700;">0 mm</span>
-      </div>
-      <input type="range" id="slider-plane-offset" min="0" max="500" value="0" step="5" />
-    </div>
-
-    <div class="input-group">
-      <label>Slice Direction</label>
+      <label>Template Slice Direction</label>
       <select id="inp-slice-axis">
         <option value="u">Along Length (C1 → C2)</option>
         <option value="v">Along Width (C1 → C4)</option>
@@ -236,7 +215,7 @@
     </div>
 
     <div class="input-group">
-      <label>Station Template Pitch (mm)</label>
+      <label>Station Pitch (mm)</label>
       <input type="number" id="inp-interval" value="300" step="50" min="100" max="1500" />
     </div>
 
@@ -247,12 +226,12 @@
 
     <div class="btn-row">
       <button class="btn btn-primary" id="btn-recalc">⚡ Update Templates</button>
-      <button class="btn btn-secondary" id="btn-toggle-plane">🌐 Plane On/Off</button>
+      <button class="btn btn-secondary" id="btn-toggle-plane">🌐 Mesh On/Off</button>
     </div>
 
     <div style="margin-top:16px; border-top:1px solid #1e293b; padding-top:12px;">
       <h2 style="font-size:12px; color:#94a3b8; margin-bottom:8px;">DOWNLOAD 2D WOOD CNC DXF</h2>
-      <div class="template-list" id="template-export-list"></div>
+      <div class="tmpl-list" id="template-export-list"></div>
     </div>
   </div>
 
@@ -260,43 +239,32 @@
 
   <script>
     let scene, camera, renderer, controls;
-    let plateMesh = null;
-    let datumPlaneMesh = null;
-    let stationsGroup = new THREE.Group();
-    let stringGroup = new THREE.Group();
-    let probeGroup = new THREE.Group();
+    let plateMesh = null, datumPlaneMesh = null;
+    let stationsGroup = new THREE.Group(), stringGroup = new THREE.Group(), probeGroup = new THREE.Group();
     let generatedTemplates = [];
-
-    // Interaction modes: 'measure' | 'corners'
-    let interactionMode = 'measure';
-    let manualCorners = []; // Array of THREE.Vector3 (up to 4)
-    let htmlLabels = []; // { el, pos3D }
+    let interactionMode = 'corners';
+    let manualCorners = [];
+    let htmlLabels = [];
+    let planeOffset = 0;
+    let lastHitPt = null, lastScreenX = 0, lastScreenY = 0;
 
     let localFrame = {
-      C1: new THREE.Vector3(),
-      C2: new THREE.Vector3(),
-      C3: new THREE.Vector3(),
-      C4: new THREE.Vector3(),
-      origin: new THREE.Vector3(),
-      uDir: new THREE.Vector3(),
-      vDir: new THREE.Vector3(),
-      nDir: new THREE.Vector3(),
-      length: 0,
-      width: 0
+      C1: new THREE.Vector3(), C2: new THREE.Vector3(), C3: new THREE.Vector3(), C4: new THREE.Vector3(),
+      center: new THREE.Vector3(), uDir: new THREE.Vector3(), vDir: new THREE.Vector3(), nDir: new THREE.Vector3(),
+      length: 0, width: 0
     };
 
     function init() {
-      const container = document.getElementById('canvas-container');
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x090d16);
 
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
       camera.up.set(0, 0, 1);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
-      container.appendChild(renderer.domElement);
+      document.getElementById('canvas-container').appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
@@ -311,7 +279,12 @@
       scene.add(stringGroup);
       scene.add(probeGroup);
 
-      window.addEventListener('resize', onResize);
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
       loadPlateData();
       setupCanvasInteractions();
       setupUI();
@@ -325,351 +298,308 @@
       renderer.render(scene, camera);
     }
 
-    function onResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // LOAD PLATE DATA
-    // ═══════════════════════════════════════════════════════════
     function loadPlateData() {
       let raw = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
       if (!raw) {
-        document.getElementById('plate-badge').innerText = 'No Plate Loaded';
-        document.getElementById('mode-banner').innerText = '⚠️ Select a plate in Viewer first';
+        document.getElementById('plate-badge').innerText = 'No Plate';
         return;
       }
-
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch (err) {
-        return;
-      }
-
+      let data = JSON.parse(raw);
       document.getElementById('plate-badge').innerText = data.name || 'Shell Plate';
-      let verts = data.vertices;
-      if (!verts || verts.length < 9) return;
 
-      const floatArr = (verts instanceof Float32Array) ? verts : new Float32Array(verts);
+      const floatArr = (data.vertices instanceof Float32Array) ? data.vertices : new Float32Array(data.vertices);
       const geom = new THREE.BufferGeometry();
       geom.setAttribute('position', new THREE.BufferAttribute(floatArr, 3));
       geom.computeVertexNormals();
 
-      const mat = new THREE.MeshStandardMaterial({
+      plateMesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial({
         color: (data.color !== undefined) ? data.color : 0x38bdf8,
-        roughness: 0.35,
-        metalness: 0.25,
-        side: THREE.DoubleSide
-      });
-
-      plateMesh = new THREE.Mesh(geom, mat);
+        roughness: 0.35, metalness: 0.25, side: THREE.DoubleSide
+      }));
       scene.add(plateMesh);
 
       geom.computeBoundingBox();
       const bbox = geom.boundingBox;
       const center = bbox.getCenter(new THREE.Vector3());
-      controls.target.copy(center);
-
       const size = bbox.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z) || 1000;
-      camera.position.set(center.x + maxDim * 0.8, center.y - maxDim * 0.8, center.z + maxDim * 0.8);
+
+      controls.target.copy(center);
+      camera.position.set(center.x + maxDim * 0.7, center.y - maxDim * 0.7, center.z + maxDim * 0.8);
       controls.update();
-
-      autoDetectCorners(floatArr);
-      applyCornersToFrame(manualCorners);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // AUTO DETECT 4 CORNERS (FALLBACK / INITIAL)
-    // ═══════════════════════════════════════════════════════════
-    function autoDetectCorners(verts) {
-      const count = verts.length / 3;
-      let maxD2 = 0;
-      let c1 = new THREE.Vector3(), c3 = new THREE.Vector3();
-      const step = Math.max(1, Math.floor(count / 200));
-
-      for (let i = 0; i < count; i += step) {
-        const pA = new THREE.Vector3(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
-        for (let j = i + 1; j < count; j += step) {
-          const pB = new THREE.Vector3(verts[j * 3], verts[j * 3 + 1], verts[j * 3 + 2]);
-          const d2 = pA.distanceToSquared(pB);
-          if (d2 > maxD2) { maxD2 = d2; c1.copy(pA); c3.copy(pB); }
-        }
-      }
-
-      const diagLine = new THREE.Line3(c1, c3);
-      const tempClose = new THREE.Vector3();
-      const diagDir = new THREE.Vector3().subVectors(c3, c1).normalize();
-      const refUp = Math.abs(diagDir.z) > 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
-      const sideVec = new THREE.Vector3().crossVectors(diagDir, refUp).normalize();
-
-      let maxSideA = 0, maxSideB = 0;
-      let c2 = new THREE.Vector3(), c4 = new THREE.Vector3();
-
-      for (let i = 0; i < count; i++) {
-        const pt = new THREE.Vector3(verts[i * 3], verts[i * 3 + 1], verts[i * 3 + 2]);
-        diagLine.closestPointToPoint(pt, false, tempClose);
-        const toPt = new THREE.Vector3().subVectors(pt, tempClose);
-        const dist = toPt.length();
-        if (toPt.dot(sideVec) >= 0 && dist > maxSideA) { maxSideA = dist; c2.copy(pt); }
-        else if (toPt.dot(sideVec) < 0 && dist > maxSideB) { maxSideB = dist; c4.copy(pt); }
-      }
-
-      manualCorners = [c1, c2, c3, c4];
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // APPLY 4 CORNERS -> STRING LINES + SIGHT PLANE + STATIONS
-    // ═══════════════════════════════════════════════════════════
     function applyCornersToFrame(corners) {
-      drawStringLines(corners);
-      if (corners.length < 4) return;
+      if (datumPlaneMesh) { scene.remove(datumPlaneMesh); datumPlaneMesh = null; }
+      while (stationsGroup.children.length > 0) stationsGroup.remove(stationsGroup.children[0]);
+
+      if (corners.length < 4) {
+        drawPinsAndStrings(corners, 0);
+        return;
+      }
 
       const [c1, c2, c3, c4] = corners;
-      localFrame.C1.copy(c1);
-      localFrame.C2.copy(c2);
-      localFrame.C3.copy(c3);
-      localFrame.C4.copy(c4);
+      localFrame.C1.copy(c1); localFrame.C2.copy(c2); localFrame.C3.copy(c3); localFrame.C4.copy(c4);
+      localFrame.center.copy(c1).add(c2).add(c3).add(c4).multiplyScalar(0.25);
 
-      localFrame.origin.copy(c1).add(c2).add(c3).add(c4).multiplyScalar(0.25);
-      localFrame.uDir.subVectors(c2, c1).normalize();
-      localFrame.vDir.subVectors(c4, c1).normalize();
+      const u1 = new THREE.Vector3().subVectors(c2, c1);
+      const u2 = new THREE.Vector3().subVectors(c3, c4);
+      localFrame.uDir.copy(u1).add(u2).normalize();
+
+      const v1 = new THREE.Vector3().subVectors(c4, c1);
+      const v2 = new THREE.Vector3().subVectors(c3, c2);
+      localFrame.vDir.copy(v1).add(v2).normalize();
 
       localFrame.nDir.crossVectors(localFrame.uDir, localFrame.vDir).normalize();
       if (localFrame.nDir.z < 0) localFrame.nDir.negate();
       localFrame.vDir.crossVectors(localFrame.nDir, localFrame.uDir).normalize();
 
-      localFrame.length = c1.distanceTo(c2);
-      localFrame.width = c1.distanceTo(c4);
+      localFrame.length = (u1.length() + u2.length()) * 0.5;
+      localFrame.width = (v1.length() + v2.length()) * 0.5;
 
-      buildParallelPlane();
+      buildExact4CornerMesh();
       generateStations();
     }
 
-    function drawStringLines(corners) {
+    function buildExact4CornerMesh() {
+      if (datumPlaneMesh) { scene.remove(datumPlaneMesh); datumPlaneMesh = null; }
+      if (manualCorners.length < 4) return;
+
+      const offsetVec = localFrame.nDir.clone().multiplyScalar(planeOffset);
+      const p1 = localFrame.C1.clone().add(offsetVec);
+      const p2 = localFrame.C2.clone().add(offsetVec);
+      const p3 = localFrame.C3.clone().add(offsetVec);
+      const p4 = localFrame.C4.clone().add(offsetVec);
+
+      drawPinsAndStrings(manualCorners, planeOffset);
+
+      const segsU = 10, segsV = 10;
+      const vertices = [], indices = [];
+
+      for (let iv = 0; iv <= segsV; iv++) {
+        const v = iv / segsV;
+        const leftPt = new THREE.Vector3().lerpVectors(p1, p4, v);
+        const rightPt = new THREE.Vector3().lerpVectors(p2, p3, v);
+        for (let iu = 0; iu <= segsU; iu++) {
+          const u = iu / segsU;
+          const pt = new THREE.Vector3().lerpVectors(leftPt, rightPt, u);
+          vertices.push(pt.x, pt.y, pt.z);
+        }
+      }
+
+      for (let iv = 0; iv < segsV; iv++) {
+        for (let iu = 0; iu < segsU; iu++) {
+          const a = iv * (segsU + 1) + iu;
+          const b = a + 1;
+          const c = (iv + 1) * (segsU + 1) + iu;
+          const d = c + 1;
+          indices.push(a, b, d, a, d, c);
+        }
+      }
+
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geom.setIndex(indices);
+
+      datumPlaneMesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({
+        color: 0x0284c7, wireframe: true, transparent: true, opacity: 0.45
+      }));
+      scene.add(datumPlaneMesh);
+    }
+
+    function drawPinsAndStrings(corners, offsetVal) {
       while (stringGroup.children.length > 0) stringGroup.remove(stringGroup.children[0]);
-      clearHTMLLabels();
+      document.getElementById('labels-layer').innerHTML = '';
+      htmlLabels = [];
 
       if (corners.length === 0) return;
 
-      // Corner markers
-      corners.forEach((c, idx) => {
-        const sphere = new THREE.Mesh(
-          new THREE.SphereGeometry(18, 12, 12),
-          new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false })
+      const offsetVec = localFrame.nDir.clone().multiplyScalar(offsetVal);
+      const lifted = corners.map(c => (corners.length === 4 ? c.clone().add(offsetVec) : c.clone()));
+
+      corners.forEach((basePt, idx) => {
+        const topPt = lifted[idx];
+        const pinDot = new THREE.Mesh(
+          new THREE.SphereGeometry(6, 10, 10),
+          new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false })
         );
-        sphere.position.copy(c);
-        stringGroup.add(sphere);
-        addHTMLLabel(`C${idx + 1}`, c, true);
+        pinDot.position.copy(basePt);
+        stringGroup.add(pinDot);
+
+        if (corners.length === 4 && offsetVal > 0) {
+          stringGroup.add(new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([basePt, topPt]),
+            new THREE.LineBasicMaterial({ color: 0xfacc15, depthTest: false })
+          ));
+        }
+
+        const el = document.createElement('div');
+        el.className = 'corner-callout';
+        el.innerHTML = `<div class="callout-arrow"></div><div class="callout-tag">C${idx + 1}</div>`;
+        document.getElementById('labels-layer').appendChild(el);
+        htmlLabels.push({ el, pos3D: basePt.clone() });
       });
 
-      // Connect string lines between corners
-      if (corners.length >= 2) {
-        const linePts = [...corners];
-        if (corners.length === 4) linePts.push(corners[0]); // Close loop
+      if (lifted.length >= 2) {
+        const linePts = [...lifted];
+        if (lifted.length === 4) linePts.push(lifted[0]);
 
-        const geom = new THREE.BufferGeometry().setFromPoints(linePts);
-        const mat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 3, depthTest: false });
-        stringGroup.add(new THREE.Line(geom, mat));
+        stringGroup.add(new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(linePts),
+          new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 3, depthTest: false })
+        ));
 
-        // Edge distance labels
         for (let i = 0; i < linePts.length - 1; i++) {
-          const pA = linePts[i];
-          const pB = linePts[i + 1];
-          const dist = pA.distanceTo(pB);
-          const mid = new THREE.Vector3().addVectors(pA, pB).multiplyScalar(0.5);
-          addHTMLLabel(`${dist.toFixed(0)} mm`, mid, false);
+          const dist = linePts[i].distanceTo(linePts[i + 1]);
+          const mid = new THREE.Vector3().addVectors(linePts[i], linePts[i + 1]).multiplyScalar(0.5);
+          const el = document.createElement('div');
+          el.className = 'edge-label';
+          el.innerText = `${dist.toFixed(0)} mm`;
+          document.getElementById('labels-layer').appendChild(el);
+          htmlLabels.push({ el, pos3D: mid });
         }
       }
     }
 
-    function clearHTMLLabels() {
-      const layer = document.getElementById('labels-layer');
-      layer.innerHTML = '';
-      htmlLabels = [];
-    }
-
-    function addHTMLLabel(text, pos3D, isCorner) {
-      const el = document.createElement('div');
-      el.className = 'label-3d' + (isCorner ? ' corner-tag' : '');
-      el.innerText = text;
-      document.getElementById('labels-layer').appendChild(el);
-      htmlLabels.push({ el, pos3D: pos3D.clone() });
-    }
-
     function updateHTMLLabels() {
       if (!camera) return;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
+      const w = window.innerWidth, h = window.innerHeight;
       htmlLabels.forEach(item => {
         const v = item.pos3D.clone().project(camera);
-        if (v.z > 1) {
-          item.el.style.display = 'none';
-        } else {
-          item.el.style.display = 'block';
+        if (v.z > 1) item.el.style.display = 'none';
+        else {
+          item.el.style.display = 'flex';
           item.el.style.left = ((v.x * 0.5 + 0.5) * w) + 'px';
           item.el.style.top = ((-(v.y * 0.5) + 0.5) * h) + 'px';
         }
       });
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // SIGHT PLANE & STATION TEMPLATES
-    // ═══════════════════════════════════════════════════════════
-    function buildParallelPlane() {
-      if (datumPlaneMesh) scene.remove(datumPlaneMesh);
-      if (manualCorners.length < 4) return;
+    function getPointOn4CornerPlane(uNorm, vNorm) {
+      const offsetVec = localFrame.nDir.clone().multiplyScalar(planeOffset);
+      const p1 = localFrame.C1.clone().add(offsetVec);
+      const p2 = localFrame.C2.clone().add(offsetVec);
+      const p3 = localFrame.C3.clone().add(offsetVec);
+      const p4 = localFrame.C4.clone().add(offsetVec);
 
-      const liftVal = parseFloat(document.getElementById('slider-plane-offset').value) || 0;
-      const w = localFrame.length * 1.08;
-      const h = localFrame.width * 1.08;
-
-      const geom = new THREE.PlaneGeometry(w, h, 6, 6);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x0284c7,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.4,
-        side: THREE.DoubleSide
-      });
-
-      datumPlaneMesh = new THREE.Mesh(geom, mat);
-      const rotMatrix = new THREE.Matrix4().makeBasis(localFrame.uDir, localFrame.vDir, localFrame.nDir);
-      datumPlaneMesh.rotation.setFromRotationMatrix(rotMatrix);
-
-      const planePos = localFrame.origin.clone().addScaledVector(localFrame.nDir, liftVal);
-      datumPlaneMesh.position.copy(planePos);
-      scene.add(datumPlaneMesh);
+      const leftPt = new THREE.Vector3().lerpVectors(p1, p4, vNorm);
+      const rightPt = new THREE.Vector3().lerpVectors(p2, p3, vNorm);
+      return new THREE.Vector3().lerpVectors(leftPt, rightPt, uNorm);
     }
 
-    function generateStations() {
-      while (stationsGroup.children.length > 0) stationsGroup.remove(stationsGroup.children[0]);
-      generatedTemplates = [];
-      if (!plateMesh || manualCorners.length < 4) return;
+    function measureFrom4CornerPlane(hitPt, cx, cy) {
+      const fromC1 = new THREE.Vector3().subVectors(hitPt, localFrame.C1);
+      const distLeft = Math.max(0, fromC1.dot(localFrame.uDir));
+      const distRight = Math.max(0, localFrame.length - distLeft);
+      const distTop = Math.max(0, fromC1.dot(localFrame.vDir));
+      const distBot = Math.max(0, localFrame.width - distTop);
 
-      const interval = parseFloat(document.getElementById('inp-interval').value) || 300;
-      const woodMargin = parseFloat(document.getElementById('inp-wood-margin').value) || 100;
-      const sliceMode = document.getElementById('inp-slice-axis').value;
+      const uNorm = Math.min(1, Math.max(0, distLeft / (localFrame.length || 1)));
+      const vNorm = Math.min(1, Math.max(0, distTop / (localFrame.width || 1)));
 
-      const sliceDir = (sliceMode === 'u') ? localFrame.uDir : localFrame.vDir;
-      const span = (sliceMode === 'u') ? localFrame.length : localFrame.width;
+      const planePt = getPointOn4CornerPlane(uNorm, vNorm);
+      const dropDepth = hitPt.distanceTo(planePt);
 
-      const listEl = document.getElementById('template-export-list');
-      listEl.innerHTML = '';
-      let idx = 1;
+      document.getElementById('hud-probe-depth').innerText = dropDepth.toFixed(1) + ' mm';
+      document.getElementById('hud-dist-left').innerText = distLeft.toFixed(0);
+      document.getElementById('hud-dist-right').innerText = distRight.toFixed(0);
+      document.getElementById('hud-dist-top').innerText = distTop.toFixed(0);
+      document.getElementById('hud-dist-bot').innerText = distBot.toFixed(0);
 
-      for (let d = interval / 2; d < span; d += interval) {
-        const cutPlanePos = localFrame.C1.clone().addScaledVector(sliceDir, d);
-        const cutPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(sliceDir, cutPlanePos);
-
-        const segs = sliceMesh(plateMesh, cutPlane);
-        if (segs.length < 2) continue;
-
-        const pts = sortPoints(segs);
-        if (pts.length < 2) continue;
-
-        const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
-        stationsGroup.add(new THREE.Line(lineGeom, new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 })));
-
-        const tmplName = `${sliceMode === 'u' ? 'Stn' : 'WL'}_${idx}_${Math.round(d)}mm`;
-        generatedTemplates.push({ name: tmplName, pts: pts, margin: woodMargin });
-
-        const div = document.createElement('div');
-        div.className = 'tmpl-item';
-        div.innerHTML = `
-          <span><b>${tmplName}</b></span>
-          <button class="tmpl-dxf-btn" onclick="exportDXF(${generatedTemplates.length - 1})">Download DXF</button>
-        `;
-        listEl.appendChild(div);
-        idx++;
+      if (cx !== undefined && cy !== undefined) {
+        const pin = document.getElementById('touch-pin');
+        pin.style.left = cx + 'px'; pin.style.top = cy + 'px'; pin.style.display = 'block';
       }
+
+      while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
+      probeGroup.add(new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([hitPt, planePt]),
+        new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 3 })
+      ));
+
+      const leftEdgePt = getPointOn4CornerPlane(0, vNorm);
+      const rightEdgePt = getPointOn4CornerPlane(1, vNorm);
+      const topEdgePt = getPointOn4CornerPlane(uNorm, 0);
+      const botEdgePt = getPointOn4CornerPlane(uNorm, 1);
+
+      const crossMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
+      probeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([leftEdgePt, rightEdgePt]), crossMat));
+      probeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([topEdgePt, botEdgePt]), crossMat));
     }
 
-    function sliceMesh(mesh, plane) {
-      const pos = mesh.geometry.attributes.position.array;
-      const segments = [];
-      for (let i = 0; i < pos.length; i += 9) {
-        const a = new THREE.Vector3(pos[i], pos[i+1], pos[i+2]);
-        const b = new THREE.Vector3(pos[i+3], pos[i+4], pos[i+5]);
-        const c = new THREE.Vector3(pos[i+6], pos[i+7], pos[i+8]);
-
-        const da = plane.distanceToPoint(a), db = plane.distanceToPoint(b), dc = plane.distanceToPoint(c);
-        const pts = [];
-        if (da * db < 0) pts.push(new THREE.Vector3().lerpVectors(a, b, da / (da - db)));
-        if (db * dc < 0) pts.push(new THREE.Vector3().lerpVectors(b, c, db / (db - dc)));
-        if (dc * da < 0) pts.push(new THREE.Vector3().lerpVectors(c, a, dc / (dc - da)));
-
-        if (pts.length === 2) segments.push({ a: pts[0], b: pts[1] });
-      }
-      return segments;
-    }
-
-    function sortPoints(segs) {
-      const pts = [segs[0].a, segs[0].b];
-      const pool = segs.slice(1);
-      while (pool.length > 0) {
-        const tip = pts[pts.length - 1];
-        let found = -1, rev = false;
-        for (let i = 0; i < pool.length; i++) {
-          if (tip.distanceTo(pool[i].a) < 1.5) { found = i; rev = false; break; }
-          if (tip.distanceTo(pool[i].b) < 1.5) { found = i; rev = true; break; }
-        }
-        if (found !== -1) {
-          const s = pool.splice(found, 1)[0];
-          pts.push(rev ? s.a : s.b);
-        } else break;
-      }
-      return pts;
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // SNAP TO NEAREST VERTEX FOR ACCURATE CORNER PICKING
-    // ═══════════════════════════════════════════════════════════
     function snapToNearestVertex(hitPoint) {
-      if (!plateMesh) return hitPoint;
+      if (!fPlateMesh && !plateMesh) return hitPoint;
       const pos = plateMesh.geometry.attributes.position.array;
       let bestDistSq = Infinity;
-      const bestPt = hitPoint.clone();
-      const tmp = new THREE.Vector3();
+      const bestPt = hitPoint.clone(), tmp = new THREE.Vector3();
 
       for (let i = 0; i < pos.length; i += 3) {
-        tmp.set(pos[i], pos[i+1], pos[i+2]);
+        tmp.set(pos[i], pos[i + 1], pos[i + 2]);
         const dSq = tmp.distanceToSquared(hitPoint);
-        if (dSq < bestDistSq) {
-          bestDistSq = dSq;
-          bestPt.copy(tmp);
-        }
+        if (dSq < bestDistSq) { bestDistSq = dSq; bestPt.copy(tmp); }
       }
-      // Snap if within 60mm of a mesh corner vertex
-      return (Math.sqrt(bestDistSq) < 60) ? bestPt : hitPoint;
+      return (Math.sqrt(bestDistSq) < 55) ? bestPt : hitPoint;
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // TAP & DRAG INTERACTION (DISTINGUISHES ORBIT vs TAP)
-    // ═══════════════════════════════════════════════════════════
+    function updateMagnifier(cx, cy) {
+      const magEl = document.getElementById('magnifier');
+      const magCanvas = document.getElementById('mag-canvas');
+      magEl.style.display = 'block';
+      magEl.style.left = cx + 'px';
+      magEl.style.top = cy + 'px';
+
+      const ctx = magCanvas.getContext('2d');
+      const srcCanvas = renderer.domElement;
+      const dpr = renderer.getPixelRatio();
+      const rect = srcCanvas.getBoundingClientRect();
+
+      const sx = (cx - rect.left) * dpr;
+      const sy = (cy - rect.top) * dpr;
+      const zoomSample = 48 * dpr;
+
+      ctx.clearRect(0, 0, magCanvas.width, magCanvas.height);
+      ctx.drawImage(srcCanvas, sx - zoomSample / 2, sy - zoomSample / 2, zoomSample, zoomSample, 0, 0, magCanvas.width, magCanvas.height);
+    }
+
     function setupCanvasInteractions() {
       const dom = renderer.domElement;
       const raycaster = new THREE.Raycaster();
       const mouse = new THREE.Vector2();
+      let isPickingDrag = false;
       let downX = 0, downY = 0, downTime = 0;
 
       dom.addEventListener('pointerdown', (e) => {
-        downX = e.clientX;
-        downY = e.clientY;
-        downTime = Date.now();
+        downX = e.clientX; downY = e.clientY; downTime = Date.now();
+        if (interactionMode === 'corners' && e.isPrimary) {
+          isPickingDrag = true;
+          controls.enabled = false;
+          updateMagnifier(e.clientX, e.clientY);
+        }
+      });
+
+      dom.addEventListener('pointermove', (e) => {
+        if (isPickingDrag && interactionMode === 'corners') {
+          updateMagnifier(e.clientX, e.clientY);
+        }
       });
 
       dom.addEventListener('pointerup', (e) => {
-        const moveDist = Math.hypot(e.clientX - downX, e.clientY - downY);
-        const dt = Date.now() - downTime;
-
-        // Only treat as a Tap if finger/mouse didn't drag to rotate
-        if (moveDist < 10 && dt < 400) {
+        if (isPickingDrag && interactionMode === 'corners') {
+          isPickingDrag = false;
+          document.getElementById('magnifier').style.display = 'none';
+          controls.enabled = true;
+          handlePlateTap(e.clientX, e.clientY, raycaster, mouse);
+          return;
+        }
+        if (Math.hypot(e.clientX - downX, e.clientY - downY) < 10 && (Date.now() - downTime) < 400) {
           handlePlateTap(e.clientX, e.clientY, raycaster, mouse);
         }
+      });
+
+      dom.addEventListener('pointercancel', () => {
+        isPickingDrag = false;
+        document.getElementById('magnifier').style.display = 'none';
+        controls.enabled = true;
       });
     }
 
@@ -685,89 +615,113 @@
 
       const hitPt = hits[0].point;
 
-      // MODE 1: PICK 4 CORNERS & DRAW STRING LINES
       if (interactionMode === 'corners') {
         const snapped = snapToNearestVertex(hitPt);
-        if (manualCorners.length >= 4) {
-          manualCorners = []; // Start fresh cycle
-        }
+        if (manualCorners.length >= 4) manualCorners = [];
         manualCorners.push(snapped);
         applyCornersToFrame(manualCorners);
 
         if (manualCorners.length < 4) {
-          document.getElementById('mode-banner').innerText = `📍 Tap Corner ${manualCorners.length + 1} of 4`;
+          document.getElementById('mode-banner').innerText = `📍 Drag & release on Corner ${manualCorners.length + 1} of 4`;
         } else {
-          document.getElementById('mode-banner').innerText = `✅ 4 Corners & String Lines Connected!`;
+          document.getElementById('mode-banner').innerText = `✅ 4-Corner Sight Mesh Ready! Tap plate to measure`;
           setMode('measure');
         }
         return;
       }
 
-      // MODE 2: MEASURE DROP DEPTH & SIDE DISTANCES TO STRING LINES
       if (manualCorners.length < 4) {
         document.getElementById('mode-banner').innerText = `⚠️ Pick all 4 corners first!`;
         return;
       }
 
-      const planeOrigin = datumPlaneMesh ? datumPlaneMesh.position : localFrame.origin;
-      const diffPlane = new THREE.Vector3().subVectors(planeOrigin, hitPt);
-      const dropDepth = Math.abs(diffPlane.dot(localFrame.nDir));
-
-      // Project hit point onto the 4-corner frame to find distances to Left/Right & Top/Bottom edges
-      const fromC1 = new THREE.Vector3().subVectors(hitPt, localFrame.C1);
-      const distLeft = Math.max(0, fromC1.dot(localFrame.uDir));
-      const distRight = Math.max(0, localFrame.length - distLeft);
-      const distTop = Math.max(0, fromC1.dot(localFrame.vDir));
-      const distBot = Math.max(0, localFrame.width - distTop);
-
-      document.getElementById('hud-probe-depth').innerText = dropDepth.toFixed(1) + ' mm';
-      document.getElementById('hud-dist-left').innerText = distLeft.toFixed(0);
-      document.getElementById('hud-dist-right').innerText = distRight.toFixed(0);
-      document.getElementById('hud-dist-top').innerText = distTop.toFixed(0);
-      document.getElementById('hud-dist-bot').innerText = distBot.toFixed(0);
-
-      const pin = document.getElementById('touch-pin');
-      pin.style.left = cx + 'px';
-      pin.style.top = cy + 'px';
-      pin.style.display = 'block';
-
-      // Draw 3D vertical drop line + cross guide lines to edges
-      while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
-
-      const sightPt = hitPt.clone().addScaledVector(localFrame.nDir, dropDepth);
-      const dropGeom = new THREE.BufferGeometry().setFromPoints([hitPt, sightPt]);
-      probeGroup.add(new THREE.Line(dropGeom, new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 3 })));
-
-      // Cross lines on sight plane showing Left-Right & Top-Bottom distances
-      const leftPt = sightPt.clone().addScaledVector(localFrame.uDir, -distLeft);
-      const rightPt = sightPt.clone().addScaledVector(localFrame.uDir, distRight);
-      const topPt = sightPt.clone().addScaledVector(localFrame.vDir, -distTop);
-      const botPt = sightPt.clone().addScaledVector(localFrame.vDir, distBot);
-
-      const crossMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 });
-      probeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([leftPt, rightPt]), crossMat));
-      probeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([topPt, botPt]), crossMat));
+      lastHitPt = hitPt.clone(); lastScreenX = cx; lastScreenY = cy;
+      measureFrom4CornerPlane(hitPt, cx, cy);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // EXPORT CLOSED CNC DXF
-    // ═══════════════════════════════════════════════════════════
+    function generateStations() {
+      while (stationsGroup.children.length > 0) stationsGroup.remove(stationsGroup.children[0]);
+      generatedTemplates = [];
+      if (!plateMesh || manualCorners.length < 4) return;
+
+      const interval = parseFloat(document.getElementById('inp-interval').value) || 300;
+      const woodMargin = parseFloat(document.getElementById('inp-wood-margin').value) || 100;
+      const sliceMode = document.getElementById('inp-slice-axis').value;
+      const sliceDir = (sliceMode === 'u') ? localFrame.uDir : localFrame.vDir;
+      const span = (sliceMode === 'u') ? localFrame.length : localFrame.width;
+
+      const listEl = document.getElementById('template-export-list');
+      listEl.innerHTML = '';
+      let idx = 1;
+
+      for (let d = interval / 2; d < span; d += interval) {
+        const cutPlanePos = localFrame.C1.clone().addScaledVector(sliceDir, d);
+        const cutPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(sliceDir, cutPlanePos);
+        const segs = sliceMesh(plateMesh, cutPlane);
+        if (segs.length < 2) continue;
+
+        const pts = sortPoints(segs);
+        if (pts.length < 2) continue;
+
+        stationsGroup.add(new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(pts),
+          new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 })
+        ));
+
+        const tmplName = `${sliceMode === 'u' ? 'Stn' : 'WL'}_${idx}_${Math.round(d)}mm`;
+        generatedTemplates.push({ name: tmplName, pts, margin: woodMargin });
+
+        const div = document.createElement('div');
+        div.className = 'tmpl-item';
+        div.innerHTML = `<span><b>${tmplName}</b></span><button class="tmpl-dxf-btn" onclick="exportDXF(${generatedTemplates.length - 1})">Download DXF</button>`;
+        listEl.appendChild(div);
+        idx++;
+      }
+    }
+
+    function sliceMesh(mesh, plane) {
+      const pos = mesh.geometry.attributes.position.array;
+      const segments = [];
+      for (let i = 0; i < pos.length; i += 9) {
+        const a = new THREE.Vector3(pos[i], pos[i+1], pos[i+2]);
+        const b = new THREE.Vector3(pos[i+3], pos[i+4], pos[i+5]);
+        const c = new THREE.Vector3(pos[i+6], pos[i+7], pos[i+8]);
+        const da = plane.distanceToPoint(a), db = plane.distanceToPoint(b), dc = plane.distanceToPoint(c);
+        const pts = [];
+        if (da * db < 0) pts.push(new THREE.Vector3().lerpVectors(a, b, da / (da - db)));
+        if (db * dc < 0) pts.push(new THREE.Vector3().lerpVectors(b, c, db / (db - dc)));
+        if (dc * da < 0) pts.push(new THREE.Vector3().lerpVectors(c, a, dc / (dc - da)));
+        if (pts.length === 2) segments.push({ a: pts[0], b: pts[1] });
+      }
+      return segments;
+    }
+
+    function sortPoints(segs) {
+      const pts = [segs[0].a, segs[0].b];
+      const pool = segs.slice(1);
+      while (pool.length > 0) {
+        const tip = pts[pts.length - 1];
+        let found = -1, rev = false;
+        for (let i = 0; i < pool.length; i++) {
+          if (tip.distanceTo(pool[i].a) < 1.5) { found = i; rev = false; break; }
+          if (tip.distanceTo(pool[i].b) < 1.5) { found = i; rev = true; break; }
+        }
+        if (found !== -1) { const s = pool.splice(found, 1)[0]; pts.push(rev ? s.a : s.b); }
+        else break;
+      }
+      return pts;
+    }
+
     window.exportDXF = function(idx) {
       const item = generatedTemplates[idx];
       if (!item) return;
-
-      const pts3D = item.pts;
-      const origin = pts3D[0];
-      const endPt = pts3D[pts3D.length - 1];
+      const pts3D = item.pts, origin = pts3D[0], endPt = pts3D[pts3D.length - 1];
       const chord = new THREE.Vector3().subVectors(endPt, origin).normalize();
-
       const pts2D = pts3D.map(p => {
         const diff = new THREE.Vector3().subVectors(p, origin);
         return { x: diff.dot(chord), y: diff.dot(localFrame.nDir) };
       });
-
-      const minY = Math.min(...pts2D.map(p => p.y));
-      const baseLine = minY - item.margin;
+      const baseLine = Math.min(...pts2D.map(p => p.y)) - item.margin;
 
       let dxf = "0\nSECTION\n2\nENTITIES\n";
       for (let i = 0; i < pts2D.length - 1; i++) {
@@ -776,19 +730,14 @@
       const s = pts2D[0], e = pts2D[pts2D.length - 1];
       dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${s.x.toFixed(2)}\n20\n${s.y.toFixed(2)}\n11\n${s.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
       dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${e.x.toFixed(2)}\n20\n${e.y.toFixed(2)}\n11\n${e.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
-      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${s.x.toFixed(2)}\n20\n${baseLine.toFixed(2)}\n11\n${e.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n`;
-      dxf += "0\nENDSEC\n0\nEOF\n";
+      dxf += `0\nLINE\n8\nWOOD_BASE\n10\n${s.x.toFixed(2)}\n20\n${baseLine.toFixed(2)}\n11\n${e.x.toFixed(2)}\n21\n${baseLine.toFixed(2)}\n0\nENDSEC\n0\nEOF\n`;
 
-      const blob = new Blob([dxf], { type: 'application/dxf' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = URL.createObjectURL(new Blob([dxf], { type: 'application/dxf' }));
       a.download = `${item.name}.dxf`;
       a.click();
     };
 
-    // ═══════════════════════════════════════════════════════════
-    // UI CONTROLS & MODE SWITCHING
-    // ═══════════════════════════════════════════════════════════
     function setMode(mode) {
       interactionMode = mode;
       const btnMeasure = document.getElementById('btn-mode-measure');
@@ -801,15 +750,25 @@
       if (mode === 'measure') {
         btnMeasure.classList.add('active');
         banner.innerText = '📏 Tap plate to measure drop & edge distances';
-        banner.style.borderColor = '#0284c7';
-        banner.style.color = '#38bdf8';
+        banner.style.borderColor = '#0284c7'; banner.style.color = '#38bdf8';
       } else {
         btnCorners.classList.add('corner-active');
         manualCorners = [];
         applyCornersToFrame([]);
-        banner.innerText = '📍 Zoom in & tap Corner 1 of 4';
-        banner.style.borderColor = '#10b981';
-        banner.style.color = '#6ee7b7';
+        while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
+        document.getElementById('touch-pin').style.display = 'none';
+        banner.innerText = '📍 Zoom in, touch & release on Corner 1 of 4';
+        banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
+      }
+    }
+
+    function updateSideOffset(val) {
+      planeOffset = Math.max(0, Math.min(500, val));
+      document.getElementById('side-offset-slider').value = planeOffset;
+      document.getElementById('side-offset-val').innerText = planeOffset + 'mm';
+      if (manualCorners.length === 4) {
+        buildExact4CornerMesh();
+        if (lastHitPt) measureFrom4CornerPlane(lastHitPt, lastScreenX, lastScreenY);
       }
     }
 
@@ -817,65 +776,42 @@
       document.getElementById('btn-mode-measure').addEventListener('click', () => setMode('measure'));
       document.getElementById('btn-mode-corners').addEventListener('click', () => setMode('corners'));
 
-      // Toggle HUD Visibility
+      document.getElementById('side-offset-slider').addEventListener('input', (e) => updateSideOffset(parseFloat(e.target.value) || 0));
+      document.getElementById('btn-offset-up').addEventListener('click', () => updateSideOffset(planeOffset + 10));
+      document.getElementById('btn-offset-down').addEventListener('click', () => updateSideOffset(planeOffset - 10));
+
       const btnHud = document.getElementById('btn-toggle-hud');
       const hud = document.getElementById('probe-hud');
+      const sidePanel = document.getElementById('side-offset-panel');
       btnHud.addEventListener('click', () => {
         const isHidden = hud.classList.toggle('hidden');
+        sidePanel.classList.toggle('hidden', isHidden);
         btnHud.innerText = isHidden ? '👁️ Show HUD' : '👁️ Hide HUD';
       });
 
-      // Open / Close Settings & DXF Drawer
       const drawer = document.getElementById('settings-drawer');
       const backdrop = document.getElementById('drawer-backdrop');
-
-      function openDrawer() {
-        drawer.classList.add('open');
-        backdrop.classList.add('open');
-      }
-      function closeDrawer() {
-        drawer.classList.remove('open');
-        backdrop.classList.remove('open');
-      }
+      const openDrawer = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
+      const closeDrawer = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
 
       document.getElementById('btn-open-settings').addEventListener('click', openDrawer);
       document.getElementById('btn-close-settings').addEventListener('click', closeDrawer);
       backdrop.addEventListener('click', closeDrawer);
 
-      // Undo Corner / Auto Reset Corners
       document.getElementById('btn-undo-corner').addEventListener('click', () => {
         if (manualCorners.length > 0) {
           manualCorners.pop();
           applyCornersToFrame(manualCorners);
-          document.getElementById('mode-banner').innerText = `📍 Tap Corner ${manualCorners.length + 1} of 4`;
+          interactionMode = 'corners';
+          document.getElementById('btn-mode-corners').classList.add('corner-active');
+          document.getElementById('btn-mode-measure').classList.remove('active');
+          document.getElementById('mode-banner').innerText = `📍 Drag & release on Corner ${manualCorners.length + 1} of 4`;
         }
       });
 
-      document.getElementById('btn-auto-corners').addEventListener('click', () => {
-        if (!plateMesh) return;
-        autoDetectCorners(plateMesh.geometry.attributes.position.array);
-        applyCornersToFrame(manualCorners);
-        setMode('measure');
-        closeDrawer();
-      });
-
-      // Plane Lift Slider
-      const slider = document.getElementById('slider-plane-offset');
-      const lbl = document.getElementById('lbl-plane-offset');
-      slider.addEventListener('input', () => {
-        lbl.innerText = slider.value + ' mm';
-        buildParallelPlane();
-      });
-
-      document.getElementById('btn-recalc').addEventListener('click', () => {
-        buildParallelPlane();
-        generateStations();
-        closeDrawer();
-      });
-
-      document.getElementById('btn-toggle-plane').addEventListener('click', () => {
-        if (datumPlaneMesh) datumPlaneMesh.visible = !datumPlaneMesh.visible;
-      });
+      document.getElementById('btn-clear-corners').addEventListener('click', () => { setMode('corners'); closeDrawer(); });
+      document.getElementById('btn-recalc').addEventListener('click', () => { generateStations(); closeDrawer(); });
+      document.getElementById('btn-toggle-plane').addEventListener('click', () => { if (datumPlaneMesh) datumPlaneMesh.visible = !datumPlaneMesh.visible; });
     }
 
     window.addEventListener('DOMContentLoaded', init);
