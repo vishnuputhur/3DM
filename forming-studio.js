@@ -1,7 +1,7 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════════════
-// 1. ORIGINAL WORKING VIEWER TRANSFER BRIDGE
+// 1. SAFE & FAST VIEWER TRANSFER BRIDGE (NO QUOTA CRASH)
 // ═══════════════════════════════════════════════════════════
 window.openDirectFormingStudio = function(meshObj) {
   if (!meshObj || !meshObj.geometry) {
@@ -9,26 +9,58 @@ window.openDirectFormingStudio = function(meshObj) {
     return;
   }
 
-  meshObj.updateMatrixWorld(true);
-  let g = meshObj.geometry.clone();
-  g.applyMatrix4(meshObj.matrixWorld);
-  if (g.index) g = g.toNonIndexed();
+  try {
+    meshObj.updateMatrixWorld(true);
+    let g = meshObj.geometry.clone();
+    g.applyMatrix4(meshObj.matrixWorld);
+    if (g.index) g = g.toNonIndexed();
 
-  const payload = {
-    name: (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Selected Shell',
-    plateNo: (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '',
-    color: (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8,
-    vertices: Array.from(g.attributes.position.array)
-  };
+    // Round vertices to 2 decimal places to reduce JSON size by ~70%
+    const rawArr = g.attributes.position.array;
+    const compactVerts = new Array(rawArr.length);
+    for (let i = 0; i < rawArr.length; i++) {
+      compactVerts[i] = Math.round(rawArr[i] * 100) / 100;
+    }
 
-  const jsonStr = JSON.stringify(payload);
-  localStorage.setItem('vt_forming_plate_data', jsonStr);
-  localStorage.setItem('active_forming_part', jsonStr);
-  window.location.href = 'forming.html';
+    const payload = {
+      name: (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Selected Shell',
+      plateNo: (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '',
+      color: (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8,
+      vertices: compactVerts
+    };
+
+    const jsonStr = JSON.stringify(payload);
+
+    // Clear temporary transfer keys first to prevent QuotaExceededError
+    localStorage.removeItem('vt_forming_plate_data');
+    localStorage.removeItem('active_forming_part');
+    sessionStorage.removeItem('vt_forming_plate_data');
+
+    try {
+      sessionStorage.setItem('vt_forming_plate_data', jsonStr);
+    } catch (e) {}
+
+    try {
+      localStorage.setItem('vt_forming_plate_data', jsonStr);
+    } catch (storageErr) {
+      // If localStorage is full due to old saved plates, free oldest entry and retry
+      const saved = getSavedPlates();
+      if (saved.length > 0) {
+        saved.pop();
+        localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(saved));
+        localStorage.setItem('vt_forming_plate_data', jsonStr);
+      }
+    }
+
+    window.location.href = 'forming.html';
+  } catch (err) {
+    console.error('Forming Bridge Error:', err);
+    alert('പ്ലേറ്റ് ഡാറ്റ മാറ്റുന്നതിൽ പിഴവ് സംഭവിച്ചു: ' + err.message);
+  }
 };
 
 // ═══════════════════════════════════════════════════════════
-// 2. SIMPLE LOCALSTORAGE SAVED PLATES & LINES REPOSITORY
+// 2. LOCALSTORAGE SAVED PLATES & LINES REPOSITORY
 // ═══════════════════════════════════════════════════════════
 const SAVED_PLATES_KEY = 'vt_forming_saved_plates_v1';
 
@@ -46,9 +78,22 @@ function savePlateRecord(record) {
     const idx = list.findIndex(p => p.id === record.id);
     if (idx !== -1) list[idx] = record;
     else list.unshift(record);
+
+    // Keep maximum 15 plates to avoid browser storage overflow
+    while (list.length > 15) list.pop();
+
     localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(list));
     return true;
   } catch (e) {
+    // Auto-trim older plates if storage quota is tight
+    try {
+      const list = getSavedPlates();
+      if (list.length > 1) {
+        list.splice(Math.max(1, list.length - 3));
+        localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(list));
+        return true;
+      }
+    } catch (err2) {}
     console.warn('Storage full:', e);
     return false;
   }
@@ -96,7 +141,8 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   container.appendChild(renderer.domElement);
 
-  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  const OrbitCtrl = THREE.OrbitControls || window.OrbitControls;
+  controls = new OrbitCtrl(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
 
@@ -132,10 +178,12 @@ function onResize() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 4. EXACT ORIGINAL DUAL-STORAGE PLATE LOADER
+// 4. RELIABLE DUAL-STORAGE PLATE LOADER
 // ═══════════════════════════════════════════════════════════
 function loadPlateData() {
-  let raw = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
+  let raw = sessionStorage.getItem('vt_forming_plate_data') ||
+            localStorage.getItem('vt_forming_plate_data') ||
+            localStorage.getItem('active_forming_part');
 
   if (!raw) {
     const saved = getSavedPlates();
@@ -224,6 +272,7 @@ function renderPlateFromRecord(record) {
   const size = bbox.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z) || 1000;
   camera.position.set(center.x + maxDim * 0.8, center.y - maxDim * 0.8, center.z + maxDim * 0.7);
+  camera.up.set(0, 0, 1);
   controls.update();
 
   if (currentPlate.lines && currentPlate.lines.length > 0) {
@@ -976,4 +1025,8 @@ function setupUI() {
   document.getElementById('modal-backdrop').addEventListener('click', closeAllSheets);
 }
 
-window.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
