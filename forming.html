@@ -8,93 +8,102 @@
   <script src="OrbitControls.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background: #090d16; color: #f8fafc; touch-action: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #090d16; color: #f8fafc; touch-action: none; user-select: none; }
     #canvas-container { width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1; }
 
     .top-bar {
-      position: absolute; top: 10px; left: 10px; right: 10px;
+      position: absolute; top: 8px; left: 8px; right: 8px; height: 42px;
       display: flex; justify-content: space-between; align-items: center;
-      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(10px);
-      padding: 8px 12px; border-radius: 10px; border: 1px solid #1e293b; z-index: 15;
+      background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(10px);
+      padding: 0 10px; border-radius: 10px; border: 1px solid #1e293b; z-index: 20;
     }
-    .top-left { display: flex; align-items: center; gap: 8px; }
-    .btn-back { background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; }
-    .top-bar h1 { font-size: 14px; font-weight: 700; color: #38bdf8; }
-    .badge { font-size: 11px; background: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 600; max-width: 135px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .btn-back { background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; text-decoration: none; flex-shrink: 0; }
+    .top-bar h1 { font-size: 13px; font-weight: 700; color: #38bdf8; white-space: nowrap; }
+    .badge { font-size: 10px; background: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+    .sub-hud-row {
+      position: absolute; top: 56px; left: 8px; right: 8px;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+      z-index: 15; pointer-events: none;
+    }
     .mode-banner {
-      position: absolute; top: 56px; left: 10px;
       background: rgba(15, 23, 42, 0.9); border: 1px solid #334155;
-      color: #e2e8f0; padding: 6px 10px; border-radius: 8px;
-      font-size: 11px; font-weight: 600; z-index: 14; max-width: 52%; backdrop-filter: blur(6px);
+      color: #e2e8f0; padding: 6px 9px; border-radius: 8px;
+      font-size: 11px; font-weight: 600; line-height: 1.3;
+      backdrop-filter: blur(6px); max-width: 48%; pointer-events: auto;
     }
-
-    /* Collapsible Left Side Offset Drawer */
-    .side-offset-wrapper {
-      position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-      z-index: 16; display: flex; align-items: center;
-      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .side-offset-wrapper.collapsed { transform: translate(-100%, -50%); }
-    .side-offset-panel {
-      background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(8px);
-      border: 1px solid #334155; border-left: none; border-radius: 0 12px 12px 0;
-      padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px;
-      box-shadow: 4px 4px 16px rgba(0,0,0,0.5);
-    }
-    .offset-toggle-tab {
-      position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
-      background: rgba(15, 23, 42, 0.94); border: 1px solid #334155; border-left: none;
-      color: #38bdf8; width: 24px; height: 48px; border-radius: 0 8px 8px 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 800; cursor: pointer;
-    }
-    .offset-title { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
-    .offset-val { font-size: 11px; font-weight: 800; color: #facc15; font-family: monospace; }
-    .offset-step-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
-    .vertical-slider-wrap { height: 105px; width: 28px; display: flex; align-items: center; justify-content: center; }
-    #side-offset-slider { width: 100px; height: 6px; transform: rotate(-90deg); accent-color: #0284c7; }
 
     .probe-hud {
-      position: absolute; top: 56px; right: 10px;
-      background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);
-      border: 1px solid #0284c7; border-radius: 10px; padding: 8px 12px;
-      z-index: 14; text-align: right; pointer-events: none; transition: opacity 0.2s; min-width: 162px;
+      background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
+      border: 1px solid #0284c7; border-radius: 9px; padding: 6px 10px;
+      text-align: right; transition: opacity 0.2s, transform 0.2s; min-width: 145px; pointer-events: auto;
     }
-    .probe-hud.hidden { opacity: 0; }
-    .probe-label { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-    .probe-val { font-size: 22px; font-weight: 800; color: #facc15; font-family: monospace; line-height: 1.1; }
+    .probe-hud.hidden { opacity: 0; pointer-events: none; transform: translateY(-8px); }
+    .probe-label { font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+    .probe-val { font-size: 18px; font-weight: 800; color: #facc15; font-family: monospace; line-height: 1.15; }
     .probe-grid {
-      margin-top: 6px; padding-top: 6px; border-top: 1px solid #1e293b;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 11px; font-family: monospace; text-align: left;
+      margin-top: 4px; padding-top: 4px; border-top: 1px solid #1e293b;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; font-size: 10px; font-family: monospace; text-align: left;
     }
     .probe-grid span { color: #94a3b8; }
     .probe-grid b { color: #38bdf8; float: right; }
 
+    .side-offset-wrapper {
+      position: absolute; left: 0; top: 52%; transform: translateY(-50%);
+      z-index: 18; display: flex; align-items: center;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .side-offset-wrapper.collapsed { transform: translate(-100%, -50%); }
+    .side-offset-panel {
+      background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+      border: 1px solid #334155; border-left: none; border-radius: 0 10px 10px 0;
+      padding: 7px 5px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .offset-toggle-tab {
+      position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+      background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-left: none;
+      color: #38bdf8; width: 22px; height: 44px; border-radius: 0 8px 8px 0;
+      display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; cursor: pointer;
+    }
+    .offset-title { font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+    .offset-val { font-size: 10px; font-weight: 800; color: #facc15; font-family: monospace; }
+    .offset-step-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; }
+    .vertical-slider-wrap { height: 95px; width: 26px; display: flex; align-items: center; justify-content: center; }
+    #side-offset-slider { width: 90px; height: 5px; transform: rotate(-90deg); accent-color: #0284c7; }
+
     .bottom-dock {
-      position: absolute; bottom: 14px; left: 8px; right: 8px;
-      display: flex; gap: 5px; justify-content: center; flex-wrap: nowrap; z-index: 15;
+      position: absolute; bottom: 12px; left: 8px; right: 8px;
+      display: flex; gap: 5px; justify-content: center; align-items: center; z-index: 20;
+    }
+    @media (min-width: 768px) {
+      .bottom-dock {
+        left: 50%; right: auto; transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.9); padding: 6px 10px;
+        border-radius: 14px; border: 1px solid #334155;
+      }
+      .dock-btn { min-width: 115px !important; padding: 9px 14px !important; font-size: 12px !important; }
     }
     .dock-btn {
-      flex: 1; min-width: 0;
-      background: rgba(15, 23, 42, 0.94); color: #f8fafc; border: 1px solid #334155;
-      padding: 10px 6px; border-radius: 10px; font-size: 11px; font-weight: 700;
+      flex: 1; min-width: 0; height: 38px;
+      background: rgba(15, 23, 42, 0.95); color: #f8fafc; border: 1px solid #334155;
+      padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dock-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
     .dock-btn.pick-armed { background: #059669; border-color: #34d399; color: #fff; animation: pulsePick 1.2s infinite; }
-    .dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.75; }
+    .dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.72; }
     .dock-btn.hidden { display: none; }
 
     @keyframes pulsePick {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65); }
       50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
     }
 
     #magnifier {
-      position: fixed; width: 116px; height: 116px; border-radius: 50%;
-      border: 3px solid #10b981; box-shadow: 0 8px 25px rgba(0,0,0,0.8);
+      position: fixed; width: 110px; height: 110px; border-radius: 50%;
+      border: 3px solid #10b981; box-shadow: 0 8px 24px rgba(0,0,0,0.85);
       pointer-events: none; z-index: 40; display: none; overflow: hidden;
       background: #090d16; transform: translate(-50%, -125%);
     }
@@ -106,32 +115,32 @@
         linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%);
     }
 
-    .corner-callout { position: absolute; pointer-events: none; z-index: 12; display: flex; align-items: center; transform: translate(6px, -22px); }
-    .callout-arrow { width: 14px; height: 1.5px; background: #10b981; transform: rotate(-35deg); transform-origin: left center; margin-right: 2px; }
+    .corner-callout { position: absolute; pointer-events: none; z-index: 12; display: flex; align-items: center; transform: translate(6px, -20px); }
+    .callout-arrow { width: 12px; height: 1.5px; background: #10b981; transform: rotate(-35deg); transform-origin: left center; margin-right: 2px; }
     .callout-tag { background: rgba(5, 150, 105, 0.92); color: #fff; border: 1px solid #a7f3d0; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 800; }
     .edge-label { position: absolute; background: rgba(9, 13, 22, 0.85); color: #facc15; border: 1px solid #10b981; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 700; pointer-events: none; transform: translate(-50%, -50%); z-index: 11; white-space: nowrap; }
 
     .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 25; display: none; }
     .drawer-backdrop.open { display: block; }
-    .settings-drawer { position: fixed; bottom: 0; left: 0; right: 0; max-height: 78vh; background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0; padding: 16px; z-index: 30; overflow-y: auto; transform: translateY(100%); transition: transform 0.25s ease-out; }
+    .settings-drawer { position: fixed; bottom: 0; left: 0; right: 0; max-height: 75vh; background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0; padding: 16px; z-index: 30; overflow-y: auto; transform: translateY(100%); transition: transform 0.25s ease-out; }
     .settings-drawer.open { transform: translateY(0); }
     @media (min-width: 768px) {
-      .settings-drawer { left: 65px; right: auto; bottom: auto; top: 62px; width: 345px; border-radius: 14px; border: 1px solid #334155; transform: translateX(-130%); }
+      .settings-drawer { left: auto; right: 16px; bottom: auto; top: 60px; width: 340px; border-radius: 14px; border: 1px solid #334155; transform: translateX(130%); }
       .settings-drawer.open { transform: translateX(0); }
     }
-    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #1e293b; }
+    .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
     .drawer-header h2 { font-size: 13px; color: #38bdf8; text-transform: uppercase; }
     .btn-close-drawer { background: #1e293b; border: 1px solid #334155; color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
     .input-group { margin-bottom: 12px; }
     .input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: #94a3b8; }
-    .input-group input[type="number"], .input-group select { width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
+    .input-group input[type="number"], .input-group select { width: 100%; padding: 8px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
     .btn-row { display: flex; gap: 8px; margin-top: 8px; }
-    .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
+    .btn { flex: 1; padding: 9px; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
     .btn-primary { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; }
     .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
     .btn-danger { background: #7f1d1d; color: #fecaca; border: 1px solid #991b1b; }
     .tmpl-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-    .tmpl-item { display: flex; justify-content: space-between; align-items: center; background: #090d16; padding: 10px; border-radius: 8px; border: 1px solid #1e293b; font-size: 12px; }
+    .tmpl-item { display: flex; justify-content: space-between; align-items: center; background: #090d16; padding: 9px 10px; border-radius: 8px; border: 1px solid #1e293b; font-size: 12px; }
     .tmpl-dxf-btn { background: #059669; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; }
     #touch-pin { position: absolute; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #facc15; background: rgba(250, 204, 21, 0.5); transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 13; }
   </style>
@@ -146,9 +155,20 @@
     <span class="badge" id="plate-badge">Plate</span>
   </div>
 
-  <div class="mode-banner" id="mode-banner">🔍 Zoom to Corner 1, then tap "Select Point"</div>
+  <div class="sub-hud-row">
+    <div class="mode-banner" id="mode-banner">🔍 Zoom to Corner 1, then tap "Select Point"</div>
+    <div class="probe-hud" id="probe-hud">
+      <div class="probe-label">Plane Drop Depth</div>
+      <div class="probe-val" id="hud-probe-depth">0.0 mm</div>
+      <div class="probe-grid">
+        <div><span>Left:</span> <b id="hud-dist-left">-</b></div>
+        <div><span>Right:</span> <b id="hud-dist-right">-</b></div>
+        <div><span>Top:</span> <b id="hud-dist-top">-</b></div>
+        <div><span>Bot:</span> <b id="hud-dist-bot">-</b></div>
+      </div>
+    </div>
+  </div>
 
-  <!-- Collapsible Side Offset Panel -->
   <div class="side-offset-wrapper" id="side-offset-wrapper">
     <div class="side-offset-panel">
       <div class="offset-title">Offset</div>
@@ -162,18 +182,7 @@
     <button class="offset-toggle-tab" id="btn-collapse-offset" title="Hide/Show Offset">◀</button>
   </div>
 
-  <div class="probe-hud" id="probe-hud">
-    <div class="probe-label">Plane Drop Depth</div>
-    <div class="probe-val" id="hud-probe-depth">0.0 mm</div>
-    <div class="probe-grid">
-      <div><span>Left:</span> <b id="hud-dist-left">-</b></div>
-      <div><span>Right:</span> <b id="hud-dist-right">-</b></div>
-      <div><span>Top:</span> <b id="hud-dist-top">-</b></div>
-      <div><span>Bot:</span> <b id="hud-dist-bot">-</b></div>
-    </div>
-  </div>
-
-  <div id="magnifier"><canvas id="mag-canvas" width="116" height="116"></canvas></div>
+  <div id="magnifier"><canvas id="mag-canvas" width="110" height="110"></canvas></div>
   <div id="labels-layer"></div>
   <div id="touch-pin"></div>
 
@@ -236,7 +245,7 @@
     let plateMesh = null, datumPlaneMesh = null;
     let stationsGroup = new THREE.Group(), stringGroup = new THREE.Group(), probeGroup = new THREE.Group();
     let generatedTemplates = [];
-    let interactionMode = 'view'; // Safe zoom mode by default
+    let interactionMode = 'view';
     let manualCorners = [];
     let htmlLabels = [];
     let planeOffset = 0;
@@ -525,18 +534,31 @@
       probeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([topEdgePt, botEdgePt]), crossMat));
     }
 
-    function snapToNearestVertex(hitPoint) {
-      if (!plateMesh) return hitPoint;
+    function findBestPlatePointAtScreen(cx, cy) {
+      if (!plateMesh || !camera || !renderer) return null;
+      const rect = renderer.domElement.getBoundingClientRect();
+      const nx = ((cx - rect.left) / rect.width) * 2 - 1;
+      const ny = -((cy - rect.top) / rect.height) * 2 + 1;
+
       const pos = plateMesh.geometry.attributes.position.array;
-      let bestDistSq = Infinity;
-      const bestPt = hitPoint.clone(), tmp = new THREE.Vector3();
+      const tmp = new THREE.Vector3(), proj = new THREE.Vector3();
+      let bestPxDist = 38, bestSnapPt = null;
 
       for (let i = 0; i < pos.length; i += 3) {
         tmp.set(pos[i], pos[i + 1], pos[i + 2]);
-        const dSq = tmp.distanceToSquared(hitPoint);
-        if (dSq < bestDistSq) { bestDistSq = dSq; bestPt.copy(tmp); }
+        proj.copy(tmp).project(camera);
+        if (proj.z > 1) continue;
+        const sx = (proj.x * 0.5 + 0.5) * rect.width + rect.left;
+        const sy = (-proj.y * 0.5 + 0.5) * rect.height + rect.top;
+        const dPx = Math.hypot(sx - cx, sy - cy);
+        if (dPx < bestPxDist) { bestPxDist = dPx; bestSnapPt = tmp.clone(); }
       }
-      return (Math.sqrt(bestDistSq) < 55) ? bestPt : hitPoint;
+      if (bestSnapPt) return bestSnapPt;
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+      const hits = raycaster.intersectObject(plateMesh, false);
+      return (hits.length > 0) ? hits[0].point.clone() : null;
     }
 
     function updateMagnifier(cx, cy) {
@@ -553,7 +575,7 @@
 
       const sx = (cx - rect.left) * dpr;
       const sy = (cy - rect.top) * dpr;
-      const zoomSample = 48 * dpr;
+      const zoomSample = 46 * dpr;
 
       ctx.clearRect(0, 0, magCanvas.width, magCanvas.height);
       ctx.drawImage(srcCanvas, sx - zoomSample / 2, sy - zoomSample / 2, zoomSample, zoomSample, 0, 0, magCanvas.width, magCanvas.height);
@@ -561,79 +583,75 @@
 
     function setupCanvasInteractions() {
       const dom = renderer.domElement;
-      const raycaster = new THREE.Raycaster();
-      const mouse = new THREE.Vector2();
       let isPickingDrag = false;
+      let lastPointerX = 0, lastPointerY = 0;
+      let pending3DPoint = null;
       let downX = 0, downY = 0, downTime = 0;
+
+      function finishPickRelease() {
+        if (!isPickingDrag) return;
+        isPickingDrag = false;
+        document.getElementById('magnifier').style.display = 'none';
+        controls.enabled = true;
+
+        const pickedPt = pending3DPoint || findBestPlatePointAtScreen(lastPointerX, lastPointerY);
+        pending3DPoint = null;
+
+        if (pickedPt) {
+          if (manualCorners.length >= 4) manualCorners = [];
+          manualCorners.push(pickedPt);
+          const count = manualCorners.length;
+          applyCornersToFrame(manualCorners);
+
+          if (count < 4) {
+            setMode('view', `✅ C${count} Locked! Zoom to Corner ${count + 1}, then tap "Select Point"`);
+          } else {
+            setMode('measure', `✅ All 4 Corners Locked! Tap plate to measure`);
+          }
+        } else {
+          setMode('view', `⚠️ Missed plate edge. Tap "Select Point" & touch on plate`);
+        }
+      }
 
       dom.addEventListener('pointerdown', (e) => {
         downX = e.clientX; downY = e.clientY; downTime = Date.now();
-        if (interactionMode === 'pick_one' && e.isPrimary) {
+        lastPointerX = e.clientX; lastPointerY = e.clientY;
+
+        if (interactionMode === 'pick_one') {
           isPickingDrag = true;
           controls.enabled = false;
+          pending3DPoint = findBestPlatePointAtScreen(e.clientX, e.clientY);
           updateMagnifier(e.clientX, e.clientY);
         }
       });
 
       dom.addEventListener('pointermove', (e) => {
         if (isPickingDrag && interactionMode === 'pick_one') {
+          lastPointerX = e.clientX; lastPointerY = e.clientY;
+          const pt = findBestPlatePointAtScreen(e.clientX, e.clientY);
+          if (pt) pending3DPoint = pt;
           updateMagnifier(e.clientX, e.clientY);
         }
       });
 
       dom.addEventListener('pointerup', (e) => {
-        if (isPickingDrag && interactionMode === 'pick_one') {
-          isPickingDrag = false;
-          document.getElementById('magnifier').style.display = 'none';
-          controls.enabled = true;
-          handlePlateTap(e.clientX, e.clientY, raycaster, mouse);
+        if (isPickingDrag) {
+          if (e.clientX || e.clientY) { lastPointerX = e.clientX; lastPointerY = e.clientY; }
+          finishPickRelease();
           return;
         }
-        if (interactionMode === 'measure') {
-          if (Math.hypot(e.clientX - downX, e.clientY - downY) < 10 && (Date.now() - downTime) < 400) {
-            handlePlateTap(e.clientX, e.clientY, raycaster, mouse);
+        if (interactionMode === 'measure' && manualCorners.length === 4) {
+          if (Math.hypot(e.clientX - downX, e.clientY - downY) < 12 && (Date.now() - downTime) < 450) {
+            const hitPt = findBestPlatePointAtScreen(e.clientX, e.clientY);
+            if (hitPt) {
+              lastHitPt = hitPt.clone(); lastScreenX = e.clientX; lastScreenY = e.clientY;
+              measureFrom4CornerPlane(hitPt, e.clientX, e.clientY);
+            }
           }
         }
       });
 
-      dom.addEventListener('pointercancel', () => {
-        isPickingDrag = false;
-        document.getElementById('magnifier').style.display = 'none';
-        controls.enabled = true;
-      });
-    }
-
-    function handlePlateTap(cx, cy, raycaster, mouse) {
-      if (!plateMesh) return;
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-
-      const hits = raycaster.intersectObject(plateMesh, false);
-      if (hits.length === 0) return;
-      const hitPt = hits[0].point;
-
-      if (interactionMode === 'pick_one') {
-        const snapped = snapToNearestVertex(hitPt);
-        if (manualCorners.length >= 4) manualCorners = [];
-        manualCorners.push(snapped);
-        const pickedIdx = manualCorners.length;
-
-        applyCornersToFrame(manualCorners);
-
-        if (pickedIdx < 4) {
-          setMode('view', `✅ C${pickedIdx} Locked! Zoom to Corner ${pickedIdx + 1}, then tap "Select Point"`);
-        } else {
-          setMode('measure', `✅ All 4 Corners Locked & Mesh Created! Tap plate to measure`);
-        }
-        return;
-      }
-
-      if (interactionMode === 'measure' && manualCorners.length === 4) {
-        lastHitPt = hitPt.clone(); lastScreenX = cx; lastScreenY = cy;
-        measureFrom4CornerPlane(hitPt, cx, cy);
-      }
+      dom.addEventListener('pointercancel', finishPickRelease);
     }
 
     function generateStations() {
@@ -738,13 +756,15 @@
       const btnPick = document.getElementById('btn-select-point');
       const btnUndo = document.getElementById('btn-dock-undo');
       const count = manualCorners.length;
-
       btnUndo.classList.toggle('hidden', count === 0);
       btnPick.innerText = (count < 4) ? `🎯 Select Point (${count + 1}/4)` : `🔄 Re-Pick (4/4)`;
     }
 
     function setMode(mode, customMsg) {
       interactionMode = mode;
+      document.getElementById('magnifier').style.display = 'none';
+      if (controls) controls.enabled = true;
+
       const btnPick = document.getElementById('btn-select-point');
       const btnMeasure = document.getElementById('btn-mode-measure');
       const banner = document.getElementById('mode-banner');
@@ -755,7 +775,7 @@
       if (mode === 'pick_one') {
         btnPick.classList.add('pick-armed');
         const nextNum = (manualCorners.length >= 4) ? 1 : (manualCorners.length + 1);
-        banner.innerText = customMsg || `🎯 Touch & release on Corner ${nextNum} (Magnifier Active)`;
+        banner.innerText = customMsg || `🎯 Touch & release on Corner ${nextNum}`;
         banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
       } else if (mode === 'measure') {
         if (manualCorners.length < 4) {
@@ -763,7 +783,7 @@
           return;
         }
         btnMeasure.classList.add('active');
-        banner.innerText = customMsg || '📏 Tap plate to measure drop & edge distances';
+        banner.innerText = customMsg || '📏 Tap plate to measure drop & edges';
         banner.style.borderColor = '#0284c7'; banner.style.color = '#38bdf8';
       } else {
         const nextNum = manualCorners.length + 1;
