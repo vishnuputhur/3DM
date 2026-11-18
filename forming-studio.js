@@ -1,66 +1,7 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════════════
-// 1. SAFE & FAST VIEWER TRANSFER BRIDGE (NO QUOTA CRASH)
-// ═══════════════════════════════════════════════════════════
-window.openDirectFormingStudio = function(meshObj) {
-  if (!meshObj || !meshObj.geometry) {
-    alert('ദയവായി ഒരു പ്ലേറ്റ് സെലക്ട് ചെയ്യുക.');
-    return;
-  }
-
-  try {
-    meshObj.updateMatrixWorld(true);
-    let g = meshObj.geometry.clone();
-    g.applyMatrix4(meshObj.matrixWorld);
-    if (g.index) g = g.toNonIndexed();
-
-    // Round vertices to 2 decimal places to reduce JSON size by ~70%
-    const rawArr = g.attributes.position.array;
-    const compactVerts = new Array(rawArr.length);
-    for (let i = 0; i < rawArr.length; i++) {
-      compactVerts[i] = Math.round(rawArr[i] * 100) / 100;
-    }
-
-    const payload = {
-      name: (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Selected Shell',
-      plateNo: (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '',
-      color: (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8,
-      vertices: compactVerts
-    };
-
-    const jsonStr = JSON.stringify(payload);
-
-    // Clear temporary transfer keys first to prevent QuotaExceededError
-    localStorage.removeItem('vt_forming_plate_data');
-    localStorage.removeItem('active_forming_part');
-    sessionStorage.removeItem('vt_forming_plate_data');
-
-    try {
-      sessionStorage.setItem('vt_forming_plate_data', jsonStr);
-    } catch (e) {}
-
-    try {
-      localStorage.setItem('vt_forming_plate_data', jsonStr);
-    } catch (storageErr) {
-      // If localStorage is full due to old saved plates, free oldest entry and retry
-      const saved = getSavedPlates();
-      if (saved.length > 0) {
-        saved.pop();
-        localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(saved));
-        localStorage.setItem('vt_forming_plate_data', jsonStr);
-      }
-    }
-
-    window.location.href = 'forming.html';
-  } catch (err) {
-    console.error('Forming Bridge Error:', err);
-    alert('പ്ലേറ്റ് ഡാറ്റ മാറ്റുന്നതിൽ പിഴവ് സംഭവിച്ചു: ' + err.message);
-  }
-};
-
-// ═══════════════════════════════════════════════════════════
-// 2. LOCALSTORAGE SAVED PLATES & LINES REPOSITORY
+// 1. LOCALSTORAGE SAVED PLATES & LINES REPOSITORY
 // ═══════════════════════════════════════════════════════════
 const SAVED_PLATES_KEY = 'vt_forming_saved_plates_v1';
 
@@ -78,22 +19,9 @@ function savePlateRecord(record) {
     const idx = list.findIndex(p => p.id === record.id);
     if (idx !== -1) list[idx] = record;
     else list.unshift(record);
-
-    // Keep maximum 15 plates to avoid browser storage overflow
-    while (list.length > 15) list.pop();
-
     localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(list));
     return true;
   } catch (e) {
-    // Auto-trim older plates if storage quota is tight
-    try {
-      const list = getSavedPlates();
-      if (list.length > 1) {
-        list.splice(Math.max(1, list.length - 3));
-        localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(list));
-        return true;
-      }
-    } catch (err2) {}
     console.warn('Storage full:', e);
     return false;
   }
@@ -107,12 +35,13 @@ function deleteSavedPlateRecord(id) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. FORMING STUDIO 3D ENGINE
+// 2. FORMING STUDIO 3D ENGINE & STATE
 // ═══════════════════════════════════════════════════════════
-let scene, camera, renderer, controls;
-let plateMesh = null;
-let linesVisualGroup = new THREE.Group();
-let tempPickGroup = new THREE.Group();
+let fScene, fCamera, fRenderer, fControls;
+let fPlateMesh = null;
+let fLinesVisualGroup = new THREE.Group();
+let fTempPickGroup = new THREE.Group();
+let formingStudioInitialized = false;
 
 let currentPlate = null;
 let plateEdgesInfo = [];
@@ -125,127 +54,431 @@ let tempStartPt = null;
 let divisionPitch = 200;
 let activeLineId = null;
 
-function init() {
-  const container = document.getElementById('canvas-container');
-  if (!container) return; // Only run when on forming.html
+// ═══════════════════════════════════════════════════════════
+// 3. EXACT ORIGINAL MODAL DOM BUILDER (WORKS DIRECTLY OVER INDEX)
+// ═══════════════════════════════════════════════════════════
+function buildFormingModalDOM() {
+  if (!document.getElementById('vt-forming-styles')) {
+    const style = document.createElement('style');
+    style.id = 'vt-forming-styles';
+    style.textContent = `
+      #forming-studio-modal {
+        position: fixed; inset: 0; width: 100%; height: 100%;
+        background: #090d16; z-index: 9999; display: none; overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #f8fafc; touch-action: none; user-select: none; -webkit-user-select: none;
+      }
+      #forming-canvas-container { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x090d16);
+      /* Top Header */
+      .f-top-bar {
+        position: absolute; top: 8px; left: 8px; right: 8px; height: 42px;
+        display: flex; justify-content: space-between; align-items: center; gap: 6px;
+        background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(10px);
+        padding: 0 10px; border-radius: 10px; border: 1px solid #1e293b; z-index: 20;
+      }
+      .f-top-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+      .f-btn-top {
+        background: #1e293b; color: #f8fafc; border: 1px solid #334155;
+        padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 700;
+        text-decoration: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      }
+      .f-btn-save-plate { background: #059669; border-color: #10b981; color: #fff; }
+      .f-top-bar h1 { font-size: 13px; font-weight: 700; color: #38bdf8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .f-top-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+      .f-plate-tag {
+        font-size: 10px; background: #0369a1; padding: 3px 7px; border-radius: 6px;
+        font-weight: 600; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
 
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
-  camera.up.set(0, 0, 1);
-  camera.position.set(2500, -2500, 2000);
+      /* Status Banner */
+      .f-sub-hud-row {
+        position: absolute; top: 56px; left: 8px; right: 8px;
+        display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+        z-index: 15; pointer-events: none;
+      }
+      .f-mode-banner {
+        background: rgba(15, 23, 42, 0.92); border: 1px solid #334155;
+        color: #e2e8f0; padding: 6px 10px; border-radius: 8px;
+        font-size: 11px; font-weight: 600; line-height: 1.3;
+        backdrop-filter: blur(6px); max-width: 65%; pointer-events: auto;
+      }
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  container.appendChild(renderer.domElement);
+      /* Collapsible Right Measurement Table Drawer */
+      .f-table-wrapper {
+        position: absolute; right: 0; top: 56px; bottom: 64px;
+        z-index: 18; display: flex; align-items: flex-start;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+      }
+      .f-table-wrapper.collapsed { transform: translateX(100%); }
+      .f-table-toggle-tab {
+        position: absolute; right: 100%; top: 10px;
+        background: rgba(15, 23, 42, 0.95); border: 1px solid #0284c7; border-right: none;
+        color: #38bdf8; padding: 8px 6px; border-radius: 8px 0 0 8px;
+        font-size: 10px; font-weight: 800; cursor: pointer; pointer-events: auto;
+        writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 0.04em;
+        box-shadow: -3px 2px 10px rgba(0,0,0,0.45);
+      }
+      .f-measure-panel {
+        width: 245px; max-width: 72vw; max-height: 100%;
+        background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px);
+        border: 1px solid #334155; border-right: none; border-radius: 12px 0 0 12px;
+        padding: 10px; overflow-y: auto; pointer-events: auto;
+        box-shadow: -4px 4px 18px rgba(0,0,0,0.55);
+      }
+      .f-m-sec-title { font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+      .f-trace-box {
+        background: #090d16; border: 1px solid #1e293b; border-radius: 8px;
+        padding: 7px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.45;
+      }
+      .f-trace-box b { color: #facc15; }
+      .f-trace-box span { color: #94a3b8; }
 
-  const OrbitCtrl = THREE.OrbitControls || window.OrbitControls;
-  controls = new OrbitCtrl(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
+      .f-m-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: monospace; }
+      .f-m-table th { background: #1e293b; color: #94a3b8; padding: 5px 6px; text-align: left; font-size: 10px; }
+      .f-m-table td { padding: 5px 6px; border-bottom: 1px solid #1e293b; color: #f8fafc; }
+      .f-m-table td.val-col { color: #facc15; font-weight: 800; text-align: right; }
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+      /* Clean Background-Free Fixed-Size 3D Text Labels */
+      .f-clean-3d-text {
+        position: absolute; pointer-events: none; z-index: 10;
+        font-family: monospace; font-weight: 800; font-size: 11px;
+        transform: translate(-50%, -50%); white-space: nowrap;
+        text-shadow: 0 1px 3px #000, 0 0 4px #000;
+      }
+      .f-txt-top { color: #39ff14; font-size: 11px; letter-spacing: 0.06em; }
+      .f-txt-fwd { color: #facc15; font-size: 11px; letter-spacing: 0.06em; }
+      .f-txt-pt  { color: #38bdf8; font-size: 10px; transform: translate(6px, -10px); }
+      .f-txt-end { color: #f43f5e; font-size: 11px; transform: translate(6px, -12px); }
+
+      /* Bottom Action Dock */
+      .f-bottom-dock {
+        position: absolute; bottom: 10px; left: 8px; right: 8px;
+        display: flex; gap: 5px; justify-content: center; align-items: center; z-index: 20;
+      }
+      @media (min-width: 768px) {
+        .f-bottom-dock {
+          left: 50%; right: auto; transform: translateX(-50%);
+          background: rgba(15, 23, 42, 0.92); padding: 6px 10px;
+          border-radius: 14px; border: 1px solid #334155;
+        }
+        .f-dock-btn { min-width: 110px !important; padding: 0 12px !important; font-size: 12px !important; }
+      }
+      .f-dock-btn {
+        flex: 1; min-width: 0; height: 38px;
+        background: rgba(15, 23, 42, 0.95); color: #f8fafc; border: 1px solid #334155;
+        padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700;
+        cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
+        backdrop-filter: blur(10px); box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .f-dock-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
+      .f-dock-btn.pick-armed { background: #059669; border-color: #34d399; color: #fff; animation: pulsePick 1.2s infinite; }
+      .f-dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.65; }
+      .f-dock-btn.hidden { display: none; }
+
+      @keyframes pulsePick {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65); }
+        50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      }
+
+      /* Magnifier Loupe */
+      #f-magnifier {
+        position: fixed; width: 110px; height: 110px; border-radius: 50%;
+        border: 3px solid #10b981; box-shadow: 0 8px 24px rgba(0,0,0,0.85);
+        pointer-events: none; z-index: 45; display: none; overflow: hidden;
+        background: #090d16; transform: translate(-50%, -125%);
+      }
+      #f-magnifier canvas { width: 100%; height: 100%; display: block; }
+      #f-magnifier::after {
+        content: ''; position: absolute; inset: 0;
+        background:
+          linear-gradient(to right, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%),
+          linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%);
+      }
+
+      /* Bottom / Side Modals */
+      .f-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 30; display: none; }
+      .f-modal-backdrop.open { display: block; }
+      .f-sheet-drawer {
+        position: fixed; bottom: 0; left: 0; right: 0; max-height: 76vh;
+        background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0;
+        padding: 16px; z-index: 35; overflow-y: auto;
+        transform: translateY(100%); transition: transform 0.25s ease-out;
+      }
+      .f-sheet-drawer.open { transform: translateY(0); }
+      @media (min-width: 768px) {
+        .f-sheet-drawer {
+          left: 50%; right: auto; bottom: auto; top: 50%; width: 420px;
+          border-radius: 14px; border: 1px solid #334155;
+          transform: translate(-50%, -50%) scale(0.95); opacity: 0; pointer-events: none;
+        }
+        .f-sheet-drawer.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+      }
+      .f-sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
+      .f-sheet-header h2 { font-size: 13px; color: #38bdf8; text-transform: uppercase; margin: 0; }
+      .f-btn-close-sheet { background: #1e293b; border: 1px solid #334155; color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+      .f-list-card {
+        display: flex; justify-content: space-between; align-items: center; gap: 8px;
+        background: #090d16; padding: 10px; border-radius: 8px; border: 1px solid #1e293b;
+        margin-bottom: 8px; font-size: 12px;
+      }
+      .f-list-card.selected { border-color: #0284c7; background: rgba(2, 132, 199, 0.14); }
+      .f-list-card-info { flex: 1; min-width: 0; cursor: pointer; }
+      .f-list-card-title { font-weight: 700; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .f-list-card-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+      .f-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+      .f-icon-btn {
+        background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+        padding: 6px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+      }
+      .f-icon-btn.danger { background: #7f1d1d; border-color: #991b1b; color: #fecaca; }
+      .f-icon-btn.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
+
+      .f-input-group { margin-bottom: 12px; }
+      .f-input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: #94a3b8; }
+      .f-input-group input { width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
+      .f-btn-full { width: 100%; padding: 10px; border: none; border-radius: 8px; background: #0284c7; color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  let modal = document.getElementById('forming-studio-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'forming-studio-modal';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <!-- Top Bar -->
+    <div class="f-top-bar">
+      <div class="f-top-left">
+        <button class="f-btn-top" id="f-btn-close-forming">⬅ Viewer</button>
+        <h1>📐 Forming Studio</h1>
+      </div>
+      <div class="f-top-right">
+        <span class="f-plate-tag" id="f-plate-badge">Plate</span>
+        <button class="f-btn-top f-btn-save-plate" id="f-btn-open-save-plate">💾 Save</button>
+      </div>
+    </div>
+
+    <!-- Mode Status Banner -->
+    <div class="f-sub-hud-row">
+      <div class="f-mode-banner" id="f-mode-banner">🔍 Zoom plate or tap "Create Line"</div>
+    </div>
+
+    <!-- Collapsible Right Square-Drop Measurement Table -->
+    <div class="f-table-wrapper collapsed" id="f-table-wrapper">
+      <button class="f-table-toggle-tab" id="f-btn-toggle-table">📊 MEASUREMENTS</button>
+      <div class="f-measure-panel">
+        <div class="f-m-sec-title">
+          <span id="f-tbl-line-title">No Line Selected</span>
+        </div>
+        <div class="f-trace-box" id="f-tbl-trace-info">
+          Draw a line to see edge tracing distances &amp; 90° square drop heights.
+        </div>
+        <table class="f-m-table">
+          <thead>
+            <tr>
+              <th>Pt</th>
+              <th>Dist</th>
+              <th style="text-align:right;">90° Drop</th>
+            </tr>
+          </thead>
+          <tbody id="f-tbl-points-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Clean Background-Free 3D Text Labels -->
+    <div id="f-labels-layer"></div>
+    <div id="f-magnifier"><canvas id="f-mag-canvas" width="110" height="110"></canvas></div>
+
+    <!-- Bottom Action Dock -->
+    <div class="f-bottom-dock">
+      <button class="f-dock-btn" id="f-btn-create-line">📏 Create Line</button>
+      <button class="f-dock-btn undo-btn hidden" id="f-btn-undo-pt">↩ Undo</button>
+      <button class="f-dock-btn" id="f-btn-open-lines">📋 Lines (<span id="f-lbl-line-count">0</span>)</button>
+      <button class="f-dock-btn" id="f-btn-open-plates">📂 Saved</button>
+      <button class="f-dock-btn" id="f-btn-open-settings">⚙️</button>
+    </div>
+
+    <!-- Backdrop -->
+    <div class="f-modal-backdrop" id="f-modal-backdrop"></div>
+
+    <!-- 1. Lines Manager Sheet -->
+    <div class="f-sheet-drawer" id="f-sheet-lines">
+      <div class="f-sheet-header">
+        <h2>📋 Saved String Lines</h2>
+        <button class="f-btn-close-sheet" onclick="closeAllFormingSheets()">✕ Close</button>
+      </div>
+      <div id="f-lines-list-container"></div>
+    </div>
+
+    <!-- 2. Saved Plates Library Sheet -->
+    <div class="f-sheet-drawer" id="f-sheet-plates">
+      <div class="f-sheet-header">
+        <h2>📂 Saved Shell Plates</h2>
+        <button class="f-btn-close-sheet" onclick="closeAllFormingSheets()">✕ Close</button>
+      </div>
+      <div id="f-plates-list-container"></div>
+    </div>
+
+    <!-- 3. Save Plate Name Modal -->
+    <div class="f-sheet-drawer" id="f-sheet-save-plate">
+      <div class="f-sheet-header">
+        <h2>💾 Save Shell Plate</h2>
+        <button class="f-btn-close-sheet" onclick="closeAllFormingSheets()">✕ Close</button>
+      </div>
+      <div class="f-input-group">
+        <label>Plate Number / Block</label>
+        <input type="text" id="f-inp-plate-no" placeholder="e.g., Hull-102 / P-14" />
+      </div>
+      <div class="f-input-group">
+        <label>Plate Name / Description</label>
+        <input type="text" id="f-inp-plate-name" placeholder="e.g., Port Bilge Strake" />
+      </div>
+      <button class="f-btn-full" id="f-btn-confirm-save-plate">✅ Save Plate &amp; Lines</button>
+    </div>
+
+    <!-- 4. Settings Sheet -->
+    <div class="f-sheet-drawer" id="f-sheet-settings">
+      <div class="f-sheet-header">
+        <h2>⚙️ Forming Settings</h2>
+        <button class="f-btn-close-sheet" onclick="closeAllFormingSheets()">✕ Close</button>
+      </div>
+      <div class="f-input-group">
+        <label>Line Division Pitch (mm) — Default 200 mm</label>
+        <input type="number" id="f-inp-pitch" value="200" step="50" min="50" max="1000" />
+      </div>
+      <button class="f-btn-full" id="f-btn-apply-settings">⚡ Apply &amp; Recalculate Lines</button>
+    </div>
+
+    <div id="forming-canvas-container"></div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════
+// 4. INITIALIZE OVERLAY ENGINE (SAME AS WORKING CODE)
+// ═══════════════════════════════════════════════════════════
+function initFormingOverlay() {
+  buildFormingModalDOM();
+
+  const container = document.getElementById('forming-canvas-container');
+  fScene = new THREE.Scene();
+  fScene.background = new THREE.Color(0x090d16);
+
+  fCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
+  fCamera.up.set(0, 0, 1);
+
+  fRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  fRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  fRenderer.setSize(window.innerWidth, window.innerHeight);
+  container.appendChild(fRenderer.domElement);
+
+  fControls = new THREE.OrbitControls(fCamera, fRenderer.domElement);
+  fControls.enableDamping = true;
+  fControls.dampingFactor = 0.08;
+
+  fScene.add(new THREE.AmbientLight(0xffffff, 0.75));
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
   dirLight.position.set(5000, -5000, 7000);
-  scene.add(dirLight);
+  fScene.add(dirLight);
   const backLight = new THREE.DirectionalLight(0xffffff, 0.45);
   backLight.position.set(-5000, 5000, -6000);
-  scene.add(backLight);
+  fScene.add(backLight);
 
-  scene.add(linesVisualGroup);
-  scene.add(tempPickGroup);
+  fScene.add(fLinesVisualGroup);
+  fScene.add(fTempPickGroup);
 
-  window.addEventListener('resize', onResize);
+  window.addEventListener('resize', () => {
+    const modal = document.getElementById('forming-studio-modal');
+    if (modal && modal.style.display === 'block' && fRenderer && fCamera) {
+      fCamera.aspect = window.innerWidth / window.innerHeight;
+      fCamera.updateProjectionMatrix();
+      fRenderer.setSize(window.innerWidth, window.innerHeight);
+    }
+  });
+
   setupInteractions();
   setupUI();
-  loadPlateData();
-  animate();
-}
+  formingStudioInitialized = true;
 
-function animate() {
-  requestAnimationFrame(animate);
-  if (controls && controls.enabled) controls.update();
-  updateHTMLLabels();
-  renderer.render(scene, camera);
-}
-
-function onResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-// ═══════════════════════════════════════════════════════════
-// 4. RELIABLE DUAL-STORAGE PLATE LOADER
-// ═══════════════════════════════════════════════════════════
-function loadPlateData() {
-  let raw = sessionStorage.getItem('vt_forming_plate_data') ||
-            localStorage.getItem('vt_forming_plate_data') ||
-            localStorage.getItem('active_forming_part');
-
-  if (!raw) {
-    const saved = getSavedPlates();
-    if (saved.length > 0) {
-      renderPlateFromRecord(saved[0]);
-    } else {
-      document.getElementById('plate-badge').innerText = 'No Plate';
-      document.getElementById('welcome-card').classList.remove('hidden');
+  function animForming() {
+    requestAnimationFrame(animForming);
+    const modal = document.getElementById('forming-studio-modal');
+    if (modal && modal.style.display === 'block') {
+      if (fControls && fControls.enabled) fControls.update();
+      updateHTMLLabels();
+      if (fRenderer && fScene && fCamera) fRenderer.render(fScene, fCamera);
     }
+  }
+  animForming();
+}
+
+// ═══════════════════════════════════════════════════════════
+// 5. DIRECT ENTRY BRIDGE FROM INDEX VIEWER (EXACT WORKING FLOW)
+// ═══════════════════════════════════════════════════════════
+window.openDirectFormingStudio = function(meshObj) {
+  if (!meshObj || !meshObj.geometry) {
+    alert('ദയവായി ഒരു പ്ലേറ്റ് സെലക്ട് ചെയ്യുക.');
     return;
   }
 
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (err) {
-    alert('ഡാറ്റ വായിച്ചെടുക്കുന്നതിൽ പിഴവ് സംഭവിച്ചു.');
-    return;
-  }
+  if (!formingStudioInitialized) initFormingOverlay();
 
-  let verts = data.vertices;
-  if (!verts || verts.length < 9) {
-    alert('പ്ലേറ്റിന്റെ കോർഡിനേറ്റ്സ് ശരിയായ രീതിയിലല്ല.');
-    return;
-  }
+  const modal = document.getElementById('forming-studio-modal');
+  modal.style.display = 'block';
+  if (window.controls) window.controls.enabled = false;
+
+  meshObj.updateMatrixWorld(true);
+  let g = meshObj.geometry.clone();
+  g.applyMatrix4(meshObj.matrixWorld);
+  if (g.index) g = g.toNonIndexed();
+
+  const verts = Array.from(g.attributes.position.array);
+  const pName = (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Selected Shell';
+  const pNo = (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '';
+  const pCol = (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8;
 
   const saved = getSavedPlates();
-  const existing = saved.find(p => p.name === (data.name || 'Selected Shell') && p.vertices && p.vertices.length === verts.length);
+  const existing = saved.find(p => p.name === pName && p.vertices && p.vertices.length === verts.length);
 
   if (existing) {
     renderPlateFromRecord(existing);
   } else {
     const newRecord = {
       id: 'plate_' + Date.now(),
-      plateNo: data.plateNo || ('P-' + (saved.length + 1)),
-      name: data.name || 'Selected Shell',
-      color: (data.color !== undefined) ? data.color : 0x38bdf8,
-      vertices: Array.isArray(verts) ? verts : Array.from(verts),
+      plateNo: pNo || ('P-' + (saved.length + 1)),
+      name: pName,
+      color: pCol,
+      vertices: verts,
       lines: [],
       updatedAt: Date.now()
     };
     savePlateRecord(newRecord);
     renderPlateFromRecord(newRecord);
   }
-}
+};
 
 // ═══════════════════════════════════════════════════════════
-// 5. BUILD 3D MESH + TOP (NEON GREEN) & FORWARD (YELLOW) EDGES
+// 6. BUILD 3D MESH + TOP (NEON GREEN) & FORWARD (YELLOW) EDGES
 // ═══════════════════════════════════════════════════════════
 function renderPlateFromRecord(record) {
-  document.getElementById('welcome-card').classList.add('hidden');
   currentPlate = record;
   tempStartPt = null;
   activeLineId = null;
 
-  if (plateMesh) { scene.remove(plateMesh); plateMesh = null; }
-  while (linesVisualGroup.children.length > 0) linesVisualGroup.remove(linesVisualGroup.children[0]);
-  while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+  if (fPlateMesh) { fScene.remove(fPlateMesh); fPlateMesh = null; }
+  while (fLinesVisualGroup.children.length > 0) fLinesVisualGroup.remove(fLinesVisualGroup.children[0]);
+  while (fTempPickGroup.children.length > 0) fTempPickGroup.remove(fTempPickGroup.children[0]);
 
-  document.getElementById('plate-badge').innerText = record.name || 'Selected Shell';
-  document.getElementById('inp-plate-no').value = record.plateNo || '';
-  document.getElementById('inp-plate-name').value = record.name || '';
+  document.getElementById('f-plate-badge').innerText = record.name || 'Selected Shell';
+  document.getElementById('f-inp-plate-no').value = record.plateNo || '';
+  document.getElementById('f-inp-plate-name').value = record.name || '';
 
   const floatArr = (record.vertices instanceof Float32Array) ? record.vertices : new Float32Array(record.vertices);
   const geom = new THREE.BufferGeometry();
@@ -261,19 +494,24 @@ function renderPlateFromRecord(record) {
     side: THREE.DoubleSide
   });
 
-  plateMesh = new THREE.Mesh(geom, mat);
-  scene.add(plateMesh);
+  fPlateMesh = new THREE.Mesh(geom, mat);
+  fScene.add(fPlateMesh);
 
   geom.computeBoundingBox();
   const bbox = geom.boundingBox;
   const center = bbox.getCenter(new THREE.Vector3());
-  controls.target.copy(center);
+  fControls.target.copy(center);
 
   const size = bbox.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z) || 1000;
-  camera.position.set(center.x + maxDim * 0.8, center.y - maxDim * 0.8, center.z + maxDim * 0.7);
-  camera.up.set(0, 0, 1);
-  controls.update();
+  fCamera.position.set(center.x + maxDim * 0.7, center.y - maxDim * 0.7, center.z + maxDim * 0.8);
+  fCamera.up.set(0, 0, 1);
+  fControls.enabled = true;
+  fControls.update();
+
+  fRenderer.setSize(window.innerWidth, window.innerHeight);
+  fCamera.aspect = window.innerWidth / window.innerHeight;
+  fCamera.updateProjectionMatrix();
 
   if (currentPlate.lines && currentPlate.lines.length > 0) {
     const lastLine = currentPlate.lines[currentPlate.lines.length - 1];
@@ -407,7 +645,7 @@ function classifyAndColorPlateEdges(geom, baseHex) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 6. EDGE TRACING & 90° SQUARE-TO-LINE MEASUREMENT ENGINE
+// 7. EDGE TRACING & 90° SQUARE-TO-LINE MEASUREMENT ENGINE
 // ═══════════════════════════════════════════════════════════
 function computeEdgeTraceForPoint(pt) {
   if (!plateEdgesInfo || plateEdgesInfo.length === 0) {
@@ -466,7 +704,7 @@ function calculateLineSquareMeasurements(startVec, endVec, pitch) {
     [sqDir, sqDir.clone().negate()].forEach(dir => {
       const origin = linePt.clone().addScaledVector(dir, -5);
       raycaster.set(origin, dir);
-      const hits = raycaster.intersectObject(plateMesh, false);
+      const hits = raycaster.intersectObject(fPlateMesh, false);
       if (hits.length > 0) {
         const hPt = hits[0].point;
         const drop = linePt.distanceTo(hPt);
@@ -501,8 +739,8 @@ function calculateLineSquareMeasurements(startVec, endVec, pitch) {
 }
 
 function estimatePlateNormalNear(pt) {
-  const pos = plateMesh.geometry.attributes.position.array;
-  const norm = plateMesh.geometry.attributes.normal.array;
+  const pos = fPlateMesh.geometry.attributes.position.array;
+  const norm = fPlateMesh.geometry.attributes.normal.array;
   let bestD2 = Infinity;
   const bestN = new THREE.Vector3(0, 0, 1);
   const tmp = new THREE.Vector3();
@@ -519,7 +757,7 @@ function estimatePlateNormalNear(pt) {
 }
 
 function findClosestPlateSurfacePoint(pt) {
-  const pos = plateMesh.geometry.attributes.position.array;
+  const pos = fPlateMesh.geometry.attributes.position.array;
   let bestD2 = Infinity;
   const bestP = pt.clone(), tmp = new THREE.Vector3();
   for (let i = 0; i < pos.length; i += 3) {
@@ -531,19 +769,19 @@ function findClosestPlateSurfacePoint(pt) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 7. RENDER SAVED LINES, 90° DROP BARS & CLEAN 3D TEXT LABELS
+// 8. RENDER SAVED LINES, 90° DROP BARS & CLEAN 3D TEXT LABELS
 // ═══════════════════════════════════════════════════════════
 function rebuildAllSavedLinesVisuals() {
-  while (linesVisualGroup.children.length > 0) linesVisualGroup.remove(linesVisualGroup.children[0]);
-  const layer = document.getElementById('labels-layer');
+  while (fLinesVisualGroup.children.length > 0) fLinesVisualGroup.remove(fLinesVisualGroup.children[0]);
+  const layer = document.getElementById('f-labels-layer');
   layer.innerHTML = '';
   htmlLabels = [];
 
-  if (topEdgeMid) addClean3DLabel('TOP', topEdgeMid, 'txt-top');
-  if (fwdEdgeMid) addClean3DLabel('FWD', fwdEdgeMid, 'txt-fwd');
+  if (topEdgeMid) addClean3DLabel('TOP', topEdgeMid, 'f-txt-top');
+  if (fwdEdgeMid) addClean3DLabel('FWD', fwdEdgeMid, 'f-txt-fwd');
 
   if (!currentPlate || !currentPlate.lines) return;
-  document.getElementById('lbl-line-count').innerText = currentPlate.lines.length;
+  document.getElementById('f-lbl-line-count').innerText = currentPlate.lines.length;
 
   let selectedLineObj = null;
 
@@ -560,7 +798,7 @@ function rebuildAllSavedLinesVisuals() {
       linewidth: isSelected ? 3 : 1.5,
       depthTest: false
     });
-    linesVisualGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sVec, eVec]), lineMat));
+    fLinesVisualGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sVec, eVec]), lineMat));
 
     [sVec, eVec].forEach(p => {
       const dot = new THREE.Mesh(
@@ -568,18 +806,18 @@ function rebuildAllSavedLinesVisuals() {
         new THREE.MeshBasicMaterial({ color: 0xf43f5e, depthTest: false })
       );
       dot.position.copy(p);
-      linesVisualGroup.add(dot);
+      fLinesVisualGroup.add(dot);
     });
 
     if (isSelected) {
-      addClean3DLabel(`${line.name} (S)`, sVec, 'txt-end');
-      addClean3DLabel(`E`, eVec, 'txt-end');
+      addClean3DLabel(`${line.name} (S)`, sVec, 'f-txt-end');
+      addClean3DLabel(`E`, eVec, 'f-txt-end');
 
       line.stations.forEach(st => {
         const pTop = new THREE.Vector3(st.linePt.x, st.linePt.y, st.linePt.z);
         const pBot = new THREE.Vector3(st.platePt.x, st.platePt.y, st.platePt.z);
 
-        linesVisualGroup.add(new THREE.Line(
+        fLinesVisualGroup.add(new THREE.Line(
           new THREE.BufferGeometry().setFromPoints([pTop, pBot]),
           new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2, depthTest: false })
         ));
@@ -589,9 +827,9 @@ function rebuildAllSavedLinesVisuals() {
           new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false })
         );
         pDot.position.copy(pTop);
-        linesVisualGroup.add(pDot);
+        fLinesVisualGroup.add(pDot);
 
-        addClean3DLabel(`${st.label}: ${st.dropHeight.toFixed(1)}`, pTop, 'txt-pt');
+        addClean3DLabel(`${st.label}: ${st.dropHeight.toFixed(1)}`, pTop, 'f-txt-pt');
       });
     }
   });
@@ -601,17 +839,17 @@ function rebuildAllSavedLinesVisuals() {
 
 function addClean3DLabel(text, pos3D, cssClass) {
   const el = document.createElement('div');
-  el.className = `clean-3d-text ${cssClass}`;
+  el.className = `f-clean-3d-text ${cssClass}`;
   el.innerText = text;
-  document.getElementById('labels-layer').appendChild(el);
+  document.getElementById('f-labels-layer').appendChild(el);
   htmlLabels.push({ el, pos3D: pos3D.clone() });
 }
 
 function updateHTMLLabels() {
-  if (!camera) return;
+  if (!fCamera) return;
   const w = window.innerWidth, h = window.innerHeight;
   htmlLabels.forEach(item => {
-    const v = item.pos3D.clone().project(camera);
+    const v = item.pos3D.clone().project(fCamera);
     if (v.z > 1 || v.z < -1) {
       item.el.style.display = 'none';
     } else {
@@ -623,9 +861,9 @@ function updateHTMLLabels() {
 }
 
 function updateMeasurementTableUI(line) {
-  const titleEl = document.getElementById('tbl-line-title');
-  const traceEl = document.getElementById('tbl-trace-info');
-  const tbody = document.getElementById('tbl-points-body');
+  const titleEl = document.getElementById('f-tbl-line-title');
+  const traceEl = document.getElementById('f-tbl-trace-info');
+  const tbody = document.getElementById('f-tbl-points-body');
   tbody.innerHTML = '';
 
   if (!line) {
@@ -657,25 +895,25 @@ function updateMeasurementTableUI(line) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 8. ZOOM-SAFE POINT PICKER + MAGNIFIER LOUPE
+// 9. ZOOM-SAFE POINT PICKER + MAGNIFIER LOUPE
 // ═══════════════════════════════════════════════════════════
 function findPlatePointAtScreen(cx, cy) {
-  if (!plateMesh || !camera || !renderer) return null;
-  const rect = renderer.domElement.getBoundingClientRect();
+  if (!fPlateMesh || !fCamera || !fRenderer) return null;
+  const rect = fRenderer.domElement.getBoundingClientRect();
   const nx = ((cx - rect.left) / rect.width) * 2 - 1;
   const ny = -((cy - rect.top) / rect.height) * 2 + 1;
 
   const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
-  const hits = raycaster.intersectObject(plateMesh, false);
+  raycaster.setFromCamera(new THREE.Vector2(nx, ny), fCamera);
+  const hits = raycaster.intersectObject(fPlateMesh, false);
   if (hits.length > 0) return hits[0].point.clone();
 
-  const pos = plateMesh.geometry.attributes.position.array;
+  const pos = fPlateMesh.geometry.attributes.position.array;
   const tmp = new THREE.Vector3(), proj = new THREE.Vector3();
   let bestPx = 32, bestPt = null;
   for (let i = 0; i < pos.length; i += 3) {
     tmp.set(pos[i], pos[i + 1], pos[i + 2]);
-    proj.copy(tmp).project(camera);
+    proj.copy(tmp).project(fCamera);
     if (proj.z > 1 || proj.z < -1) continue;
     const sx = (proj.x * 0.5 + 0.5) * rect.width + rect.left;
     const sy = (-proj.y * 0.5 + 0.5) * rect.height + rect.top;
@@ -686,16 +924,16 @@ function findPlatePointAtScreen(cx, cy) {
 }
 
 function updateMagnifier(cx, cy) {
-  const magEl = document.getElementById('magnifier');
-  const magCanvas = document.getElementById('mag-canvas');
+  const magEl = document.getElementById('f-magnifier');
+  const magCanvas = document.getElementById('f-mag-canvas');
   magEl.style.display = 'block';
   magEl.style.left = cx + 'px';
   magEl.style.top = cy + 'px';
 
-  renderer.render(scene, camera);
+  fRenderer.render(fScene, fCamera);
   const ctx = magCanvas.getContext('2d');
-  const src = renderer.domElement;
-  const dpr = renderer.getPixelRatio();
+  const src = fRenderer.domElement;
+  const dpr = fRenderer.getPixelRatio();
   const rect = src.getBoundingClientRect();
   const sx = (cx - rect.left) * dpr;
   const sy = (cy - rect.top) * dpr;
@@ -706,7 +944,7 @@ function updateMagnifier(cx, cy) {
 }
 
 function setupInteractions() {
-  const dom = renderer.domElement;
+  const dom = fRenderer.domElement;
   let isPickingDrag = false;
   let lastX = 0, lastY = 0;
   let pendingPt = null;
@@ -714,7 +952,7 @@ function setupInteractions() {
   function handleReleasePick() {
     if (!isPickingDrag) return;
     isPickingDrag = false;
-    document.getElementById('magnifier').style.display = 'none';
+    document.getElementById('f-magnifier').style.display = 'none';
 
     const pt = pendingPt || findPlatePointAtScreen(lastX, lastY);
     pendingPt = null;
@@ -726,17 +964,17 @@ function setupInteractions() {
 
     if (mode === 'pick_start') {
       tempStartPt = pt.clone();
-      while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+      while (fTempPickGroup.children.length > 0) fTempPickGroup.remove(fTempPickGroup.children[0]);
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(6, 10, 10),
         new THREE.MeshBasicMaterial({ color: 0xf43f5e, depthTest: false })
       );
       dot.position.copy(tempStartPt);
-      tempPickGroup.add(dot);
+      fTempPickGroup.add(dot);
 
       setMode('view', '✅ Start (S) Locked! Zoom to End Point, then tap "Pick End (2/2)"');
     } else if (mode === 'pick_end' && tempStartPt) {
-      while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+      while (fTempPickGroup.children.length > 0) fTempPickGroup.remove(fTempPickGroup.children[0]);
 
       const calc = calculateLineSquareMeasurements(tempStartPt, pt, divisionPitch);
       const lineNum = (currentPlate.lines ? currentPlate.lines.length : 0) + 1;
@@ -761,7 +999,7 @@ function setupInteractions() {
       savePlateRecord(currentPlate);
       rebuildAllSavedLinesVisuals();
 
-      document.getElementById('table-wrapper').classList.remove('collapsed');
+      document.getElementById('f-table-wrapper').classList.remove('collapsed');
       setMode('view', `✅ ${newLine.name} Created & Saved!`);
     }
   }
@@ -771,7 +1009,7 @@ function setupInteractions() {
     if (mode === 'pick_start' || mode === 'pick_end') {
       e.stopImmediatePropagation();
       isPickingDrag = true;
-      controls.enabled = false;
+      fControls.enabled = false;
       pendingPt = findPlatePointAtScreen(e.clientX, e.clientY);
       updateMagnifier(e.clientX, e.clientY);
     }
@@ -799,33 +1037,33 @@ function setupInteractions() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 9. UI MODES, SAVED PLATES & MULTI-LINE MANAGER
+// 10. UI MODES, SAVED PLATES & MULTI-LINE MANAGER
 // ═══════════════════════════════════════════════════════════
 function setMode(newMode, customMsg) {
   mode = newMode;
-  document.getElementById('magnifier').style.display = 'none';
+  document.getElementById('f-magnifier').style.display = 'none';
 
-  const btnCreate = document.getElementById('btn-create-line');
-  const btnUndo = document.getElementById('btn-undo-pt');
-  const banner = document.getElementById('mode-banner');
+  const btnCreate = document.getElementById('f-btn-create-line');
+  const btnUndo = document.getElementById('f-btn-undo-pt');
+  const banner = document.getElementById('f-mode-banner');
 
   btnCreate.classList.remove('pick-armed', 'active');
   btnUndo.classList.toggle('hidden', !tempStartPt);
 
   if (newMode === 'pick_start') {
-    controls.enabled = false;
+    fControls.enabled = false;
     btnCreate.classList.add('pick-armed');
     btnCreate.innerText = '🎯 Touch Start (1/2)';
     banner.innerText = customMsg || '🎯 Touch & release on Start Point (Magnifier Active)';
     banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
   } else if (newMode === 'pick_end') {
-    controls.enabled = false;
+    fControls.enabled = false;
     btnCreate.classList.add('pick-armed');
     btnCreate.innerText = '🎯 Touch End (2/2)';
     banner.innerText = customMsg || '🎯 Touch & release on End Point';
     banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
   } else {
-    controls.enabled = true;
+    fControls.enabled = true;
     if (tempStartPt) {
       btnCreate.classList.add('active');
       btnCreate.innerText = '🎯 Pick End (2/2)';
@@ -839,18 +1077,18 @@ function setMode(newMode, customMsg) {
 }
 
 function openSheet(id) {
-  closeAllSheets();
-  document.getElementById('modal-backdrop').classList.add('open');
+  closeAllFormingSheets();
+  document.getElementById('f-modal-backdrop').classList.add('open');
   document.getElementById(id).classList.add('open');
 }
 
-window.closeAllSheets = function() {
-  document.getElementById('modal-backdrop').classList.remove('open');
-  document.querySelectorAll('.sheet-drawer').forEach(el => el.classList.remove('open'));
+window.closeAllFormingSheets = function() {
+  document.getElementById('f-modal-backdrop').classList.remove('open');
+  document.querySelectorAll('.f-sheet-drawer').forEach(el => el.classList.remove('open'));
 };
 
 function renderLinesManager() {
-  const container = document.getElementById('lines-list-container');
+  const container = document.getElementById('f-lines-list-container');
   container.innerHTML = '';
 
   if (!currentPlate || !currentPlate.lines || currentPlate.lines.length === 0) {
@@ -861,33 +1099,33 @@ function renderLinesManager() {
   currentPlate.lines.forEach((line) => {
     const isSel = (line.id === activeLineId);
     const card = document.createElement('div');
-    card.className = 'list-card' + (isSel ? ' selected' : '');
+    card.className = 'f-list-card' + (isSel ? ' selected' : '');
     card.innerHTML = `
-      <div class="list-card-info" onclick="selectSavedLine('${line.id}')">
-        <div class="list-card-title">${line.name} (${line.totalLength.toFixed(0)} mm)</div>
-        <div class="list-card-sub">${line.stations.length} pts • ${line.startTrace.edgeLabel}</div>
+      <div class="f-list-card-info" onclick="selectSavedFormingLine('${line.id}')">
+        <div class="f-list-card-title">${line.name} (${line.totalLength.toFixed(0)} mm)</div>
+        <div class="f-list-card-sub">${line.stations.length} pts • ${line.startTrace.edgeLabel}</div>
       </div>
-      <div class="card-actions">
-        <button class="icon-btn ${line.visible ? 'primary' : ''}" onclick="toggleLineVisibility('${line.id}')">${line.visible ? '👁️ On' : '🙈 Off'}</button>
-        <button class="icon-btn danger" onclick="deleteSavedLine('${line.id}')">🗑️</button>
+      <div class="f-card-actions">
+        <button class="f-icon-btn ${line.visible ? 'primary' : ''}" onclick="toggleFormingLineVisibility('${line.id}')">${line.visible ? '👁️ On' : '🙈 Off'}</button>
+        <button class="f-icon-btn danger" onclick="deleteSavedFormingLine('${line.id}')">🗑️</button>
       </div>
     `;
     container.appendChild(card);
   });
 }
 
-window.selectSavedLine = function(lineId) {
+window.selectSavedFormingLine = function(lineId) {
   if (!currentPlate) return;
   activeLineId = lineId;
   const line = currentPlate.lines.find(l => l.id === lineId);
   if (line) line.visible = true;
   savePlateRecord(currentPlate);
   rebuildAllSavedLinesVisuals();
-  document.getElementById('table-wrapper').classList.remove('collapsed');
-  closeAllSheets();
+  document.getElementById('f-table-wrapper').classList.remove('collapsed');
+  closeAllFormingSheets();
 };
 
-window.toggleLineVisibility = function(lineId) {
+window.toggleFormingLineVisibility = function(lineId) {
   if (!currentPlate) return;
   const line = currentPlate.lines.find(l => l.id === lineId);
   if (line) {
@@ -899,7 +1137,7 @@ window.toggleLineVisibility = function(lineId) {
   }
 };
 
-window.deleteSavedLine = function(lineId) {
+window.deleteSavedFormingLine = function(lineId) {
   if (!currentPlate) return;
   currentPlate.lines = currentPlate.lines.filter(l => l.id !== lineId);
   if (activeLineId === lineId) {
@@ -911,49 +1149,55 @@ window.deleteSavedLine = function(lineId) {
 };
 
 function renderSavedPlatesList() {
-  const container = document.getElementById('plates-list-container');
+  const container = document.getElementById('f-plates-list-container');
   const plates = getSavedPlates();
   plates.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   container.innerHTML = '';
   if (plates.length === 0) {
-    container.innerHTML = '<p style="font-size:12px; color:#94a3b8; text-align:center; padding:14px;">No saved plates found. Select a plate from Viewer first.</p>';
+    container.innerHTML = '<p style="font-size:12px; color:#94a3b8; text-align:center; padding:14px;">No saved plates found.</p>';
     return;
   }
 
   plates.forEach(p => {
     const isCurrent = (currentPlate && currentPlate.id === p.id);
     const card = document.createElement('div');
-    card.className = 'list-card' + (isCurrent ? ' selected' : '');
+    card.className = 'f-list-card' + (isCurrent ? ' selected' : '');
     card.innerHTML = `
-      <div class="list-card-info" onclick="openSavedPlateById('${p.id}')">
-        <div class="list-card-title">${p.plateNo || 'Plate'} — ${p.name}</div>
-        <div class="list-card-sub">${(p.lines || []).length} saved lines • ${new Date(p.updatedAt).toLocaleDateString()}</div>
+      <div class="f-list-card-info" onclick="openSavedFormingPlateById('${p.id}')">
+        <div class="f-list-card-title">${p.plateNo || 'Plate'} — ${p.name}</div>
+        <div class="f-list-card-sub">${(p.lines || []).length} saved lines • ${new Date(p.updatedAt).toLocaleDateString()}</div>
       </div>
-      <div class="card-actions">
-        <button class="icon-btn primary" onclick="openSavedPlateById('${p.id}')">Open</button>
-        <button class="icon-btn danger" onclick="removeSavedPlate('${p.id}')">🗑️</button>
+      <div class="f-card-actions">
+        <button class="f-icon-btn primary" onclick="openSavedFormingPlateById('${p.id}')">Open</button>
+        <button class="f-icon-btn danger" onclick="removeSavedFormingPlate('${p.id}')">🗑️</button>
       </div>
     `;
     container.appendChild(card);
   });
 }
 
-window.openSavedPlateById = function(id) {
+window.openSavedFormingPlateById = function(id) {
   const target = getSavedPlates().find(p => p.id === id);
   if (target) {
     renderPlateFromRecord(target);
-    closeAllSheets();
+    closeAllFormingSheets();
   }
 };
 
-window.removeSavedPlate = function(id) {
+window.removeSavedFormingPlate = function(id) {
   deleteSavedPlateRecord(id);
   renderSavedPlatesList();
 };
 
 function setupUI() {
-  document.getElementById('btn-create-line').addEventListener('click', () => {
+  document.getElementById('f-btn-close-forming').addEventListener('click', () => {
+    document.getElementById('forming-studio-modal').style.display = 'none';
+    if (window.updateControlsLockState) window.updateControlsLockState();
+    else if (window.controls) window.controls.enabled = true;
+  });
+
+  document.getElementById('f-btn-create-line').addEventListener('click', () => {
     if (!currentPlate) return;
     if (mode === 'pick_start' || mode === 'pick_end') {
       setMode('view');
@@ -963,49 +1207,45 @@ function setupUI() {
     else setMode('pick_end');
   });
 
-  document.getElementById('btn-undo-pt').addEventListener('click', () => {
+  document.getElementById('f-btn-undo-pt').addEventListener('click', () => {
     tempStartPt = null;
-    while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
+    while (fTempPickGroup.children.length > 0) fTempPickGroup.remove(fTempPickGroup.children[0]);
     setMode('view', '↩ Start point cancelled.');
   });
 
-  document.getElementById('btn-toggle-table').addEventListener('click', () => {
-    document.getElementById('table-wrapper').classList.toggle('collapsed');
+  document.getElementById('f-btn-toggle-table').addEventListener('click', () => {
+    document.getElementById('f-table-wrapper').classList.toggle('collapsed');
   });
 
-  document.getElementById('btn-open-lines').addEventListener('click', () => {
+  document.getElementById('f-btn-open-lines').addEventListener('click', () => {
     renderLinesManager();
-    openSheet('sheet-lines');
+    openSheet('f-sheet-lines');
   });
 
-  document.getElementById('btn-open-plates').addEventListener('click', () => {
+  document.getElementById('f-btn-open-plates').addEventListener('click', () => {
     renderSavedPlatesList();
-    openSheet('sheet-plates');
-  });
-  document.getElementById('btn-welcome-saved').addEventListener('click', () => {
-    renderSavedPlatesList();
-    openSheet('sheet-plates');
+    openSheet('f-sheet-plates');
   });
 
-  document.getElementById('btn-open-save-plate').addEventListener('click', () => {
+  document.getElementById('f-btn-open-save-plate').addEventListener('click', () => {
     if (!currentPlate) return;
-    openSheet('sheet-save-plate');
+    openSheet('f-sheet-save-plate');
   });
 
-  document.getElementById('btn-confirm-save-plate').addEventListener('click', () => {
+  document.getElementById('f-btn-confirm-save-plate').addEventListener('click', () => {
     if (!currentPlate) return;
-    currentPlate.plateNo = document.getElementById('inp-plate-no').value.trim() || 'Plate';
-    currentPlate.name = document.getElementById('inp-plate-name').value.trim() || 'Shell Plate';
+    currentPlate.plateNo = document.getElementById('f-inp-plate-no').value.trim() || 'Plate';
+    currentPlate.name = document.getElementById('f-inp-plate-name').value.trim() || 'Shell Plate';
     currentPlate.updatedAt = Date.now();
     savePlateRecord(currentPlate);
-    document.getElementById('plate-badge').innerText = `${currentPlate.plateNo}: ${currentPlate.name}`;
-    closeAllSheets();
+    document.getElementById('f-plate-badge').innerText = `${currentPlate.plateNo}: ${currentPlate.name}`;
+    closeAllFormingSheets();
     setMode('view', `💾 Saved as ${currentPlate.plateNo}: ${currentPlate.name}`);
   });
 
-  document.getElementById('btn-open-settings').addEventListener('click', () => openSheet('sheet-settings'));
-  document.getElementById('btn-apply-settings').addEventListener('click', () => {
-    const val = parseFloat(document.getElementById('inp-pitch').value);
+  document.getElementById('f-btn-open-settings').addEventListener('click', () => openSheet('f-sheet-settings'));
+  document.getElementById('f-btn-apply-settings').addEventListener('click', () => {
+    const val = parseFloat(document.getElementById('f-inp-pitch').value);
     if (val >= 50) {
       divisionPitch = val;
       if (currentPlate && currentPlate.lines) {
@@ -1019,14 +1259,8 @@ function setupUI() {
         rebuildAllSavedLinesVisuals();
       }
     }
-    closeAllSheets();
+    closeAllFormingSheets();
   });
 
-  document.getElementById('modal-backdrop').addEventListener('click', closeAllSheets);
-}
-
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
+  document.getElementById('f-modal-backdrop').addEventListener('click', closeAllFormingSheets);
 }
