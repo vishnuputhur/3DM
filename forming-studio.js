@@ -1,127 +1,68 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════════════
-// 1. INDEXED-DB STORAGE (SHARED BETWEEN VIEWER & FORMING PAGE)
+// 1. ORIGINAL WORKING VIEWER TRANSFER BRIDGE
 // ═══════════════════════════════════════════════════════════
-const DB_NAME = 'VTSoftFormingDB';
-const STORE_NAME = 'plates';
-
-function openFormingDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbSavePlate(record) {
-  const db = await openFormingDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(record);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function dbGetAllPlates() {
-  const db = await openFormingDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbDeletePlate(id) {
-  const db = await openFormingDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(id);
-    tx.oncomplete = () => resolve(true);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-// ═══════════════════════════════════════════════════════════
-// 2. ORIGINAL VIEWER HANDOFF (NEVER HANGS ON LARGE PLATES)
-// ═══════════════════════════════════════════════════════════
-window.openDirectFormingStudio = async function(meshObj) {
+window.openDirectFormingStudio = function(meshObj) {
   if (!meshObj || !meshObj.geometry) {
-    alert('ദയവായി ഒരു ഷെൽ പ്ലേറ്റ് ആദ്യം സെലക്ട് ചെയ്യുക.');
+    alert('ദയവായി ഒരു പ്ലേറ്റ് സെലക്ട് ചെയ്യുക.');
     return;
   }
 
   meshObj.updateMatrixWorld(true);
-  let geom = meshObj.geometry.clone();
-  geom.applyMatrix4(meshObj.matrixWorld);
-  if (geom.index) geom = geom.toNonIndexed();
-
-  const posAttr = geom.attributes.position;
-  if (!posAttr || posAttr.array.length < 9) {
-    alert('തിരഞ്ഞെടുത്ത പ്ലേറ്റിന്റെ ജ്യാമിതി ശരിയല്ല.');
-    return;
-  }
-
-  const plateName = (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Shell Plate';
-  const plateNo = (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '';
-  const plateColor = (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8;
-  const vertsArray = Array.from(posAttr.array);
+  let g = meshObj.geometry.clone();
+  g.applyMatrix4(meshObj.matrixWorld);
+  if (g.index) g = g.toNonIndexed();
 
   const payload = {
-    name: plateName,
-    plateNo: plateNo,
-    color: plateColor,
-    vertices: vertsArray
+    name: (meshObj.userData && meshObj.userData.name) ? meshObj.userData.name : 'Selected Shell',
+    plateNo: (meshObj.userData && meshObj.userData.partNo) ? meshObj.userData.partNo : '',
+    color: (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8,
+    vertices: Array.from(g.attributes.position.array)
   };
 
-  // 1. Save into IndexedDB first (handles huge meshes without 5MB localStorage limit)
-  try {
-    const existing = await dbGetAllPlates();
-    const match = existing.find(p => p.name === plateName && p.vertices && p.vertices.length === vertsArray.length);
-    const activeId = match ? match.id : ('plate_' + Date.now());
-
-    const record = match ? {
-      ...match,
-      updatedAt: Date.now()
-    } : {
-      id: activeId,
-      plateNo: plateNo || ('P-' + (existing.length + 1)),
-      name: plateName,
-      color: plateColor,
-      vertices: vertsArray,
-      lines: [],
-      updatedAt: Date.now()
-    };
-
-    await dbSavePlate(record);
-    localStorage.setItem('vt_active_forming_id', activeId);
-  } catch (dbErr) {
-    console.warn('IndexedDB save fallback:', dbErr);
-  }
-
-  // 2. Also keep original localStorage keys for backward compatibility
-  try {
-    const jsonStr = JSON.stringify(payload);
-    localStorage.setItem('vt_forming_plate_data', jsonStr);
-    localStorage.setItem('active_forming_part', jsonStr);
-  } catch (lsErr) {
-    // Ignore QuotaExceededError if plate is huge; IndexedDB already has it!
-  }
-
-  // 3. Navigate cleanly to forming.html
+  const jsonStr = JSON.stringify(payload);
+  localStorage.setItem('vt_forming_plate_data', jsonStr);
+  localStorage.setItem('active_forming_part', jsonStr);
   window.location.href = 'forming.html';
 };
 
 // ═══════════════════════════════════════════════════════════
-// 3. FORMING STUDIO 3D ENGINE (RUNS ON forming.html)
+// 2. SIMPLE LOCALSTORAGE SAVED PLATES & LINES REPOSITORY
+// ═══════════════════════════════════════════════════════════
+const SAVED_PLATES_KEY = 'vt_forming_saved_plates_v1';
+
+function getSavedPlates() {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_PLATES_KEY) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function savePlateRecord(record) {
+  try {
+    const list = getSavedPlates();
+    const idx = list.findIndex(p => p.id === record.id);
+    if (idx !== -1) list[idx] = record;
+    else list.unshift(record);
+    localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.warn('Storage full:', e);
+    return false;
+  }
+}
+
+function deleteSavedPlateRecord(id) {
+  try {
+    const list = getSavedPlates().filter(p => p.id !== id);
+    localStorage.setItem(SAVED_PLATES_KEY, JSON.stringify(list));
+  } catch (e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+// 3. FORMING STUDIO 3D ENGINE
 // ═══════════════════════════════════════════════════════════
 let scene, camera, renderer, controls;
 let plateMesh = null;
@@ -139,15 +80,16 @@ let tempStartPt = null;
 let divisionPitch = 200;
 let activeLineId = null;
 
-function initFormingStudioPage() {
+function init() {
   const container = document.getElementById('canvas-container');
-  if (!container) return; // Only run on forming.html
+  if (!container) return; // Only run when on forming.html
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x090d16);
 
   camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
   camera.up.set(0, 0, 1);
+  camera.position.set(2500, -2500, 2000);
 
   renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -158,26 +100,21 @@ function initFormingStudioPage() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-  const d1 = new THREE.DirectionalLight(0xffffff, 0.85);
-  d1.position.set(5000, -5000, 8000);
-  scene.add(d1);
-  const d2 = new THREE.DirectionalLight(0xffffff, 0.45);
-  d2.position.set(-5000, 5000, -6000);
-  scene.add(d2);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  dirLight.position.set(5000, -5000, 7000);
+  scene.add(dirLight);
+  const backLight = new THREE.DirectionalLight(0xffffff, 0.45);
+  backLight.position.set(-5000, 5000, -6000);
+  scene.add(backLight);
 
   scene.add(linesVisualGroup);
   scene.add(tempPickGroup);
 
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
+  window.addEventListener('resize', onResize);
   setupInteractions();
   setupUI();
-  bootPlateLoader();
+  loadPlateData();
   animate();
 }
 
@@ -188,68 +125,67 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
 // ═══════════════════════════════════════════════════════════
-// 4. BOOT: LOAD PLATE FROM VIEWER OR SAVED LIBRARY
+// 4. EXACT ORIGINAL DUAL-STORAGE PLATE LOADER
 // ═══════════════════════════════════════════════════════════
-async function bootPlateLoader() {
-  const activeId = localStorage.getItem('vt_active_forming_id');
-  const rawRedirect = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
+function loadPlateData() {
+  let raw = localStorage.getItem('vt_forming_plate_data') || localStorage.getItem('active_forming_part');
 
-  // Clear one-time redirect flags after reading
-  localStorage.removeItem('vt_active_forming_id');
-  localStorage.removeItem('vt_forming_plate_data');
-  localStorage.removeItem('active_forming_part');
-
-  const allPlates = await dbGetAllPlates();
-
-  // Case A: Opened directly from index.html via IndexedDB ID
-  if (activeId) {
-    const target = allPlates.find(p => p.id === activeId);
-    if (target) {
-      loadPlateRecord(target);
-      return;
+  if (!raw) {
+    const saved = getSavedPlates();
+    if (saved.length > 0) {
+      renderPlateFromRecord(saved[0]);
+    } else {
+      document.getElementById('plate-badge').innerText = 'No Plate';
+      document.getElementById('welcome-card').classList.remove('hidden');
     }
+    return;
   }
 
-  // Case B: Opened from index.html via original localStorage keys
-  if (rawRedirect) {
-    try {
-      const parsed = JSON.parse(rawRedirect);
-      const match = allPlates.find(p => p.name === parsed.name && p.vertices.length === parsed.vertices.length);
-      if (match) {
-        loadPlateRecord(match);
-      } else {
-        const newRec = {
-          id: 'plate_' + Date.now(),
-          plateNo: parsed.plateNo || 'P-' + (allPlates.length + 1),
-          name: parsed.name || 'Shell Plate',
-          color: parsed.color !== undefined ? parsed.color : 0x38bdf8,
-          vertices: Array.from(parsed.vertices),
-          lines: [],
-          updatedAt: Date.now()
-        };
-        await dbSavePlate(newRec);
-        loadPlateRecord(newRec);
-      }
-      return;
-    } catch (e) {
-      console.error('Error parsing redirected plate:', e);
-    }
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    alert('ഡാറ്റ വായിച്ചെടുക്കുന്നതിൽ പിഴവ് സംഭവിച്ചു.');
+    return;
   }
 
-  // Case C: Direct link visit to forming.html -> load most recent saved plate
-  if (allPlates.length > 0) {
-    allPlates.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    loadPlateRecord(allPlates[0]);
+  let verts = data.vertices;
+  if (!verts || verts.length < 9) {
+    alert('പ്ലേറ്റിന്റെ കോർഡിനേറ്റ്സ് ശരിയായ രീതിയിലല്ല.');
+    return;
+  }
+
+  const saved = getSavedPlates();
+  const existing = saved.find(p => p.name === (data.name || 'Selected Shell') && p.vertices && p.vertices.length === verts.length);
+
+  if (existing) {
+    renderPlateFromRecord(existing);
   } else {
-    document.getElementById('welcome-card').classList.remove('hidden');
+    const newRecord = {
+      id: 'plate_' + Date.now(),
+      plateNo: data.plateNo || ('P-' + (saved.length + 1)),
+      name: data.name || 'Selected Shell',
+      color: (data.color !== undefined) ? data.color : 0x38bdf8,
+      vertices: Array.isArray(verts) ? verts : Array.from(verts),
+      lines: [],
+      updatedAt: Date.now()
+    };
+    savePlateRecord(newRecord);
+    renderPlateFromRecord(newRecord);
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-// 5. LOAD PLATE + COLOR TOP (NEON GREEN) & FORWARD (YELLOW) EDGES
+// 5. BUILD 3D MESH + TOP (NEON GREEN) & FORWARD (YELLOW) EDGES
 // ═══════════════════════════════════════════════════════════
-function loadPlateRecord(record) {
+function renderPlateFromRecord(record) {
   document.getElementById('welcome-card').classList.add('hidden');
   currentPlate = record;
   tempStartPt = null;
@@ -259,21 +195,21 @@ function loadPlateRecord(record) {
   while (linesVisualGroup.children.length > 0) linesVisualGroup.remove(linesVisualGroup.children[0]);
   while (tempPickGroup.children.length > 0) tempPickGroup.remove(tempPickGroup.children[0]);
 
-  document.getElementById('plate-badge').innerText = `${record.plateNo}: ${record.name}`;
+  document.getElementById('plate-badge').innerText = record.name || 'Selected Shell';
   document.getElementById('inp-plate-no').value = record.plateNo || '';
   document.getElementById('inp-plate-name').value = record.name || '';
 
-  const floatArr = new Float32Array(record.vertices);
+  const floatArr = (record.vertices instanceof Float32Array) ? record.vertices : new Float32Array(record.vertices);
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.BufferAttribute(floatArr, 3));
   geom.computeVertexNormals();
 
-  classifyAndColorPlateEdges(geom, record.color || 0x38bdf8);
+  classifyAndColorPlateEdges(geom, (record.color !== undefined) ? record.color : 0x38bdf8);
 
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.38,
-    metalness: 0.22,
+    roughness: 0.35,
+    metalness: 0.25,
     side: THREE.DoubleSide
   });
 
@@ -283,11 +219,11 @@ function loadPlateRecord(record) {
   geom.computeBoundingBox();
   const bbox = geom.boundingBox;
   const center = bbox.getCenter(new THREE.Vector3());
+  controls.target.copy(center);
+
   const size = bbox.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z) || 1000;
-
-  controls.target.copy(center);
-  camera.position.set(center.x + maxDim * 0.7, center.y - maxDim * 0.7, center.z + maxDim * 0.8);
+  camera.position.set(center.x + maxDim * 0.8, center.y - maxDim * 0.8, center.z + maxDim * 0.7);
   controls.update();
 
   if (currentPlate.lines && currentPlate.lines.length > 0) {
@@ -329,7 +265,7 @@ function classifyAndColorPlateEdges(geom, baseHex) {
 
     const n = new THREE.Vector3(norm[idx], norm[idx + 1], norm[idx + 2]).normalize();
     const centroid = new THREE.Vector3().add(a).add(b).add(c).multiplyScalar(1 / 3);
-    tris.push({ i, area, n, centroid, a: a.clone(), b: b.clone(), c: c.clone(), isEdge: false });
+    tris.push({ i, area, n, centroid, a: a.clone(), b: b.clone(), c: c.clone() });
   }
 
   const broadNormal = new THREE.Vector3();
@@ -341,13 +277,7 @@ function classifyAndColorPlateEdges(geom, baseHex) {
   });
   broadNormal.normalize();
 
-  const edgeTris = [];
-  tris.forEach(t => {
-    if (Math.abs(t.n.dot(broadNormal)) < 0.45) {
-      t.isEdge = true;
-      edgeTris.push(t);
-    }
-  });
+  const edgeTris = tris.filter(t => Math.abs(t.n.dot(broadNormal)) < 0.45);
 
   const clusters = [];
   edgeTris.forEach(t => {
@@ -471,7 +401,6 @@ function calculateLineSquareMeasurements(startVec, endVec, pitch) {
   const midPt = new THREE.Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
   const plateNormal = estimatePlateNormalNear(midPt);
 
-  // Exact 90° Square direction perpendicular to the String Line toward the plate surface
   const sqDir = plateNormal.clone().addScaledVector(lineDir, -plateNormal.dot(lineDir));
   if (sqDir.lengthSq() < 0.0001) sqDir.copy(plateNormal);
   sqDir.normalize();
@@ -733,7 +662,7 @@ function setupInteractions() {
   let lastX = 0, lastY = 0;
   let pendingPt = null;
 
-  async function handleReleasePick() {
+  function handleReleasePick() {
     if (!isPickingDrag) return;
     isPickingDrag = false;
     document.getElementById('magnifier').style.display = 'none';
@@ -780,7 +709,7 @@ function setupInteractions() {
       activeLineId = newLine.id;
       tempStartPt = null;
 
-      await dbSavePlate(currentPlate);
+      savePlateRecord(currentPlate);
       rebuildAllSavedLinesVisuals();
 
       document.getElementById('table-wrapper').classList.remove('collapsed');
@@ -898,44 +827,43 @@ function renderLinesManager() {
   });
 }
 
-window.selectSavedLine = async function(lineId) {
+window.selectSavedLine = function(lineId) {
   if (!currentPlate) return;
   activeLineId = lineId;
   const line = currentPlate.lines.find(l => l.id === lineId);
   if (line) line.visible = true;
-  await dbSavePlate(currentPlate);
+  savePlateRecord(currentPlate);
   rebuildAllSavedLinesVisuals();
   document.getElementById('table-wrapper').classList.remove('collapsed');
   closeAllSheets();
 };
 
-window.toggleLineVisibility = async function(lineId) {
+window.toggleLineVisibility = function(lineId) {
   if (!currentPlate) return;
   const line = currentPlate.lines.find(l => l.id === lineId);
   if (line) {
     line.visible = !line.visible;
     if (line.visible) activeLineId = line.id;
-    await dbSavePlate(currentPlate);
+    savePlateRecord(currentPlate);
     rebuildAllSavedLinesVisuals();
     renderLinesManager();
   }
 };
 
-window.deleteSavedLine = async function(lineId) {
+window.deleteSavedLine = function(lineId) {
   if (!currentPlate) return;
   currentPlate.lines = currentPlate.lines.filter(l => l.id !== lineId);
   if (activeLineId === lineId) {
     activeLineId = currentPlate.lines.length > 0 ? currentPlate.lines[currentPlate.lines.length - 1].id : null;
   }
-  await dbSavePlate(currentPlate);
+  savePlateRecord(currentPlate);
   rebuildAllSavedLinesVisuals();
   renderLinesManager();
 };
 
-async function renderSavedPlatesList() {
+function renderSavedPlatesList() {
   const container = document.getElementById('plates-list-container');
-  container.innerHTML = '<p style="font-size:12px; color:#94a3b8;">Loading saved plates...</p>';
-  const plates = await dbGetAllPlates();
+  const plates = getSavedPlates();
   plates.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   container.innerHTML = '';
@@ -962,17 +890,16 @@ async function renderSavedPlatesList() {
   });
 }
 
-window.openSavedPlateById = async function(id) {
-  const plates = await dbGetAllPlates();
-  const target = plates.find(p => p.id === id);
+window.openSavedPlateById = function(id) {
+  const target = getSavedPlates().find(p => p.id === id);
   if (target) {
-    loadPlateRecord(target);
+    renderPlateFromRecord(target);
     closeAllSheets();
   }
 };
 
-window.removeSavedPlate = async function(id) {
-  await dbDeletePlate(id);
+window.removeSavedPlate = function(id) {
+  deleteSavedPlateRecord(id);
   renderSavedPlatesList();
 };
 
@@ -1016,19 +943,19 @@ function setupUI() {
     openSheet('sheet-save-plate');
   });
 
-  document.getElementById('btn-confirm-save-plate').addEventListener('click', async () => {
+  document.getElementById('btn-confirm-save-plate').addEventListener('click', () => {
     if (!currentPlate) return;
     currentPlate.plateNo = document.getElementById('inp-plate-no').value.trim() || 'Plate';
     currentPlate.name = document.getElementById('inp-plate-name').value.trim() || 'Shell Plate';
     currentPlate.updatedAt = Date.now();
-    await dbSavePlate(currentPlate);
+    savePlateRecord(currentPlate);
     document.getElementById('plate-badge').innerText = `${currentPlate.plateNo}: ${currentPlate.name}`;
     closeAllSheets();
     setMode('view', `💾 Saved as ${currentPlate.plateNo}: ${currentPlate.name}`);
   });
 
   document.getElementById('btn-open-settings').addEventListener('click', () => openSheet('sheet-settings'));
-  document.getElementById('btn-apply-settings').addEventListener('click', async () => {
+  document.getElementById('btn-apply-settings').addEventListener('click', () => {
     const val = parseFloat(document.getElementById('inp-pitch').value);
     if (val >= 50) {
       divisionPitch = val;
@@ -1039,7 +966,7 @@ function setupUI() {
           const calc = calculateLineSquareMeasurements(sVec, eVec, divisionPitch);
           line.stations = calc.stations;
         });
-        await dbSavePlate(currentPlate);
+        savePlateRecord(currentPlate);
         rebuildAllSavedLinesVisuals();
       }
     }
@@ -1049,4 +976,4 @@ function setupUI() {
   document.getElementById('modal-backdrop').addEventListener('click', closeAllSheets);
 }
 
-window.addEventListener('DOMContentLoaded', initFormingStudioPage);
+window.addEventListener('DOMContentLoaded', init);
