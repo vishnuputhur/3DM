@@ -32,7 +32,7 @@
       font-weight: 600; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    /* Status Banner (Non-Overlapping) */
+    /* Status Banner */
     .sub-hud-row {
       position: absolute; top: 56px; left: 8px; right: 8px;
       display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
@@ -68,7 +68,7 @@
       padding: 10px; overflow-y: auto; pointer-events: auto;
       box-shadow: -4px 4px 18px rgba(0,0,0,0.55);
     }
-    .m-sec-title { font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .m-sec-title { font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
     .trace-box {
       background: #090d16; border: 1px solid #1e293b; border-radius: 8px;
       padding: 7px 8px; margin-bottom: 8px; font-size: 10px; line-height: 1.45;
@@ -139,7 +139,7 @@
         linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%);
     }
 
-    /* Bottom / Side Modals (Lines Manager, Saved Plates, Settings) */
+    /* Bottom / Side Modals */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 30; display: none; }
     .modal-backdrop.open { display: block; }
     .sheet-drawer {
@@ -183,7 +183,6 @@
     .input-group input { width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
     .btn-full { width: 100%; padding: 10px; border: none; border-radius: 8px; background: #0284c7; color: #fff; font-weight: 700; font-size: 12px; cursor: pointer; }
 
-    /* Empty Landing State */
     .welcome-card {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-radius: 16px;
@@ -204,20 +203,20 @@
       <h1>📐 Forming Studio</h1>
     </div>
     <div class="top-right">
-      <span class="plate-tag" id="plate-badge">No Plate</span>
+      <span class="plate-tag" id="plate-badge">Plate</span>
       <button class="btn-top btn-save-plate" id="btn-open-save-plate">💾 Save</button>
     </div>
   </div>
 
   <!-- Mode Status Banner -->
   <div class="sub-hud-row">
-    <div class="mode-banner" id="mode-banner">🔍 Zoom plate or open Saved Plates</div>
+    <div class="mode-banner" id="mode-banner">🔍 Zoom plate or tap "Create Line"</div>
   </div>
 
   <!-- Welcome / Direct Access Card -->
   <div class="welcome-card hidden" id="welcome-card">
     <h2>📐 Shell Forming Studio</h2>
-    <p>Select a previously saved shell plate below, or open a plate from the 3D Viewer.</p>
+    <p>No active plate from Viewer. Open a previously saved shell plate below or go back to Viewer.</p>
     <button class="btn-full" id="btn-welcome-saved">📂 Open Saved Plates</button>
   </div>
 
