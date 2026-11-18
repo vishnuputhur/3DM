@@ -1,7 +1,7 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════════════
-// MOBILE-FIRST 4-CORNER STRING-LINE FORMING STUDIO (OVERLAY)
+// MOBILE-FIRST 4-CORNER EXACT MESH & MAGNIFIER FORMING STUDIO
 // ═══════════════════════════════════════════════════════════
 
 let fScene, fCamera, fRenderer, fControls;
@@ -14,8 +14,9 @@ let formingStudioInitialized = false;
 
 // Interaction state: 'measure' | 'corners'
 let fMode = 'measure';
-let fManualCorners = []; // Up to 4 THREE.Vector3 points
+let fManualCorners = []; // Exact 4 corners picked by user
 let fHtmlLabels = [];
+let fPlaneOffset = 0;
 
 let cornerData = {
   C1: new THREE.Vector3(),
@@ -27,12 +28,11 @@ let cornerData = {
   vDir: new THREE.Vector3(),
   nDir: new THREE.Vector3(),
   length: 0,
-  width: 0,
-  planeOrigin: new THREE.Vector3()
+  width: 0
 };
 
 // ═══════════════════════════════════════════════════════════
-// 1. INJECT MOBILE-OPTIMIZED MODAL UI & STYLES
+// 1. INJECT UI, SIDE OFFSET CONTROL & MAGNIFIER LOUPE
 // ═══════════════════════════════════════════════════════════
 function buildFormingModalDOM() {
   if (!document.getElementById('vt-forming-styles')) {
@@ -72,6 +72,32 @@ function buildFormingModalDOM() {
         backdrop-filter: blur(6px);
       }
 
+      /* Side Vertical Plane Offset Bar */
+      .f-side-offset-panel {
+        position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+        background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
+        border: 1px solid #334155; border-radius: 12px; padding: 8px 6px;
+        z-index: 15; display: flex; flex-direction: column; align-items: center; gap: 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      }
+      .f-side-offset-panel.hidden { display: none; }
+      .f-offset-title { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; writing-mode: horizontal-tb; text-align: center; }
+      .f-offset-val { font-size: 11px; font-weight: 800; color: #facc15; font-family: monospace; }
+      .f-offset-step-btn {
+        width: 28px; height: 28px; border-radius: 6px; border: 1px solid #334155;
+        background: #1e293b; color: #fff; font-size: 15px; font-weight: 800;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+      }
+      .f-offset-step-btn:active { background: #0284c7; }
+      .f-vertical-slider-wrap {
+        height: 110px; width: 28px; display: flex; align-items: center; justify-content: center;
+      }
+      #f-side-offset-slider {
+        width: 105px; height: 6px; transform: rotate(-90deg);
+        accent-color: #0284c7; cursor: pointer;
+      }
+
+      /* Compact Probe HUD */
       .f-probe-hud {
         position: absolute; top: 56px; right: 10px;
         background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);
@@ -90,6 +116,7 @@ function buildFormingModalDOM() {
       .f-probe-grid span { color: #94a3b8; }
       .f-probe-grid b { color: #38bdf8; float: right; }
 
+      /* Bottom Mobile Action Bar */
       .f-bottom-dock {
         position: absolute; bottom: 14px; left: 10px; right: 10px;
         display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; z-index: 15;
@@ -104,6 +131,44 @@ function buildFormingModalDOM() {
       .f-dock-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
       .f-dock-btn.corner-active { background: #059669; border-color: #34d399; color: #fff; }
 
+      /* Magnifier Loupe */
+      #f-magnifier {
+        position: fixed; width: 116px; height: 116px; border-radius: 50%;
+        border: 3px solid #38bdf8; box-shadow: 0 8px 25px rgba(0,0,0,0.75), inset 0 0 10px rgba(0,0,0,0.5);
+        pointer-events: none; z-index: 40; display: none; overflow: hidden;
+        background: #090d16; transform: translate(-50%, -125%);
+      }
+      #f-magnifier canvas { width: 100%; height: 100%; display: block; }
+      #f-magnifier::after {
+        content: ''; position: absolute; inset: 0;
+        background:
+          linear-gradient(to right, transparent 49%, rgba(250,204,21,0.85) 49.5%, rgba(250,204,21,0.85) 50.5%, transparent 51%),
+          linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.85) 49.5%, rgba(250,204,21,0.85) 50.5%, transparent 51%);
+      }
+
+      /* Offset Arrow Corner Callout Labels */
+      .f-corner-callout {
+        position: absolute; pointer-events: none; z-index: 12;
+        display: flex; align-items: center; transform: translate(6px, -22px);
+      }
+      .f-callout-arrow {
+        width: 14px; height: 1.5px; background: #10b981;
+        transform: rotate(-35deg); transform-origin: left center; margin-right: 2px;
+      }
+      .f-callout-tag {
+        background: rgba(5, 150, 105, 0.92); color: #fff; border: 1px solid #a7f3d0;
+        padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 800;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      }
+
+      .f-edge-label {
+        position: absolute; background: rgba(9, 13, 22, 0.85); color: #facc15;
+        border: 1px solid #10b981; padding: 1px 5px; border-radius: 4px;
+        font-size: 10px; font-family: monospace; font-weight: 700;
+        pointer-events: none; transform: translate(-50%, -50%); z-index: 11; white-space: nowrap;
+      }
+
+      /* Settings Drawer */
       .f-drawer-backdrop {
         position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 25; display: none;
       }
@@ -120,9 +185,9 @@ function buildFormingModalDOM() {
 
       @media (min-width: 768px) {
         .f-settings-drawer {
-          left: 12px; right: auto; bottom: auto; top: 62px;
+          left: 65px; right: auto; bottom: auto; top: 62px;
           width: 345px; border-radius: 14px; border: 1px solid #334155;
-          transform: translateX(-120%);
+          transform: translateX(-130%);
         }
         .f-settings-drawer.open { transform: translateX(0); }
       }
@@ -138,7 +203,6 @@ function buildFormingModalDOM() {
       }
       .f-input-group { margin-bottom: 12px; }
       .f-input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: #94a3b8; }
-      .f-input-group input[type="range"] { width: 100%; accent-color: #0284c7; height: 24px; }
       .f-input-group input[type="number"], .f-input-group select {
         width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155;
         border-radius: 8px; color: #fff; font-size: 13px; outline: none; font-family: monospace;
@@ -162,17 +226,9 @@ function buildFormingModalDOM() {
         border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700;
       }
 
-      .f-label-3d {
-        position: absolute; background: rgba(9, 13, 22, 0.88); color: #facc15;
-        border: 1px solid #10b981; padding: 2px 6px; border-radius: 4px;
-        font-size: 10px; font-family: monospace; font-weight: 700;
-        pointer-events: none; transform: translate(-50%, -50%); z-index: 12; white-space: nowrap;
-      }
-      .f-label-3d.corner-tag { background: #059669; color: #fff; border-color: #fff; }
-
       #f-touch-pin {
-        position: absolute; width: 14px; height: 14px; border-radius: 50%;
-        border: 2px solid #facc15; background: rgba(250, 204, 21, 0.45);
+        position: absolute; width: 12px; height: 12px; border-radius: 50%;
+        border: 2px solid #facc15; background: rgba(250, 204, 21, 0.5);
         transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 13;
       }
     `;
@@ -196,11 +252,23 @@ function buildFormingModalDOM() {
     </div>
 
     <div class="f-mode-banner" id="f-mode-banner">
-      📏 Tap plate to measure drop & edge distances
+      📍 Pick 4 corners to build sight mesh
     </div>
 
+    <!-- Side Plane Offset Control -->
+    <div class="f-side-offset-panel" id="f-side-offset-panel">
+      <div class="f-offset-title">Offset</div>
+      <div class="f-offset-val" id="f-side-offset-val">0mm</div>
+      <button class="f-offset-step-btn" id="f-btn-offset-up">+</button>
+      <div class="f-vertical-slider-wrap">
+        <input type="range" id="f-side-offset-slider" min="0" max="500" value="0" step="5" />
+      </div>
+      <button class="f-offset-step-btn" id="f-btn-offset-down">−</button>
+    </div>
+
+    <!-- Probe HUD -->
     <div class="f-probe-hud" id="f-probe-hud">
-      <div class="f-probe-label">String Drop Depth</div>
+      <div class="f-probe-label">Plane Drop Depth</div>
       <div class="f-probe-val" id="f-probe-depth">0.0 mm</div>
       <div class="f-probe-grid">
         <div><span>Left:</span> <b id="f-dist-left">-</b></div>
@@ -210,12 +278,15 @@ function buildFormingModalDOM() {
       </div>
     </div>
 
+    <!-- Magnifier Loupe -->
+    <div id="f-magnifier"><canvas id="f-mag-canvas" width="116" height="116"></canvas></div>
+
     <div id="f-labels-layer"></div>
     <div id="f-touch-pin"></div>
 
     <div class="f-bottom-dock">
-      <button class="f-dock-btn active" id="f-btn-mode-measure">📏 Measure</button>
-      <button class="f-dock-btn" id="f-btn-mode-corners">📍 Pick 4 Corners</button>
+      <button class="f-dock-btn" id="f-btn-mode-measure">📏 Measure</button>
+      <button class="f-dock-btn corner-active" id="f-btn-mode-corners">📍 Pick 4 Corners</button>
       <button class="f-dock-btn" id="f-btn-toggle-hud">👁️ Hide HUD</button>
       <button class="f-dock-btn" id="f-btn-open-settings">⚙️ Settings / DXF</button>
     </div>
@@ -231,16 +302,8 @@ function buildFormingModalDOM() {
         <label>Corner Selection Tools</label>
         <div class="f-btn-row">
           <button class="f-btn f-btn-secondary" id="f-btn-undo-corner">↩ Undo Corner</button>
-          <button class="f-btn f-btn-danger" id="f-btn-auto-corners">🔄 Auto 4 Corners</button>
+          <button class="f-btn f-btn-danger" id="f-btn-clear-corners">🗑️ Clear All</button>
         </div>
-      </div>
-
-      <div class="f-input-group">
-        <div style="display:flex; justify-content:space-between;">
-          <label>String Plane Lift from Corners (mm)</label>
-          <span id="f-lbl-lift-val" style="font-size:11px; color:#38bdf8; font-weight:700;">0 mm</span>
-        </div>
-        <input type="range" id="f-inp-lift" min="0" max="500" value="0" step="5" />
       </div>
 
       <div class="f-input-group">
@@ -263,7 +326,7 @@ function buildFormingModalDOM() {
 
       <div class="f-btn-row">
         <button class="f-btn f-btn-primary" id="f-btn-slice-plates">⚡ Update Templates</button>
-        <button class="f-btn f-btn-secondary" id="f-btn-toggle-datum">🌐 Plane On/Off</button>
+        <button class="f-btn f-btn-secondary" id="f-btn-toggle-datum">🌐 Mesh On/Off</button>
       </div>
 
       <div style="margin-top:16px; border-top:1px solid #1e293b; padding-top:12px;">
@@ -277,7 +340,7 @@ function buildFormingModalDOM() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 2. INITIALIZE THREE.JS OVERLAY SCENE
+// 2. INITIALIZE THREE.JS SCENE
 // ═══════════════════════════════════════════════════════════
 function initFormingOverlay() {
   buildFormingModalDOM();
@@ -289,7 +352,7 @@ function initFormingOverlay() {
   fCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 500000);
   fCamera.up.set(0, 0, 1);
 
-  fRenderer = new THREE.WebGLRenderer({ antialias: true });
+  fRenderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   fRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   fRenderer.setSize(window.innerWidth, window.innerHeight);
   container.appendChild(fRenderer.domElement);
@@ -333,7 +396,7 @@ function initFormingOverlay() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 3. OPEN FORMING STUDIO ENTRY POINT (CALLED FROM VIEWER)
+// 3. OPEN FORMING STUDIO (NO RANDOM AUTO-MESH ON START)
 // ═══════════════════════════════════════════════════════════
 window.openDirectFormingStudio = function(meshObj) {
   if (!formingStudioInitialized) {
@@ -342,13 +405,20 @@ window.openDirectFormingStudio = function(meshObj) {
 
   const modal = document.getElementById('forming-studio-modal');
   modal.style.display = 'block';
-
   if (window.controls) window.controls.enabled = false;
 
+  // Clear previous state completely
   if (fPlateMesh) { fScene.remove(fPlateMesh); fPlateMesh = null; }
+  if (fDatumPlane) { fScene.remove(fDatumPlane); fDatumPlane = null; }
   while (fTemplateGroup.children.length > 0) fTemplateGroup.remove(fTemplateGroup.children[0]);
   while (fStringGroup.children.length > 0) fStringGroup.remove(fStringGroup.children[0]);
   while (fProbeGroup.children.length > 0) fProbeGroup.remove(fProbeGroup.children[0]);
+
+  fManualCorners = [];
+  fPlaneOffset = 0;
+  document.getElementById('f-side-offset-slider').value = 0;
+  document.getElementById('f-side-offset-val').innerText = '0mm';
+  document.getElementById('f-touch-pin').style.display = 'none';
 
   meshObj.updateMatrixWorld(true);
   let g = meshObj.geometry.clone();
@@ -365,76 +435,36 @@ window.openDirectFormingStudio = function(meshObj) {
 
   document.getElementById('f-plate-badge').innerText = meshObj.userData.name || 'Ship Shell Plate';
 
-  autoDetectPlateCorners(g);
-  applyFormingCorners(fManualCorners);
-  setFormingMode('measure');
+  g.computeBoundingBox();
+  const bbox = g.boundingBox;
+  const center = bbox.getCenter(new THREE.Vector3());
+  const size = bbox.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1000;
 
-  fControls.target.copy(cornerData.center);
-  const d = Math.max(cornerData.length, cornerData.width) * 1.45;
-  fCamera.position.copy(cornerData.center)
-    .addScaledVector(cornerData.nDir, d * 0.9)
-    .addScaledVector(cornerData.vDir, -d * 0.5);
+  fControls.target.copy(center);
+  fCamera.position.set(center.x + maxDim * 0.7, center.y - maxDim * 0.7, center.z + maxDim * 0.8);
   fCamera.up.set(0, 0, 1);
   fControls.update();
 
   fRenderer.setSize(window.innerWidth, window.innerHeight);
   fCamera.aspect = window.innerWidth / window.innerHeight;
   fCamera.updateProjectionMatrix();
+
+  // Start directly in Pick 4 Corners mode so user creates exact mesh from 4 corners
+  setFormingMode('corners');
 };
 
 // ═══════════════════════════════════════════════════════════
-// 4. AUTO & MANUAL 4-CORNER STRING LINE LOGIC
+// 4. EXACT 4-CORNER BILINEAR MESH & STRING LINES
 // ═══════════════════════════════════════════════════════════
-function autoDetectPlateCorners(geom) {
-  const pos = geom.attributes.position.array;
-  const count = pos.length / 3;
-
-  const center = new THREE.Vector3();
-  for (let i = 0; i < count; i++) {
-    center.x += pos[i * 3];
-    center.y += pos[i * 3 + 1];
-    center.z += pos[i * 3 + 2];
-  }
-  center.divideScalar(count);
-
-  let maxD2 = 0;
-  let c1 = new THREE.Vector3(), c3 = new THREE.Vector3();
-  const step = Math.max(1, Math.floor(count / 200));
-
-  for (let i = 0; i < count; i += step) {
-    const pA = new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
-    for (let j = i + 1; j < count; j += step) {
-      const pB = new THREE.Vector3(pos[j * 3], pos[j * 3 + 1], pos[j * 3 + 2]);
-      const d2 = pA.distanceToSquared(pB);
-      if (d2 > maxD2) { maxD2 = d2; c1.copy(pA); c3.copy(pB); }
-    }
-  }
-
-  const diagLine = new THREE.Line3(c1, c3);
-  const tempClose = new THREE.Vector3();
-  const diagDir = new THREE.Vector3().subVectors(c3, c1).normalize();
-  const refUp = Math.abs(diagDir.z) > 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
-  const sideVec = new THREE.Vector3().crossVectors(diagDir, refUp).normalize();
-
-  let maxSideA = 0, maxSideB = 0;
-  let c2 = new THREE.Vector3(), c4 = new THREE.Vector3();
-
-  for (let i = 0; i < count; i++) {
-    const pt = new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
-    diagLine.closestPointToPoint(pt, false, tempClose);
-    const toPt = new THREE.Vector3().subVectors(pt, tempClose);
-    const dist = toPt.length();
-    if (toPt.dot(sideVec) >= 0 && dist > maxSideA) { maxSideA = dist; c2.copy(pt); }
-    else if (toPt.dot(sideVec) < 0 && dist > maxSideB) { maxSideB = dist; c4.copy(pt); }
-  }
-
-  cornerData.center.copy(center);
-  fManualCorners = [c1, c2, c3, c4];
-}
-
 function applyFormingCorners(corners) {
-  drawCornerStringLines(corners);
-  if (corners.length < 4) return;
+  if (fDatumPlane) { fScene.remove(fDatumPlane); fDatumPlane = null; }
+  while (fTemplateGroup.children.length > 0) fTemplateGroup.remove(fTemplateGroup.children[0]);
+
+  if (corners.length < 4) {
+    drawCornerPinsAndStrings(corners, 0);
+    return;
+  }
 
   const [c1, c2, c3, c4] = corners;
   cornerData.C1.copy(c1);
@@ -443,21 +473,84 @@ function applyFormingCorners(corners) {
   cornerData.C4.copy(c4);
 
   cornerData.center.copy(c1).add(c2).add(c3).add(c4).multiplyScalar(0.25);
-  cornerData.uDir.subVectors(c2, c1).normalize();
-  cornerData.vDir.subVectors(c4, c1).normalize();
+
+  // Average direction vectors from the 4 picked corners
+  const u1 = new THREE.Vector3().subVectors(c2, c1);
+  const u2 = new THREE.Vector3().subVectors(c3, c4);
+  cornerData.uDir.copy(u1).add(u2).normalize();
+
+  const v1 = new THREE.Vector3().subVectors(c4, c1);
+  const v2 = new THREE.Vector3().subVectors(c3, c2);
+  cornerData.vDir.copy(v1).add(v2).normalize();
 
   cornerData.nDir.crossVectors(cornerData.uDir, cornerData.vDir).normalize();
   if (cornerData.nDir.z < 0) cornerData.nDir.negate();
   cornerData.vDir.crossVectors(cornerData.nDir, cornerData.uDir).normalize();
 
-  cornerData.length = c1.distanceTo(c2);
-  cornerData.width = c1.distanceTo(c4);
+  cornerData.length = (u1.length() + u2.length()) * 0.5;
+  cornerData.width = (v1.length() + v2.length()) * 0.5;
 
-  createCornerSightPlane();
+  buildExact4CornerMesh();
   generateFormingTemplates();
 }
 
-function drawCornerStringLines(corners) {
+function buildExact4CornerMesh() {
+  if (fDatumPlane) { fScene.remove(fDatumPlane); fDatumPlane = null; }
+  if (fManualCorners.length < 4) return;
+
+  const offsetVec = cornerData.nDir.clone().multiplyScalar(fPlaneOffset);
+  const p1 = cornerData.C1.clone().add(offsetVec);
+  const p2 = cornerData.C2.clone().add(offsetVec);
+  const p3 = cornerData.C3.clone().add(offsetVec);
+  const p4 = cornerData.C4.clone().add(offsetVec);
+
+  // Draw pins, vertical offset posts, and string lines
+  drawCornerPinsAndStrings(fManualCorners, fPlaneOffset);
+
+  // Build exact Bilinear Ruled Surface Mesh connecting p1, p2, p3, p4
+  const segsU = 10;
+  const segsV = 10;
+  const vertices = [];
+  const indices = [];
+
+  for (let iv = 0; iv <= segsV; iv++) {
+    const v = iv / segsV;
+    const leftPt = new THREE.Vector3().lerpVectors(p1, p4, v);
+    const rightPt = new THREE.Vector3().lerpVectors(p2, p3, v);
+    for (let iu = 0; iu <= segsU; iu++) {
+      const u = iu / segsU;
+      const pt = new THREE.Vector3().lerpVectors(leftPt, rightPt, u);
+      vertices.push(pt.x, pt.y, pt.z);
+    }
+  }
+
+  for (let iv = 0; iv < segsV; iv++) {
+    for (let iu = 0; iu < segsU; iu++) {
+      const a = iv * (segsU + 1) + iu;
+      const b = a + 1;
+      const c = (iv + 1) * (segsU + 1) + iu;
+      const d = c + 1;
+      indices.push(a, b, d, a, d, c);
+    }
+  }
+
+  const meshGeom = new THREE.BufferGeometry();
+  meshGeom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  meshGeom.setIndex(indices);
+  meshGeom.computeVertexNormals();
+
+  const wireMat = new THREE.MeshBasicMaterial({
+    color: 0x0284c7,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.45
+  });
+
+  fDatumPlane = new THREE.Mesh(meshGeom, wireMat);
+  fScene.add(fDatumPlane);
+}
+
+function drawCornerPinsAndStrings(corners, offsetVal) {
   while (fStringGroup.children.length > 0) fStringGroup.remove(fStringGroup.children[0]);
   const layer = document.getElementById('f-labels-layer');
   if (layer) layer.innerHTML = '';
@@ -465,19 +558,34 @@ function drawCornerStringLines(corners) {
 
   if (corners.length === 0) return;
 
-  corners.forEach((c, idx) => {
-    const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(18, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false })
+  const offsetVec = cornerData.nDir.clone().multiplyScalar(offsetVal);
+  const liftedCorners = corners.map(c => (corners.length === 4 ? c.clone().add(offsetVec) : c.clone()));
+
+  corners.forEach((basePt, idx) => {
+    const topPt = liftedCorners[idx];
+
+    // Small precision pin at exact plate corner so it never hides the vertex
+    const pinDot = new THREE.Mesh(
+      new THREE.SphereGeometry(6, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false })
     );
-    sphere.position.copy(c);
-    fStringGroup.add(sphere);
-    addFormingHTMLLabel(`C${idx + 1}`, c, true);
+    pinDot.position.copy(basePt);
+    fStringGroup.add(pinDot);
+
+    // If offset > 0, draw vertical riser post from plate corner to offset string corner
+    if (corners.length === 4 && offsetVal > 0) {
+      const postGeom = new THREE.BufferGeometry().setFromPoints([basePt, topPt]);
+      fStringGroup.add(new THREE.Line(postGeom, new THREE.LineBasicMaterial({ color: 0xfacc15, depthTest: false })));
+    }
+
+    // Add offset arrow callout label slightly away from the exact point
+    addCornerCalloutLabel(`C${idx + 1}`, basePt);
   });
 
-  if (corners.length >= 2) {
-    const linePts = [...corners];
-    if (corners.length === 4) linePts.push(corners[0]);
+  // Connect green string lines between corners
+  if (liftedCorners.length >= 2) {
+    const linePts = [...liftedCorners];
+    if (liftedCorners.length === 4) linePts.push(liftedCorners[0]);
 
     const geom = new THREE.BufferGeometry().setFromPoints(linePts);
     const mat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 3, depthTest: false });
@@ -488,16 +596,26 @@ function drawCornerStringLines(corners) {
       const pB = linePts[i + 1];
       const dist = pA.distanceTo(pB);
       const mid = new THREE.Vector3().addVectors(pA, pB).multiplyScalar(0.5);
-      addFormingHTMLLabel(`${dist.toFixed(0)} mm`, mid, false);
+      addEdgeDistanceLabel(`${dist.toFixed(0)} mm`, mid);
     }
   }
 }
 
-function addFormingHTMLLabel(text, pos3D, isCorner) {
+function addCornerCalloutLabel(text, pos3D) {
   const layer = document.getElementById('f-labels-layer');
   if (!layer) return;
   const el = document.createElement('div');
-  el.className = 'f-label-3d' + (isCorner ? ' corner-tag' : '');
+  el.className = 'f-corner-callout';
+  el.innerHTML = `<div class="f-callout-arrow"></div><div class="f-callout-tag">${text}</div>`;
+  layer.appendChild(el);
+  fHtmlLabels.push({ el, pos3D: pos3D.clone() });
+}
+
+function addEdgeDistanceLabel(text, pos3D) {
+  const layer = document.getElementById('f-labels-layer');
+  if (!layer) return;
+  const el = document.createElement('div');
+  el.className = 'f-edge-label';
   el.innerText = text;
   layer.appendChild(el);
   fHtmlLabels.push({ el, pos3D: pos3D.clone() });
@@ -512,7 +630,7 @@ function updateFormingHTMLLabels() {
     if (v.z > 1) {
       item.el.style.display = 'none';
     } else {
-      item.el.style.display = 'block';
+      item.el.style.display = 'flex';
       item.el.style.left = ((v.x * 0.5 + 0.5) * w) + 'px';
       item.el.style.top = ((-(v.y * 0.5) + 0.5) * h) + 'px';
     }
@@ -520,27 +638,220 @@ function updateFormingHTMLLabels() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// 5. SIGHT PLANE & STATION TEMPLATES
+// 5. EXACT BILINEAR PLANE DROP & DISTANCE MEASUREMENT
 // ═══════════════════════════════════════════════════════════
-function createCornerSightPlane() {
-  if (fDatumPlane) fScene.remove(fDatumPlane);
-  if (fManualCorners.length < 4) return;
+function getPointOn4CornerPlane(uNorm, vNorm) {
+  const offsetVec = cornerData.nDir.clone().multiplyScalar(fPlaneOffset);
+  const p1 = cornerData.C1.clone().add(offsetVec);
+  const p2 = cornerData.C2.clone().add(offsetVec);
+  const p3 = cornerData.C3.clone().add(offsetVec);
+  const p4 = cornerData.C4.clone().add(offsetVec);
 
-  const lift = parseFloat(document.getElementById('f-inp-lift').value) || 0;
-  cornerData.planeOrigin.copy(cornerData.center).addScaledVector(cornerData.nDir, lift);
-
-  const geom = new THREE.PlaneGeometry(cornerData.length * 1.08, cornerData.width * 1.08, 6, 6);
-  const mat = new THREE.MeshBasicMaterial({
-    color: 0x0284c7, wireframe: true, transparent: true, opacity: 0.4, side: THREE.DoubleSide
-  });
-
-  fDatumPlane = new THREE.Mesh(geom, mat);
-  const rotM = new THREE.Matrix4().makeBasis(cornerData.uDir, cornerData.vDir, cornerData.nDir);
-  fDatumPlane.setRotationFromMatrix(rotM);
-  fDatumPlane.position.copy(cornerData.planeOrigin);
-  fScene.add(fDatumPlane);
+  const leftPt = new THREE.Vector3().lerpVectors(p1, p4, vNorm);
+  const rightPt = new THREE.Vector3().lerpVectors(p2, p3, vNorm);
+  return new THREE.Vector3().lerpVectors(leftPt, rightPt, uNorm);
 }
 
+function measureFrom4CornerPlane(hitPt, cx, cy) {
+  const fromC1 = new THREE.Vector3().subVectors(hitPt, cornerData.C1);
+  const distLeft = Math.max(0, fromC1.dot(cornerData.uDir));
+  const distRight = Math.max(0, cornerData.length - distLeft);
+  const distTop = Math.max(0, fromC1.dot(cornerData.vDir));
+  const distBot = Math.max(0, cornerData.width - distTop);
+
+  const uNorm = Math.min(1, Math.max(0, distLeft / (cornerData.length || 1)));
+  const vNorm = Math.min(1, Math.max(0, distTop / (cornerData.width || 1)));
+
+  // Exact point on the 4-corner sight mesh directly above/below hitPt
+  const planePt = getPointOn4CornerPlane(uNorm, vNorm);
+  const dropDepth = hitPt.distanceTo(planePt);
+
+  document.getElementById('f-probe-depth').innerText = dropDepth.toFixed(1) + ' mm';
+  document.getElementById('f-dist-left').innerText = distLeft.toFixed(0);
+  document.getElementById('f-dist-right').innerText = distRight.toFixed(0);
+  document.getElementById('f-dist-top').innerText = distTop.toFixed(0);
+  document.getElementById('f-dist-bot').innerText = distBot.toFixed(0);
+
+  if (cx !== undefined && cy !== undefined) {
+    const pin = document.getElementById('f-touch-pin');
+    pin.style.left = cx + 'px';
+    pin.style.top = cy + 'px';
+    pin.style.display = 'block';
+  }
+
+  while (fProbeGroup.children.length > 0) fProbeGroup.remove(fProbeGroup.children[0]);
+
+  // Yellow vertical drop line from exact 4-corner mesh to plate surface
+  fProbeGroup.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([hitPt, planePt]),
+    new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 3 })
+  ));
+
+  // Blue cross lines on the 4-corner mesh showing Left-Right & Top-Bottom string distances
+  const leftEdgePt = getPointOn4CornerPlane(0, vNorm);
+  const rightEdgePt = getPointOn4CornerPlane(1, vNorm);
+  const topEdgePt = getPointOn4CornerPlane(uNorm, 0);
+  const botEdgePt = getPointOn4CornerPlane(uNorm, 1);
+
+  const crossMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 });
+  fProbeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([leftEdgePt, rightEdgePt]), crossMat));
+  fProbeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([topEdgePt, botEdgePt]), crossMat));
+}
+
+// ═══════════════════════════════════════════════════════════
+// 6. MAGNIFIER LOUPE + PRECISION CORNER PICKING
+// ═══════════════════════════════════════════════════════════
+function snapToNearestVertex(hitPoint) {
+  if (!fPlateMesh) return hitPoint;
+  const pos = fPlateMesh.geometry.attributes.position.array;
+  let bestDistSq = Infinity;
+  const bestPt = hitPoint.clone();
+  const tmp = new THREE.Vector3();
+
+  for (let i = 0; i < pos.length; i += 3) {
+    tmp.set(pos[i], pos[i + 1], pos[i + 2]);
+    const dSq = tmp.distanceToSquared(hitPoint);
+    if (dSq < bestDistSq) {
+      bestDistSq = dSq;
+      bestPt.copy(tmp);
+    }
+  }
+  return (Math.sqrt(bestDistSq) < 55) ? bestPt : hitPoint;
+}
+
+function updateMagnifier(cx, cy) {
+  const magEl = document.getElementById('f-magnifier');
+  const magCanvas = document.getElementById('f-mag-canvas');
+  if (!magEl || !magCanvas || !fRenderer) return;
+
+  magEl.style.display = 'block';
+  magEl.style.left = cx + 'px';
+  magEl.style.top = cy + 'px';
+
+  const ctx = magCanvas.getContext('2d');
+  const srcCanvas = fRenderer.domElement;
+  const dpr = fRenderer.getPixelRatio();
+  const rect = srcCanvas.getBoundingClientRect();
+
+  const sx = (cx - rect.left) * dpr;
+  const sy = (cy - rect.top) * dpr;
+  const zoomSample = 48 * dpr;
+
+  ctx.clearRect(0, 0, magCanvas.width, magCanvas.height);
+  ctx.drawImage(
+    srcCanvas,
+    sx - zoomSample / 2, sy - zoomSample / 2, zoomSample, zoomSample,
+    0, 0, magCanvas.width, magCanvas.height
+  );
+}
+
+function hideMagnifier() {
+  const magEl = document.getElementById('f-magnifier');
+  if (magEl) magEl.style.display = 'none';
+}
+
+function setupFormingCanvasInteractions() {
+  const dom = fRenderer.domElement;
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let isPickingDrag = false;
+  let downX = 0, downY = 0, downTime = 0;
+  let lastHitPt = null, lastScreenX = 0, lastScreenY = 0;
+
+  dom.addEventListener('pointerdown', (e) => {
+    downX = e.clientX;
+    downY = e.clientY;
+    downTime = Date.now();
+
+    // When in Pick 4 Corners mode, touch-hold activates magnifier loupe
+    if (fMode === 'corners' && e.isPrimary) {
+      isPickingDrag = true;
+      if (fControls) fControls.enabled = false;
+      updateMagnifier(e.clientX, e.clientY);
+    }
+  });
+
+  dom.addEventListener('pointermove', (e) => {
+    if (isPickingDrag && fMode === 'corners') {
+      updateMagnifier(e.clientX, e.clientY);
+    }
+  });
+
+  dom.addEventListener('pointerup', (e) => {
+    if (isPickingDrag && fMode === 'corners') {
+      isPickingDrag = false;
+      hideMagnifier();
+      if (fControls) fControls.enabled = true;
+      handleFormingPlateTap(e.clientX, e.clientY, raycaster, mouse);
+      return;
+    }
+
+    const moveDist = Math.hypot(e.clientX - downX, e.clientY - downY);
+    const dt = Date.now() - downTime;
+    if (moveDist < 10 && dt < 400) {
+      handleFormingPlateTap(e.clientX, e.clientY, raycaster, mouse);
+    }
+  });
+
+  dom.addEventListener('pointercancel', () => {
+    isPickingDrag = false;
+    hideMagnifier();
+    if (fControls) fControls.enabled = true;
+  });
+
+  window._reMeasureLastProbe = () => {
+    if (lastHitPt && fManualCorners.length === 4) {
+      measureFrom4CornerPlane(lastHitPt, lastScreenX, lastScreenY);
+    }
+  };
+  window._setLastProbeHit = (pt, sx, sy) => {
+    lastHitPt = pt.clone();
+    lastScreenX = sx;
+    lastScreenY = sy;
+  };
+}
+
+function handleFormingPlateTap(cx, cy, raycaster, mouse) {
+  if (!fPlateMesh) return;
+  const rect = fRenderer.domElement.getBoundingClientRect();
+  mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, fCamera);
+
+  const hits = raycaster.intersectObject(fPlateMesh, false);
+  if (hits.length === 0) return;
+
+  const hitPt = hits[0].point;
+
+  // MODE A: PICK 4 CORNERS
+  if (fMode === 'corners') {
+    const snapped = snapToNearestVertex(hitPt);
+    if (fManualCorners.length >= 4) fManualCorners = [];
+    fManualCorners.push(snapped);
+    applyFormingCorners(fManualCorners);
+
+    if (fManualCorners.length < 4) {
+      document.getElementById('f-mode-banner').innerText = `📍 Drag & release on Corner ${fManualCorners.length + 1} of 4`;
+    } else {
+      document.getElementById('f-mode-banner').innerText = `✅ 4-Corner Sight Mesh Ready! Tap plate to measure`;
+      setFormingMode('measure');
+    }
+    return;
+  }
+
+  // MODE B: MEASURE FROM 4-CORNER PLANE
+  if (fManualCorners.length < 4) {
+    document.getElementById('f-mode-banner').innerText = `⚠️ Pick all 4 corners first!`;
+    return;
+  }
+
+  window._setLastProbeHit(hitPt, cx, cy);
+  measureFrom4CornerPlane(hitPt, cx, cy);
+}
+
+// ═══════════════════════════════════════════════════════════
+// 7. TEMPLATE GENERATOR & DXF EXPORTER
+// ═══════════════════════════════════════════════════════════
 function generateFormingTemplates() {
   if (!fPlateMesh || fManualCorners.length < 4) return;
   while (fTemplateGroup.children.length > 0) fTemplateGroup.remove(fTemplateGroup.children[0]);
@@ -652,217 +963,6 @@ function sortLineSegments(segs) {
   return pts;
 }
 
-// ═══════════════════════════════════════════════════════════
-// 6. TAP INTERACTION: PICK CORNERS & MEASURE DROP + DISTANCES
-// ═══════════════════════════════════════════════════════════
-function snapToNearestVertex(hitPoint) {
-  if (!fPlateMesh) return hitPoint;
-  const pos = fPlateMesh.geometry.attributes.position.array;
-  let bestDistSq = Infinity;
-  const bestPt = hitPoint.clone();
-  const tmp = new THREE.Vector3();
-
-  for (let i = 0; i < pos.length; i += 3) {
-    tmp.set(pos[i], pos[i + 1], pos[i + 2]);
-    const dSq = tmp.distanceToSquared(hitPoint);
-    if (dSq < bestDistSq) {
-      bestDistSq = dSq;
-      bestPt.copy(tmp);
-    }
-  }
-  return (Math.sqrt(bestDistSq) < 60) ? bestPt : hitPoint;
-}
-
-function setupFormingCanvasInteractions() {
-  const dom = fRenderer.domElement;
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-  let downX = 0, downY = 0, downTime = 0;
-
-  dom.addEventListener('pointerdown', (e) => {
-    downX = e.clientX;
-    downY = e.clientY;
-    downTime = Date.now();
-  });
-
-  dom.addEventListener('pointerup', (e) => {
-    const moveDist = Math.hypot(e.clientX - downX, e.clientY - downY);
-    const dt = Date.now() - downTime;
-
-    // Trigger only on clean tap (ignores finger drag rotation)
-    if (moveDist < 10 && dt < 400) {
-      handleFormingPlateTap(e.clientX, e.clientY, raycaster, mouse);
-    }
-  });
-}
-
-function handleFormingPlateTap(cx, cy, raycaster, mouse) {
-  if (!fPlateMesh) return;
-  const rect = fRenderer.domElement.getBoundingClientRect();
-  mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, fCamera);
-
-  const hits = raycaster.intersectObject(fPlateMesh, false);
-  if (hits.length === 0) return;
-
-  const hitPt = hits[0].point;
-
-  // MODE A: PICK 4 CORNERS
-  if (fMode === 'corners') {
-    const snapped = snapToNearestVertex(hitPt);
-    if (fManualCorners.length >= 4) fManualCorners = [];
-    fManualCorners.push(snapped);
-    applyFormingCorners(fManualCorners);
-
-    if (fManualCorners.length < 4) {
-      document.getElementById('f-mode-banner').innerText = `📍 Tap Corner ${fManualCorners.length + 1} of 4`;
-    } else {
-      document.getElementById('f-mode-banner').innerText = `✅ 4 Corners & String Lines Connected!`;
-      setFormingMode('measure');
-    }
-    return;
-  }
-
-  // MODE B: MEASURE DROP DEPTH & SIDE DISTANCES
-  if (fManualCorners.length < 4) {
-    document.getElementById('f-mode-banner').innerText = `⚠️ Pick all 4 corners first!`;
-    return;
-  }
-
-  const toPlane = new THREE.Vector3().subVectors(cornerData.planeOrigin, hitPt);
-  const dropDepth = Math.abs(toPlane.dot(cornerData.nDir));
-
-  const fromC1 = new THREE.Vector3().subVectors(hitPt, cornerData.C1);
-  const distLeft = Math.max(0, fromC1.dot(cornerData.uDir));
-  const distRight = Math.max(0, cornerData.length - distLeft);
-  const distTop = Math.max(0, fromC1.dot(cornerData.vDir));
-  const distBot = Math.max(0, cornerData.width - distTop);
-
-  document.getElementById('f-probe-depth').innerText = dropDepth.toFixed(1) + ' mm';
-  document.getElementById('f-dist-left').innerText = distLeft.toFixed(0);
-  document.getElementById('f-dist-right').innerText = distRight.toFixed(0);
-  document.getElementById('f-dist-top').innerText = distTop.toFixed(0);
-  document.getElementById('f-dist-bot').innerText = distBot.toFixed(0);
-
-  const pin = document.getElementById('f-touch-pin');
-  pin.style.left = cx + 'px';
-  pin.style.top = cy + 'px';
-  pin.style.display = 'block';
-
-  while (fProbeGroup.children.length > 0) fProbeGroup.remove(fProbeGroup.children[0]);
-
-  // Yellow vertical drop line
-  const sightPt = hitPt.clone().addScaledVector(cornerData.nDir, dropDepth);
-  fProbeGroup.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([hitPt, sightPt]),
-    new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 3 })
-  ));
-
-  // Blue cross lines showing Left-Right & Top-Bottom distances to string edges
-  const leftPt = sightPt.clone().addScaledVector(cornerData.uDir, -distLeft);
-  const rightPt = sightPt.clone().addScaledVector(cornerData.uDir, distRight);
-  const topPt = sightPt.clone().addScaledVector(cornerData.vDir, -distTop);
-  const botPt = sightPt.clone().addScaledVector(cornerData.vDir, distBot);
-
-  const crossMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 });
-  fProbeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([leftPt, rightPt]), crossMat));
-  fProbeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([topPt, botPt]), crossMat));
-}
-
-// ═══════════════════════════════════════════════════════════
-// 7. UI EVENTS & DRAWER CONTROLS
-// ═══════════════════════════════════════════════════════════
-function setFormingMode(mode) {
-  fMode = mode;
-  const btnMeasure = document.getElementById('f-btn-mode-measure');
-  const btnCorners = document.getElementById('f-btn-mode-corners');
-  const banner = document.getElementById('f-mode-banner');
-
-  btnMeasure.classList.remove('active');
-  btnCorners.classList.remove('corner-active');
-
-  if (mode === 'measure') {
-    btnMeasure.classList.add('active');
-    banner.innerText = '📏 Tap plate to measure drop & edge distances';
-    banner.style.borderColor = '#0284c7';
-    banner.style.color = '#38bdf8';
-  } else {
-    btnCorners.classList.add('corner-active');
-    fManualCorners = [];
-    applyFormingCorners([]);
-    banner.innerText = '📍 Zoom in & tap Corner 1 of 4';
-    banner.style.borderColor = '#10b981';
-    banner.style.color = '#6ee7b7';
-  }
-}
-
-function setupFormingOverlayEvents() {
-  document.getElementById('f-btn-mode-measure').addEventListener('click', () => setFormingMode('measure'));
-  document.getElementById('f-btn-mode-corners').addEventListener('click', () => setFormingMode('corners'));
-
-  // Toggle HUD visibility
-  const btnHud = document.getElementById('f-btn-toggle-hud');
-  const hud = document.getElementById('f-probe-hud');
-  btnHud.addEventListener('click', () => {
-    const isHidden = hud.classList.toggle('hidden');
-    btnHud.innerText = isHidden ? '👁️ Show HUD' : '👁️ Hide HUD';
-  });
-
-  // Settings Drawer open/close
-  const drawer = document.getElementById('f-settings-drawer');
-  const backdrop = document.getElementById('f-drawer-backdrop');
-  const openDrawer = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
-  const closeDrawer = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
-
-  document.getElementById('f-btn-open-settings').addEventListener('click', openDrawer);
-  document.getElementById('f-btn-close-settings').addEventListener('click', closeDrawer);
-  backdrop.addEventListener('click', closeDrawer);
-
-  // Undo / Auto Corners
-  document.getElementById('f-btn-undo-corner').addEventListener('click', () => {
-    if (fManualCorners.length > 0) {
-      fManualCorners.pop();
-      applyFormingCorners(fManualCorners);
-      document.getElementById('f-mode-banner').innerText = `📍 Tap Corner ${fManualCorners.length + 1} of 4`;
-    }
-  });
-
-  document.getElementById('f-btn-auto-corners').addEventListener('click', () => {
-    if (!fPlateMesh) return;
-    autoDetectPlateCorners(fPlateMesh.geometry);
-    applyFormingCorners(fManualCorners);
-    setFormingMode('measure');
-    closeDrawer();
-  });
-
-  // Lift slider & Template actions
-  const liftSlider = document.getElementById('f-inp-lift');
-  liftSlider.addEventListener('input', () => {
-    document.getElementById('f-lbl-lift-val').innerText = liftSlider.value + ' mm';
-    createCornerSightPlane();
-  });
-
-  document.getElementById('f-btn-slice-plates').addEventListener('click', () => {
-    createCornerSightPlane();
-    generateFormingTemplates();
-    closeDrawer();
-  });
-
-  document.getElementById('f-btn-toggle-datum').addEventListener('click', () => {
-    if (fDatumPlane) fDatumPlane.visible = !fDatumPlane.visible;
-  });
-
-  document.getElementById('btn-close-forming').addEventListener('click', () => {
-    document.getElementById('forming-studio-modal').style.display = 'none';
-    if (window.updateControlsLockState) window.updateControlsLockState();
-    else if (window.controls) window.controls.enabled = true;
-  });
-}
-
-// ═══════════════════════════════════════════════════════════
-// 8. CLOSED CNC WOODEN TEMPLATE DXF EXPORTER
-// ═══════════════════════════════════════════════════════════
 window.exportOverlayTemplateToDXF = function(secIdx) {
   const item = fSections[secIdx];
   if (!item || !item.pts || item.pts.length < 2) return;
@@ -884,7 +984,6 @@ window.exportOverlayTemplateToDXF = function(secIdx) {
   const boardTopY = maxY + item.boardMargin;
 
   let dxf = "0\nSECTION\n2\nENTITIES\n";
-
   for (let i = 0; i < pts2D.length - 1; i++) {
     dxf += `0\nLINE\n8\nPLATE_CURVE\n10\n${pts2D[i].x.toFixed(2)}\n20\n${pts2D[i].y.toFixed(2)}\n11\n${pts2D[i + 1].x.toFixed(2)}\n21\n${pts2D[i + 1].y.toFixed(2)}\n`;
   }
@@ -897,7 +996,6 @@ window.exportOverlayTemplateToDXF = function(secIdx) {
 
   const midX = chordLength / 2;
   dxf += `0\nLINE\n8\nCENTER_DROP_LINE\n10\n${midX.toFixed(2)}\n20\n${boardTopY.toFixed(2)}\n11\n${midX.toFixed(2)}\n21\n${(boardTopY - item.sagitta).toFixed(2)}\n`;
-
   dxf += "0\nENDSEC\n0\nEOF\n";
 
   const blob = new Blob([dxf], { type: 'application/dxf' });
@@ -906,3 +1004,110 @@ window.exportOverlayTemplateToDXF = function(secIdx) {
   link.download = `${item.name}_ClosedTemplate.dxf`;
   link.click();
 };
+
+// ═══════════════════════════════════════════════════════════
+// 8. UI EVENTS & SIDE OFFSET CONTROLS
+// ═══════════════════════════════════════════════════════════
+function setFormingMode(mode) {
+  fMode = mode;
+  const btnMeasure = document.getElementById('f-btn-mode-measure');
+  const btnCorners = document.getElementById('f-btn-mode-corners');
+  const banner = document.getElementById('f-mode-banner');
+
+  btnMeasure.classList.remove('active');
+  btnCorners.classList.remove('corner-active');
+
+  if (mode === 'measure') {
+    btnMeasure.classList.add('active');
+    banner.innerText = '📏 Tap plate to measure drop & edge distances';
+    banner.style.borderColor = '#0284c7';
+    banner.style.color = '#38bdf8';
+  } else {
+    btnCorners.classList.add('corner-active');
+    fManualCorners = [];
+    applyFormingCorners([]);
+    while (fProbeGroup.children.length > 0) fProbeGroup.remove(fProbeGroup.children[0]);
+    document.getElementById('f-touch-pin').style.display = 'none';
+    banner.innerText = '📍 Zoom in, touch & release on Corner 1 of 4';
+    banner.style.borderColor = '#10b981';
+    banner.style.color = '#6ee7b7';
+  }
+}
+
+function updateSideOffset(newVal) {
+  fPlaneOffset = Math.max(0, Math.min(500, newVal));
+  document.getElementById('f-side-offset-slider').value = fPlaneOffset;
+  document.getElementById('f-side-offset-val').innerText = fPlaneOffset + 'mm';
+
+  if (fManualCorners.length === 4) {
+    buildExact4CornerMesh();
+    if (window._reMeasureLastProbe) window._reMeasureLastProbe();
+  }
+}
+
+function setupFormingOverlayEvents() {
+  document.getElementById('f-btn-mode-measure').addEventListener('click', () => setFormingMode('measure'));
+  document.getElementById('f-btn-mode-corners').addEventListener('click', () => setFormingMode('corners'));
+
+  // Side Offset Slider & +/- Buttons
+  document.getElementById('f-side-offset-slider').addEventListener('input', (e) => {
+    updateSideOffset(parseFloat(e.target.value) || 0);
+  });
+  document.getElementById('f-btn-offset-up').addEventListener('click', () => {
+    updateSideOffset(fPlaneOffset + 10);
+  });
+  document.getElementById('f-btn-offset-down').addEventListener('click', () => {
+    updateSideOffset(fPlaneOffset - 10);
+  });
+
+  // Toggle HUD visibility
+  const btnHud = document.getElementById('f-btn-toggle-hud');
+  const hud = document.getElementById('f-probe-hud');
+  const sidePanel = document.getElementById('f-side-offset-panel');
+  btnHud.addEventListener('click', () => {
+    const isHidden = hud.classList.toggle('hidden');
+    sidePanel.classList.toggle('hidden', isHidden);
+    btnHud.innerText = isHidden ? '👁️ Show HUD' : '👁️ Hide HUD';
+  });
+
+  // Settings Drawer
+  const drawer = document.getElementById('f-settings-drawer');
+  const backdrop = document.getElementById('f-drawer-backdrop');
+  const openDrawer = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
+  const closeDrawer = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
+
+  document.getElementById('f-btn-open-settings').addEventListener('click', openDrawer);
+  document.getElementById('f-btn-close-settings').addEventListener('click', closeDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+
+  document.getElementById('f-btn-undo-corner').addEventListener('click', () => {
+    if (fManualCorners.length > 0) {
+      fManualCorners.pop();
+      applyFormingCorners(fManualCorners);
+      fMode = 'corners';
+      document.getElementById('f-btn-mode-corners').classList.add('corner-active');
+      document.getElementById('f-btn-mode-measure').classList.remove('active');
+      document.getElementById('f-mode-banner').innerText = `📍 Drag & release on Corner ${fManualCorners.length + 1} of 4`;
+    }
+  });
+
+  document.getElementById('f-btn-clear-corners').addEventListener('click', () => {
+    setFormingMode('corners');
+    closeDrawer();
+  });
+
+  document.getElementById('f-btn-slice-plates').addEventListener('click', () => {
+    generateFormingTemplates();
+    closeDrawer();
+  });
+
+  document.getElementById('f-btn-toggle-datum').addEventListener('click', () => {
+    if (fDatumPlane) fDatumPlane.visible = !fDatumPlane.visible;
+  });
+
+  document.getElementById('btn-close-forming').addEventListener('click', () => {
+    document.getElementById('forming-studio-modal').style.display = 'none';
+    if (window.updateControlsLockState) window.updateControlsLockState();
+    else if (window.controls) window.controls.enabled = true;
+  });
+}
