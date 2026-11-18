@@ -18,37 +18,42 @@
       padding: 8px 12px; border-radius: 10px; border: 1px solid #1e293b; z-index: 15;
     }
     .top-left { display: flex; align-items: center; gap: 8px; }
-    .btn-back {
-      background: #1e293b; color: #f8fafc; border: 1px solid #334155;
-      padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none;
-    }
+    .btn-back { background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none; }
     .top-bar h1 { font-size: 14px; font-weight: 700; color: #38bdf8; }
     .badge { font-size: 11px; background: #0369a1; padding: 3px 8px; border-radius: 6px; font-weight: 600; max-width: 135px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .mode-banner {
       position: absolute; top: 56px; left: 10px;
-      background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981;
-      color: #6ee7b7; padding: 6px 10px; border-radius: 8px;
+      background: rgba(15, 23, 42, 0.9); border: 1px solid #334155;
+      color: #e2e8f0; padding: 6px 10px; border-radius: 8px;
       font-size: 11px; font-weight: 600; z-index: 14; max-width: 52%; backdrop-filter: blur(6px);
     }
 
-    /* Side Vertical Offset Bar */
-    .side-offset-panel {
-      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-      background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
-      border: 1px solid #334155; border-radius: 12px; padding: 8px 6px;
-      z-index: 15; display: flex; flex-direction: column; align-items: center; gap: 6px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    /* Collapsible Left Side Offset Drawer */
+    .side-offset-wrapper {
+      position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+      z-index: 16; display: flex; align-items: center;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .side-offset-panel.hidden { display: none; }
+    .side-offset-wrapper.collapsed { transform: translate(-100%, -50%); }
+    .side-offset-panel {
+      background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(8px);
+      border: 1px solid #334155; border-left: none; border-radius: 0 12px 12px 0;
+      padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      box-shadow: 4px 4px 16px rgba(0,0,0,0.5);
+    }
+    .offset-toggle-tab {
+      position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+      background: rgba(15, 23, 42, 0.94); border: 1px solid #334155; border-left: none;
+      color: #38bdf8; width: 24px; height: 48px; border-radius: 0 8px 8px 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; cursor: pointer;
+    }
     .offset-title { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
     .offset-val { font-size: 11px; font-weight: 800; color: #facc15; font-family: monospace; }
-    .offset-step-btn {
-      width: 28px; height: 28px; border-radius: 6px; border: 1px solid #334155;
-      background: #1e293b; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
-    }
-    .vertical-slider-wrap { height: 110px; width: 28px; display: flex; align-items: center; justify-content: center; }
-    #side-offset-slider { width: 105px; height: 6px; transform: rotate(-90deg); accent-color: #0284c7; }
+    .offset-step-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
+    .vertical-slider-wrap { height: 105px; width: 28px; display: flex; align-items: center; justify-content: center; }
+    #side-offset-slider { width: 100px; height: 6px; transform: rotate(-90deg); accent-color: #0284c7; }
 
     .probe-hud {
       position: absolute; top: 56px; right: 10px;
@@ -67,22 +72,29 @@
     .probe-grid b { color: #38bdf8; float: right; }
 
     .bottom-dock {
-      position: absolute; bottom: 14px; left: 10px; right: 10px;
-      display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; z-index: 15;
+      position: absolute; bottom: 14px; left: 8px; right: 8px;
+      display: flex; gap: 5px; justify-content: center; flex-wrap: nowrap; z-index: 15;
     }
     .dock-btn {
-      flex: 1; min-width: 75px; max-width: 145px;
+      flex: 1; min-width: 0;
       background: rgba(15, 23, 42, 0.94); color: #f8fafc; border: 1px solid #334155;
-      padding: 10px 8px; border-radius: 10px; font-size: 12px; font-weight: 700;
-      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 10px 6px; border-radius: 10px; font-size: 11px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dock-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
-    .dock-btn.corner-active { background: #059669; border-color: #34d399; color: #fff; }
+    .dock-btn.pick-armed { background: #059669; border-color: #34d399; color: #fff; animation: pulsePick 1.2s infinite; }
+    .dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.75; }
+    .dock-btn.hidden { display: none; }
 
-    /* Magnifier Loupe */
+    @keyframes pulsePick {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+      50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    }
+
     #magnifier {
       position: fixed; width: 116px; height: 116px; border-radius: 50%;
-      border: 3px solid #38bdf8; box-shadow: 0 8px 25px rgba(0,0,0,0.75);
+      border: 3px solid #10b981; box-shadow: 0 8px 25px rgba(0,0,0,0.8);
       pointer-events: none; z-index: 40; display: none; overflow: hidden;
       background: #090d16; transform: translate(-50%, -125%);
     }
@@ -90,43 +102,21 @@
     #magnifier::after {
       content: ''; position: absolute; inset: 0;
       background:
-        linear-gradient(to right, transparent 49%, rgba(250,204,21,0.85) 49.5%, rgba(250,204,21,0.85) 50.5%, transparent 51%),
-        linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.85) 49.5%, rgba(250,204,21,0.85) 50.5%, transparent 51%);
+        linear-gradient(to right, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%),
+        linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%);
     }
 
-    /* Offset Arrow Callout Labels */
-    .corner-callout {
-      position: absolute; pointer-events: none; z-index: 12;
-      display: flex; align-items: center; transform: translate(6px, -22px);
-    }
-    .callout-arrow {
-      width: 14px; height: 1.5px; background: #10b981;
-      transform: rotate(-35deg); transform-origin: left center; margin-right: 2px;
-    }
-    .callout-tag {
-      background: rgba(5, 150, 105, 0.92); color: #fff; border: 1px solid #a7f3d0;
-      padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 800;
-    }
-    .edge-label {
-      position: absolute; background: rgba(9, 13, 22, 0.85); color: #facc15;
-      border: 1px solid #10b981; padding: 1px 5px; border-radius: 4px;
-      font-size: 10px; font-family: monospace; font-weight: 700;
-      pointer-events: none; transform: translate(-50%, -50%); z-index: 11; white-space: nowrap;
-    }
+    .corner-callout { position: absolute; pointer-events: none; z-index: 12; display: flex; align-items: center; transform: translate(6px, -22px); }
+    .callout-arrow { width: 14px; height: 1.5px; background: #10b981; transform: rotate(-35deg); transform-origin: left center; margin-right: 2px; }
+    .callout-tag { background: rgba(5, 150, 105, 0.92); color: #fff; border: 1px solid #a7f3d0; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 800; }
+    .edge-label { position: absolute; background: rgba(9, 13, 22, 0.85); color: #facc15; border: 1px solid #10b981; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: monospace; font-weight: 700; pointer-events: none; transform: translate(-50%, -50%); z-index: 11; white-space: nowrap; }
 
     .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 25; display: none; }
     .drawer-backdrop.open { display: block; }
-    .settings-drawer {
-      position: fixed; bottom: 0; left: 0; right: 0; max-height: 78vh;
-      background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0;
-      padding: 16px; z-index: 30; overflow-y: auto; transform: translateY(100%); transition: transform 0.25s ease-out;
-    }
+    .settings-drawer { position: fixed; bottom: 0; left: 0; right: 0; max-height: 78vh; background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0; padding: 16px; z-index: 30; overflow-y: auto; transform: translateY(100%); transition: transform 0.25s ease-out; }
     .settings-drawer.open { transform: translateY(0); }
     @media (min-width: 768px) {
-      .settings-drawer {
-        left: 65px; right: auto; bottom: auto; top: 62px; width: 345px;
-        border-radius: 14px; border: 1px solid #334155; transform: translateX(-130%);
-      }
+      .settings-drawer { left: 65px; right: auto; bottom: auto; top: 62px; width: 345px; border-radius: 14px; border: 1px solid #334155; transform: translateX(-130%); }
       .settings-drawer.open { transform: translateX(0); }
     }
     .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #1e293b; }
@@ -156,17 +146,20 @@
     <span class="badge" id="plate-badge">Plate</span>
   </div>
 
-  <div class="mode-banner" id="mode-banner">📍 Zoom in, touch & release on Corner 1 of 4</div>
+  <div class="mode-banner" id="mode-banner">🔍 Zoom to Corner 1, then tap "Select Point"</div>
 
-  <!-- Side Plane Offset Control -->
-  <div class="side-offset-panel" id="side-offset-panel">
-    <div class="offset-title">Offset</div>
-    <div class="offset-val" id="side-offset-val">0mm</div>
-    <button class="offset-step-btn" id="btn-offset-up">+</button>
-    <div class="vertical-slider-wrap">
-      <input type="range" id="side-offset-slider" min="0" max="500" value="0" step="5" />
+  <!-- Collapsible Side Offset Panel -->
+  <div class="side-offset-wrapper" id="side-offset-wrapper">
+    <div class="side-offset-panel">
+      <div class="offset-title">Offset</div>
+      <div class="offset-val" id="side-offset-val">0mm</div>
+      <button class="offset-step-btn" id="btn-offset-up">+</button>
+      <div class="vertical-slider-wrap">
+        <input type="range" id="side-offset-slider" min="0" max="500" value="0" step="5" />
+      </div>
+      <button class="offset-step-btn" id="btn-offset-down">−</button>
     </div>
-    <button class="offset-step-btn" id="btn-offset-down">−</button>
+    <button class="offset-toggle-tab" id="btn-collapse-offset" title="Hide/Show Offset">◀</button>
   </div>
 
   <div class="probe-hud" id="probe-hud">
@@ -185,10 +178,11 @@
   <div id="touch-pin"></div>
 
   <div class="bottom-dock">
+    <button class="dock-btn" id="btn-select-point">🎯 Select Point (1/4)</button>
+    <button class="dock-btn undo-btn hidden" id="btn-dock-undo">↩ Undo</button>
     <button class="dock-btn" id="btn-mode-measure">📏 Measure</button>
-    <button class="dock-btn corner-active" id="btn-mode-corners">📍 Pick 4 Corners</button>
-    <button class="dock-btn" id="btn-toggle-hud">👁️ Hide HUD</button>
-    <button class="dock-btn" id="btn-open-settings">⚙️ Settings / DXF</button>
+    <button class="dock-btn" id="btn-toggle-hud">👁️ HUD</button>
+    <button class="dock-btn" id="btn-open-settings">⚙️ DXF</button>
   </div>
 
   <div class="drawer-backdrop" id="drawer-backdrop"></div>
@@ -199,10 +193,10 @@
     </div>
 
     <div class="input-group">
-      <label>Corner Selection Tools</label>
+      <label>Corner Reset</label>
       <div class="btn-row">
-        <button class="btn btn-secondary" id="btn-undo-corner">↩ Undo Corner</button>
-        <button class="btn btn-danger" id="btn-clear-corners">🗑️ Clear All</button>
+        <button class="btn btn-secondary" id="btn-undo-corner">↩ Undo Last Point</button>
+        <button class="btn btn-danger" id="btn-clear-corners">🗑️ Reset All 4 Points</button>
       </div>
     </div>
 
@@ -242,7 +236,7 @@
     let plateMesh = null, datumPlaneMesh = null;
     let stationsGroup = new THREE.Group(), stringGroup = new THREE.Group(), probeGroup = new THREE.Group();
     let generatedTemplates = [];
-    let interactionMode = 'corners';
+    let interactionMode = 'view'; // Safe zoom mode by default
     let manualCorners = [];
     let htmlLabels = [];
     let planeOffset = 0;
@@ -288,6 +282,8 @@
       loadPlateData();
       setupCanvasInteractions();
       setupUI();
+      updateCornerControlsUI();
+      setMode('view');
       animate();
     }
 
@@ -332,6 +328,8 @@
     function applyCornersToFrame(corners) {
       if (datumPlaneMesh) { scene.remove(datumPlaneMesh); datumPlaneMesh = null; }
       while (stationsGroup.children.length > 0) stationsGroup.remove(stationsGroup.children[0]);
+
+      updateCornerControlsUI();
 
       if (corners.length < 4) {
         drawPinsAndStrings(corners, 0);
@@ -420,7 +418,7 @@
       corners.forEach((basePt, idx) => {
         const topPt = lifted[idx];
         const pinDot = new THREE.Mesh(
-          new THREE.SphereGeometry(6, 10, 10),
+          new THREE.SphereGeometry(5, 10, 10),
           new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false })
         );
         pinDot.position.copy(basePt);
@@ -528,7 +526,7 @@
     }
 
     function snapToNearestVertex(hitPoint) {
-      if (!fPlateMesh && !plateMesh) return hitPoint;
+      if (!plateMesh) return hitPoint;
       const pos = plateMesh.geometry.attributes.position.array;
       let bestDistSq = Infinity;
       const bestPt = hitPoint.clone(), tmp = new THREE.Vector3();
@@ -570,7 +568,7 @@
 
       dom.addEventListener('pointerdown', (e) => {
         downX = e.clientX; downY = e.clientY; downTime = Date.now();
-        if (interactionMode === 'corners' && e.isPrimary) {
+        if (interactionMode === 'pick_one' && e.isPrimary) {
           isPickingDrag = true;
           controls.enabled = false;
           updateMagnifier(e.clientX, e.clientY);
@@ -578,21 +576,23 @@
       });
 
       dom.addEventListener('pointermove', (e) => {
-        if (isPickingDrag && interactionMode === 'corners') {
+        if (isPickingDrag && interactionMode === 'pick_one') {
           updateMagnifier(e.clientX, e.clientY);
         }
       });
 
       dom.addEventListener('pointerup', (e) => {
-        if (isPickingDrag && interactionMode === 'corners') {
+        if (isPickingDrag && interactionMode === 'pick_one') {
           isPickingDrag = false;
           document.getElementById('magnifier').style.display = 'none';
           controls.enabled = true;
           handlePlateTap(e.clientX, e.clientY, raycaster, mouse);
           return;
         }
-        if (Math.hypot(e.clientX - downX, e.clientY - downY) < 10 && (Date.now() - downTime) < 400) {
-          handlePlateTap(e.clientX, e.clientY, raycaster, mouse);
+        if (interactionMode === 'measure') {
+          if (Math.hypot(e.clientX - downX, e.clientY - downY) < 10 && (Date.now() - downTime) < 400) {
+            handlePlateTap(e.clientX, e.clientY, raycaster, mouse);
+          }
         }
       });
 
@@ -612,31 +612,28 @@
 
       const hits = raycaster.intersectObject(plateMesh, false);
       if (hits.length === 0) return;
-
       const hitPt = hits[0].point;
 
-      if (interactionMode === 'corners') {
+      if (interactionMode === 'pick_one') {
         const snapped = snapToNearestVertex(hitPt);
         if (manualCorners.length >= 4) manualCorners = [];
         manualCorners.push(snapped);
+        const pickedIdx = manualCorners.length;
+
         applyCornersToFrame(manualCorners);
 
-        if (manualCorners.length < 4) {
-          document.getElementById('mode-banner').innerText = `📍 Drag & release on Corner ${manualCorners.length + 1} of 4`;
+        if (pickedIdx < 4) {
+          setMode('view', `✅ C${pickedIdx} Locked! Zoom to Corner ${pickedIdx + 1}, then tap "Select Point"`);
         } else {
-          document.getElementById('mode-banner').innerText = `✅ 4-Corner Sight Mesh Ready! Tap plate to measure`;
-          setMode('measure');
+          setMode('measure', `✅ All 4 Corners Locked & Mesh Created! Tap plate to measure`);
         }
         return;
       }
 
-      if (manualCorners.length < 4) {
-        document.getElementById('mode-banner').innerText = `⚠️ Pick all 4 corners first!`;
-        return;
+      if (interactionMode === 'measure' && manualCorners.length === 4) {
+        lastHitPt = hitPt.clone(); lastScreenX = cx; lastScreenY = cy;
+        measureFrom4CornerPlane(hitPt, cx, cy);
       }
-
-      lastHitPt = hitPt.clone(); lastScreenX = cx; lastScreenY = cy;
-      measureFrom4CornerPlane(hitPt, cx, cy);
     }
 
     function generateStations() {
@@ -659,7 +656,6 @@
         const cutPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(sliceDir, cutPlanePos);
         const segs = sliceMesh(plateMesh, cutPlane);
         if (segs.length < 2) continue;
-
         const pts = sortPoints(segs);
         if (pts.length < 2) continue;
 
@@ -738,28 +734,51 @@
       a.click();
     };
 
-    function setMode(mode) {
+    function updateCornerControlsUI() {
+      const btnPick = document.getElementById('btn-select-point');
+      const btnUndo = document.getElementById('btn-dock-undo');
+      const count = manualCorners.length;
+
+      btnUndo.classList.toggle('hidden', count === 0);
+      btnPick.innerText = (count < 4) ? `🎯 Select Point (${count + 1}/4)` : `🔄 Re-Pick (4/4)`;
+    }
+
+    function setMode(mode, customMsg) {
       interactionMode = mode;
+      const btnPick = document.getElementById('btn-select-point');
       const btnMeasure = document.getElementById('btn-mode-measure');
-      const btnCorners = document.getElementById('btn-mode-corners');
       const banner = document.getElementById('mode-banner');
 
+      btnPick.classList.remove('pick-armed');
       btnMeasure.classList.remove('active');
-      btnCorners.classList.remove('corner-active');
 
-      if (mode === 'measure') {
+      if (mode === 'pick_one') {
+        btnPick.classList.add('pick-armed');
+        const nextNum = (manualCorners.length >= 4) ? 1 : (manualCorners.length + 1);
+        banner.innerText = customMsg || `🎯 Touch & release on Corner ${nextNum} (Magnifier Active)`;
+        banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
+      } else if (mode === 'measure') {
+        if (manualCorners.length < 4) {
+          setMode('view', `⚠️ Select all 4 corners first (${manualCorners.length}/4 done)`);
+          return;
+        }
         btnMeasure.classList.add('active');
-        banner.innerText = '📏 Tap plate to measure drop & edge distances';
+        banner.innerText = customMsg || '📏 Tap plate to measure drop & edge distances';
         banner.style.borderColor = '#0284c7'; banner.style.color = '#38bdf8';
       } else {
-        btnCorners.classList.add('corner-active');
-        manualCorners = [];
-        applyCornersToFrame([]);
-        while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
-        document.getElementById('touch-pin').style.display = 'none';
-        banner.innerText = '📍 Zoom in, touch & release on Corner 1 of 4';
-        banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
+        const nextNum = manualCorners.length + 1;
+        banner.innerText = customMsg || `🔍 Zoom to Corner ${nextNum}, then tap "Select Point"`;
+        banner.style.borderColor = '#475569'; banner.style.color = '#e2e8f0';
       }
+    }
+
+    function undoLastCorner() {
+      if (manualCorners.length === 0) return;
+      manualCorners.pop();
+      while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
+      document.getElementById('touch-pin').style.display = 'none';
+      applyCornersToFrame(manualCorners);
+      setMode('view', `↩ Removed C${manualCorners.length + 1}. Zoom & tap "Select Point"`);
     }
 
     function updateSideOffset(val) {
@@ -773,8 +792,26 @@
     }
 
     function setupUI() {
+      document.getElementById('btn-select-point').addEventListener('click', () => {
+        if (manualCorners.length >= 4) {
+          manualCorners = [];
+          applyCornersToFrame([]);
+          while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
+          document.getElementById('touch-pin').style.display = 'none';
+        }
+        setMode('pick_one');
+      });
+
+      document.getElementById('btn-dock-undo').addEventListener('click', undoLastCorner);
+      document.getElementById('btn-undo-corner').addEventListener('click', undoLastCorner);
       document.getElementById('btn-mode-measure').addEventListener('click', () => setMode('measure'));
-      document.getElementById('btn-mode-corners').addEventListener('click', () => setMode('corners'));
+
+      const offsetWrapper = document.getElementById('side-offset-wrapper');
+      const collapseBtn = document.getElementById('btn-collapse-offset');
+      collapseBtn.addEventListener('click', () => {
+        const isCollapsed = offsetWrapper.classList.toggle('collapsed');
+        collapseBtn.innerText = isCollapsed ? '▶' : '◀';
+      });
 
       document.getElementById('side-offset-slider').addEventListener('input', (e) => updateSideOffset(parseFloat(e.target.value) || 0));
       document.getElementById('btn-offset-up').addEventListener('click', () => updateSideOffset(planeOffset + 10));
@@ -782,11 +819,9 @@
 
       const btnHud = document.getElementById('btn-toggle-hud');
       const hud = document.getElementById('probe-hud');
-      const sidePanel = document.getElementById('side-offset-panel');
       btnHud.addEventListener('click', () => {
         const isHidden = hud.classList.toggle('hidden');
-        sidePanel.classList.toggle('hidden', isHidden);
-        btnHud.innerText = isHidden ? '👁️ Show HUD' : '👁️ Hide HUD';
+        btnHud.innerText = isHidden ? '👁️ Show' : '👁️ HUD';
       });
 
       const drawer = document.getElementById('settings-drawer');
@@ -798,18 +833,15 @@
       document.getElementById('btn-close-settings').addEventListener('click', closeDrawer);
       backdrop.addEventListener('click', closeDrawer);
 
-      document.getElementById('btn-undo-corner').addEventListener('click', () => {
-        if (manualCorners.length > 0) {
-          manualCorners.pop();
-          applyCornersToFrame(manualCorners);
-          interactionMode = 'corners';
-          document.getElementById('btn-mode-corners').classList.add('corner-active');
-          document.getElementById('btn-mode-measure').classList.remove('active');
-          document.getElementById('mode-banner').innerText = `📍 Drag & release on Corner ${manualCorners.length + 1} of 4`;
-        }
+      document.getElementById('btn-clear-corners').addEventListener('click', () => {
+        manualCorners = [];
+        applyCornersToFrame([]);
+        while (probeGroup.children.length > 0) probeGroup.remove(probeGroup.children[0]);
+        document.getElementById('touch-pin').style.display = 'none';
+        setMode('view');
+        closeDrawer();
       });
 
-      document.getElementById('btn-clear-corners').addEventListener('click', () => { setMode('corners'); closeDrawer(); });
       document.getElementById('btn-recalc').addEventListener('click', () => { generateStations(); closeDrawer(); });
       document.getElementById('btn-toggle-plane').addEventListener('click', () => { if (datumPlaneMesh) datumPlaneMesh.visible = !datumPlaneMesh.visible; });
     }
