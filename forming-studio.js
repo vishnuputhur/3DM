@@ -1,7 +1,7 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════════════
-// MOBILE-FIRST SAFE-ZOOM 4-CORNER & COLLAPSIBLE OFFSET STUDIO
+// MOBILE & PC RESPONSIVE FORMING STUDIO (FIXED POINT PICKER)
 // ═══════════════════════════════════════════════════════════
 
 let fScene, fCamera, fRenderer, fControls;
@@ -12,7 +12,7 @@ let fProbeGroup = new THREE.Group();
 let fSections = [];
 let formingStudioInitialized = false;
 
-// Interaction modes: 'view' (safe zoom/pan) | 'pick_one' (armed for 1 corner) | 'measure'
+// Modes: 'view' | 'pick_one' | 'measure'
 let fMode = 'view';
 let fManualCorners = [];
 let fHtmlLabels = [];
@@ -40,114 +40,123 @@ function buildFormingModalDOM() {
         position: fixed; inset: 0; width: 100%; height: 100%;
         background: #090d16; z-index: 9999; display: none; overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        color: #f8fafc; touch-action: none;
+        color: #f8fafc; touch-action: none; user-select: none;
       }
       #forming-canvas-container { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
+      /* Top Header */
       .f-top-bar {
-        position: absolute; top: 10px; left: 10px; right: 10px;
+        position: absolute; top: 8px; left: 8px; right: 8px; height: 42px;
         display: flex; justify-content: space-between; align-items: center;
-        background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(10px);
-        padding: 8px 12px; border-radius: 10px; border: 1px solid #1e293b; z-index: 15;
+        background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(10px);
+        padding: 0 10px; border-radius: 10px; border: 1px solid #1e293b; z-index: 20;
       }
-      .f-top-left { display: flex; align-items: center; gap: 8px; }
+      .f-top-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
       .f-btn-close {
         background: #1e293b; color: #f8fafc; border: 1px solid #334155;
-        padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;
+        padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; flex-shrink: 0;
       }
-      .f-top-bar h1 { font-size: 14px; font-weight: 700; color: #38bdf8; margin: 0; }
+      .f-top-bar h1 { font-size: 13px; font-weight: 700; color: #38bdf8; margin: 0; white-space: nowrap; }
       .f-badge {
-        font-size: 11px; background: #0369a1; padding: 3px 8px; border-radius: 6px;
-        font-weight: 600; max-width: 135px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-size: 10px; background: #0369a1; padding: 3px 8px; border-radius: 6px;
+        font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
 
+      /* Non-overlapping Sub-header Row (Banner Left + Probe HUD Right) */
+      .f-sub-hud-row {
+        position: absolute; top: 56px; left: 8px; right: 8px;
+        display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+        z-index: 15; pointer-events: none;
+      }
       .f-mode-banner {
-        position: absolute; top: 56px; left: 10px;
         background: rgba(15, 23, 42, 0.9); border: 1px solid #334155;
-        color: #e2e8f0; padding: 6px 10px; border-radius: 8px;
-        font-size: 11px; font-weight: 600; z-index: 14; max-width: 52%;
-        backdrop-filter: blur(6px); transition: all 0.2s;
+        color: #e2e8f0; padding: 6px 9px; border-radius: 8px;
+        font-size: 11px; font-weight: 600; line-height: 1.3;
+        backdrop-filter: blur(6px); max-width: 48%; pointer-events: auto;
       }
 
-      /* Collapsible Left Side Offset Drawer */
-      .f-side-offset-wrapper {
-        position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-        z-index: 16; display: flex; align-items: center;
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      .f-side-offset-wrapper.collapsed {
-        transform: translate(-100%, -50%);
-      }
-      .f-side-offset-panel {
-        background: rgba(15, 23, 42, 0.94); backdrop-filter: blur(8px);
-        border: 1px solid #334155; border-left: none; border-radius: 0 12px 12px 0;
-        padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px;
-        box-shadow: 4px 4px 16px rgba(0,0,0,0.5);
-      }
-      .f-offset-toggle-tab {
-        position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
-        background: rgba(15, 23, 42, 0.94); border: 1px solid #334155; border-left: none;
-        color: #38bdf8; width: 24px; height: 48px; border-radius: 0 8px 8px 0;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 800; cursor: pointer;
-        box-shadow: 3px 0 10px rgba(0,0,0,0.4);
-      }
-      .f-offset-title { font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
-      .f-offset-val { font-size: 11px; font-weight: 800; color: #facc15; font-family: monospace; }
-      .f-offset-step-btn {
-        width: 28px; height: 28px; border-radius: 6px; border: 1px solid #334155;
-        background: #1e293b; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer;
-      }
-      .f-offset-step-btn:active { background: #0284c7; }
-      .f-vertical-slider-wrap { height: 105px; width: 28px; display: flex; align-items: center; justify-content: center; }
-      #f-side-offset-slider { width: 100px; height: 6px; transform: rotate(-90deg); accent-color: #0284c7; cursor: pointer; }
-
-      /* Probe HUD */
+      /* Compact Probe HUD */
       .f-probe-hud {
-        position: absolute; top: 56px; right: 10px;
-        background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);
-        border: 1px solid #0284c7; border-radius: 10px; padding: 8px 12px;
-        z-index: 14; text-align: right; box-shadow: 0 4px 15px rgba(0,0,0,0.45);
-        pointer-events: none; transition: opacity 0.2s; min-width: 162px;
+        background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
+        border: 1px solid #0284c7; border-radius: 9px; padding: 6px 10px;
+        text-align: right; box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+        transition: opacity 0.2s, transform 0.2s; min-width: 145px; pointer-events: auto;
       }
-      .f-probe-hud.hidden { opacity: 0; }
-      .f-probe-label { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; color: #94a3b8; text-transform: uppercase; }
-      .f-probe-val { font-size: 22px; font-weight: 800; color: #facc15; font-family: monospace; line-height: 1.1; }
+      .f-probe-hud.hidden { opacity: 0; pointer-events: none; transform: translateY(-8px); }
+      .f-probe-label { font-size: 8px; font-weight: 700; letter-spacing: 0.05em; color: #94a3b8; text-transform: uppercase; }
+      .f-probe-val { font-size: 18px; font-weight: 800; color: #facc15; font-family: monospace; line-height: 1.15; }
       .f-probe-grid {
-        margin-top: 6px; padding-top: 6px; border-top: 1px solid #1e293b;
-        display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px;
-        font-size: 11px; font-family: monospace; text-align: left;
+        margin-top: 4px; padding-top: 4px; border-top: 1px solid #1e293b;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px;
+        font-size: 10px; font-family: monospace; text-align: left;
       }
       .f-probe-grid span { color: #94a3b8; }
       .f-probe-grid b { color: #38bdf8; float: right; }
 
-      /* Bottom Action Dock */
+      /* Collapsible Left Side Offset Drawer */
+      .f-side-offset-wrapper {
+        position: absolute; left: 0; top: 52%; transform: translateY(-50%);
+        z-index: 18; display: flex; align-items: center;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .f-side-offset-wrapper.collapsed { transform: translate(-100%, -50%); }
+      .f-side-offset-panel {
+        background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+        border: 1px solid #334155; border-left: none; border-radius: 0 10px 10px 0;
+        padding: 7px 5px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+        box-shadow: 4px 4px 14px rgba(0,0,0,0.5);
+      }
+      .f-offset-toggle-tab {
+        position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+        background: rgba(15, 23, 42, 0.95); border: 1px solid #334155; border-left: none;
+        color: #38bdf8; width: 22px; height: 44px; border-radius: 0 8px 8px 0;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 800; cursor: pointer;
+      }
+      .f-offset-title { font-size: 8px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+      .f-offset-val { font-size: 10px; font-weight: 800; color: #facc15; font-family: monospace; }
+      .f-offset-step-btn {
+        width: 26px; height: 26px; border-radius: 6px; border: 1px solid #334155;
+        background: #1e293b; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer;
+      }
+      .f-vertical-slider-wrap { height: 95px; width: 26px; display: flex; align-items: center; justify-content: center; }
+      #f-side-offset-slider { width: 90px; height: 5px; transform: rotate(-90deg); accent-color: #0284c7; cursor: pointer; }
+
+      /* Responsive Bottom Dock (Mobile Full-Width / PC Centered Compact) */
       .f-bottom-dock {
-        position: absolute; bottom: 14px; left: 8px; right: 8px;
-        display: flex; gap: 5px; justify-content: center; flex-wrap: nowrap; z-index: 15;
+        position: absolute; bottom: 12px; left: 8px; right: 8px;
+        display: flex; gap: 5px; justify-content: center; align-items: center; z-index: 20;
+      }
+      @media (min-width: 768px) {
+        .f-bottom-dock {
+          left: 50%; right: auto; transform: translateX(-50%);
+          background: rgba(15, 23, 42, 0.9); padding: 6px 10px;
+          border-radius: 14px; border: 1px solid #334155;
+        }
+        .f-dock-btn { min-width: 115px !important; padding: 9px 14px !important; font-size: 12px !important; }
       }
       .f-dock-btn {
-        flex: 1; min-width: 0;
-        background: rgba(15, 23, 42, 0.94); color: #f8fafc; border: 1px solid #334155;
-        padding: 10px 6px; border-radius: 10px; font-size: 11px; font-weight: 700;
+        flex: 1; min-width: 0; height: 38px;
+        background: rgba(15, 23, 42, 0.95); color: #f8fafc; border: 1px solid #334155;
+        padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700;
         cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
-        backdrop-filter: blur(10px); box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+        backdrop-filter: blur(10px); box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       .f-dock-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
       .f-dock-btn.pick-armed { background: #059669; border-color: #34d399; color: #fff; animation: pulsePick 1.2s infinite; }
-      .f-dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.75; }
+      .f-dock-btn.undo-btn { background: #7f1d1d; border-color: #ef4444; color: #fecaca; flex: 0.72; }
       .f-dock-btn.hidden { display: none; }
 
       @keyframes pulsePick {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+        0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65); }
         50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
       }
 
       /* Magnifier Loupe */
       #f-magnifier {
-        position: fixed; width: 116px; height: 116px; border-radius: 50%;
-        border: 3px solid #10b981; box-shadow: 0 8px 25px rgba(0,0,0,0.8);
+        position: fixed; width: 110px; height: 110px; border-radius: 50%;
+        border: 3px solid #10b981; box-shadow: 0 8px 24px rgba(0,0,0,0.85);
         pointer-events: none; z-index: 40; display: none; overflow: hidden;
         background: #090d16; transform: translate(-50%, -125%);
       }
@@ -159,13 +168,13 @@ function buildFormingModalDOM() {
           linear-gradient(to bottom, transparent 49%, rgba(250,204,21,0.9) 49.5%, rgba(250,204,21,0.9) 50.5%, transparent 51%);
       }
 
-      /* Offset Arrow Corner Callout Labels */
+      /* Offset Arrow Corner Callout */
       .f-corner-callout {
         position: absolute; pointer-events: none; z-index: 12;
-        display: flex; align-items: center; transform: translate(6px, -22px);
+        display: flex; align-items: center; transform: translate(6px, -20px);
       }
       .f-callout-arrow {
-        width: 14px; height: 1.5px; background: #10b981;
+        width: 12px; height: 1.5px; background: #10b981;
         transform: rotate(-35deg); transform-origin: left center; margin-right: 2px;
       }
       .f-callout-tag {
@@ -183,7 +192,7 @@ function buildFormingModalDOM() {
       .f-drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 25; display: none; }
       .f-drawer-backdrop.open { display: block; }
       .f-settings-drawer {
-        position: fixed; bottom: 0; left: 0; right: 0; max-height: 78vh;
+        position: fixed; bottom: 0; left: 0; right: 0; max-height: 75vh;
         background: #0f172a; border-top: 1px solid #334155; border-radius: 18px 18px 0 0;
         padding: 16px; z-index: 30; overflow-y: auto;
         transform: translateY(100%); transition: transform 0.25s ease-out;
@@ -191,24 +200,24 @@ function buildFormingModalDOM() {
       .f-settings-drawer.open { transform: translateY(0); }
       @media (min-width: 768px) {
         .f-settings-drawer {
-          left: 65px; right: auto; bottom: auto; top: 62px; width: 345px;
-          border-radius: 14px; border: 1px solid #334155; transform: translateX(-130%);
+          left: auto; right: 16px; bottom: auto; top: 60px; width: 340px;
+          border-radius: 14px; border: 1px solid #334155; transform: translateX(130%);
         }
         .f-settings-drawer.open { transform: translateX(0); }
       }
-      .f-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #1e293b; }
+      .f-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
       .f-drawer-header h2 { font-size: 13px; color: #38bdf8; text-transform: uppercase; margin: 0; }
       .f-btn-drawer-close { background: #1e293b; border: 1px solid #334155; color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
       .f-input-group { margin-bottom: 12px; }
       .f-input-group label { display: block; font-size: 11px; margin-bottom: 4px; color: #94a3b8; }
-      .f-input-group input[type="number"], .f-input-group select { width: 100%; padding: 9px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
+      .f-input-group input[type="number"], .f-input-group select { width: 100%; padding: 8px 10px; background: #090d16; border: 1px solid #334155; border-radius: 8px; color: #fff; font-size: 13px; font-family: monospace; }
       .f-btn-row { display: flex; gap: 8px; margin-top: 8px; }
-      .f-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
+      .f-btn { flex: 1; padding: 9px; border: none; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; }
       .f-btn-primary { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; }
       .f-btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
       .f-btn-danger { background: #7f1d1d; color: #fecaca; border: 1px solid #991b1b; }
       .f-tmpl-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-      .f-tmpl-item { display: flex; justify-content: space-between; align-items: center; background: #090d16; padding: 10px; border-radius: 8px; border: 1px solid #1e293b; font-size: 12px; }
+      .f-tmpl-item { display: flex; justify-content: space-between; align-items: center; background: #090d16; padding: 9px 10px; border-radius: 8px; border: 1px solid #1e293b; font-size: 12px; }
       .f-tmpl-dxf-btn { background: #059669; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 700; }
       #f-touch-pin { position: absolute; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #facc15; background: rgba(250, 204, 21, 0.5); transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 13; }
     `;
@@ -228,11 +237,24 @@ function buildFormingModalDOM() {
         <button class="f-btn-close" id="btn-close-forming">⬅ Viewer</button>
         <h1>📐 Forming Studio</h1>
       </div>
-      <span class="badge f-badge" id="f-plate-badge">Shell Plate</span>
+      <span class="f-badge" id="f-plate-badge">Shell Plate</span>
     </div>
 
-    <div class="f-mode-banner" id="f-mode-banner">
-      🔍 Zoom to Corner 1, then tap "Select Point"
+    <div class="f-sub-hud-row">
+      <div class="f-mode-banner" id="f-mode-banner">
+        🔍 Zoom to Corner 1, then tap "Select Point"
+      </div>
+
+      <div class="f-probe-hud" id="f-probe-hud">
+        <div class="f-probe-label">Plane Drop Depth</div>
+        <div class="f-probe-val" id="f-probe-depth">0.0 mm</div>
+        <div class="f-probe-grid">
+          <div><span>Left:</span> <b id="f-dist-left">-</b></div>
+          <div><span>Right:</span> <b id="f-dist-right">-</b></div>
+          <div><span>Top:</span> <b id="f-dist-top">-</b></div>
+          <div><span>Bot:</span> <b id="f-dist-bot">-</b></div>
+        </div>
+      </div>
     </div>
 
     <!-- Collapsible Side Offset Panel -->
@@ -249,23 +271,10 @@ function buildFormingModalDOM() {
       <button class="f-offset-toggle-tab" id="f-btn-collapse-offset" title="Hide/Show Offset">◀</button>
     </div>
 
-    <!-- Probe HUD -->
-    <div class="f-probe-hud" id="f-probe-hud">
-      <div class="f-probe-label">Plane Drop Depth</div>
-      <div class="f-probe-val" id="f-probe-depth">0.0 mm</div>
-      <div class="f-probe-grid">
-        <div><span>Left:</span> <b id="f-dist-left">-</b></div>
-        <div><span>Right:</span> <b id="f-dist-right">-</b></div>
-        <div><span>Top:</span> <b id="f-dist-top">-</b></div>
-        <div><span>Bot:</span> <b id="f-dist-bot">-</b></div>
-      </div>
-    </div>
-
-    <div id="f-magnifier"><canvas id="f-mag-canvas" width="116" height="116"></canvas></div>
+    <div id="f-magnifier"><canvas id="f-mag-canvas" width="110" height="110"></canvas></div>
     <div id="f-labels-layer"></div>
     <div id="f-touch-pin"></div>
 
-    <!-- Bottom Action Dock -->
     <div class="f-bottom-dock">
       <button class="f-dock-btn" id="f-btn-select-point">🎯 Select Point (1/4)</button>
       <button class="f-dock-btn undo-btn hidden" id="f-btn-dock-undo">↩ Undo</button>
@@ -376,9 +385,7 @@ function initFormingOverlay() {
 }
 
 window.openDirectFormingStudio = function(meshObj) {
-  if (!formingStudioInitialized) {
-    initFormingOverlay();
-  }
+  if (!formingStudioInitialized) initFormingOverlay();
 
   const modal = document.getElementById('forming-studio-modal');
   modal.style.display = 'block';
@@ -402,11 +409,9 @@ window.openDirectFormingStudio = function(meshObj) {
   if (g.index) g = g.toNonIndexed();
 
   let pCol = (meshObj.material && meshObj.material.color) ? meshObj.material.color.getHex() : 0x38bdf8;
-  const mat = new THREE.MeshStandardMaterial({
+  fPlateMesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
     color: pCol, roughness: 0.35, metalness: 0.25, side: THREE.DoubleSide
-  });
-
-  fPlateMesh = new THREE.Mesh(g, mat);
+  }));
   fScene.add(fPlateMesh);
 
   document.getElementById('f-plate-badge').innerText = meshObj.userData.name || 'Ship Shell Plate';
@@ -418,21 +423,18 @@ window.openDirectFormingStudio = function(meshObj) {
   const maxDim = Math.max(size.x, size.y, size.z) || 1000;
 
   fControls.target.copy(center);
-  cameraFocusPlate(center, maxDim);
-
-  // Start in Safe View/Zoom mode so touching/zooming never drops accidental points
-  updateCornerControlsUI();
-  setFormingMode('view');
-};
-
-function cameraFocusPlate(center, maxDim) {
   fCamera.position.set(center.x + maxDim * 0.7, center.y - maxDim * 0.7, center.z + maxDim * 0.8);
   fCamera.up.set(0, 0, 1);
+  fControls.enabled = true;
   fControls.update();
+
   fRenderer.setSize(window.innerWidth, window.innerHeight);
   fCamera.aspect = window.innerWidth / window.innerHeight;
   fCamera.updateProjectionMatrix();
-}
+
+  updateCornerControlsUI();
+  setFormingMode('view');
+};
 
 // ═══════════════════════════════════════════════════════════
 // EXACT 4-CORNER MESH & STRING LINES
@@ -567,13 +569,9 @@ function drawCornerPinsAndStrings(corners, offsetVal) {
       el.className = 'f-edge-label';
       el.innerText = `${dist.toFixed(0)} mm`;
       layer.appendChild(el);
-      htmlLabelsRefPush(el, mid);
+      fHtmlLabels.push({ el, pos3D: mid });
     }
   }
-}
-
-function htmlLabelsRefPush(el, pos3D) {
-  fHtmlLabels.push({ el, pos3D: pos3D.clone() });
 }
 
 function updateFormingHTMLLabels() {
@@ -646,20 +644,40 @@ function measureFrom4CornerPlane(hitPt, cx, cy) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SAFE SINGLE-POINT PICKING WITH MAGNIFIER
+// ROBUST 2D SCREEN-SPACE VERTEX SNAP & RAYCAST PICKING
 // ═══════════════════════════════════════════════════════════
-function snapToNearestVertex(hitPoint) {
-  if (!fPlateMesh) return hitPoint;
+function findBestPlatePointAtScreen(cx, cy) {
+  if (!fPlateMesh || !fCamera || !fRenderer) return null;
+  const rect = fRenderer.domElement.getBoundingClientRect();
+  const nx = ((cx - rect.left) / rect.width) * 2 - 1;
+  const ny = -((cy - rect.top) / rect.height) * 2 + 1;
+
+  // 1. Check 2D screen-space proximity to mesh vertices (38px snap radius for sharp corners)
   const pos = fPlateMesh.geometry.attributes.position.array;
-  let bestDistSq = Infinity;
-  const bestPt = hitPoint.clone(), tmp = new THREE.Vector3();
+  const tmp = new THREE.Vector3();
+  const proj = new THREE.Vector3();
+  let bestPxDist = 38;
+  let bestSnapPt = null;
 
   for (let i = 0; i < pos.length; i += 3) {
     tmp.set(pos[i], pos[i + 1], pos[i + 2]);
-    const dSq = tmp.distanceToSquared(hitPoint);
-    if (dSq < bestDistSq) { bestDistSq = dSq; bestPt.copy(tmp); }
+    proj.copy(tmp).project(fCamera);
+    if (proj.z > 1) continue;
+    const sx = (proj.x * 0.5 + 0.5) * rect.width + rect.left;
+    const sy = (-proj.y * 0.5 + 0.5) * rect.height + rect.top;
+    const dPx = Math.hypot(sx - cx, sy - cy);
+    if (dPx < bestPxDist) {
+      bestPxDist = dPx;
+      bestSnapPt = tmp.clone();
+    }
   }
-  return (Math.sqrt(bestDistSq) < 55) ? bestPt : hitPoint;
+  if (bestSnapPt) return bestSnapPt;
+
+  // 2. Fallback to exact surface raycast hit
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(new THREE.Vector2(nx, ny), fCamera);
+  const hits = raycaster.intersectObject(fPlateMesh, false);
+  return (hits.length > 0) ? hits[0].point.clone() : null;
 }
 
 function updateMagnifier(cx, cy) {
@@ -678,103 +696,101 @@ function updateMagnifier(cx, cy) {
 
   const sx = (cx - rect.left) * dpr;
   const sy = (cy - rect.top) * dpr;
-  const zoomSample = 48 * dpr;
+  const zoomSample = 46 * dpr;
 
   ctx.clearRect(0, 0, magCanvas.width, magCanvas.height);
   ctx.drawImage(srcCanvas, sx - zoomSample / 2, sy - zoomSample / 2, zoomSample, zoomSample, 0, 0, magCanvas.width, magCanvas.height);
 }
 
+function hideMagnifier() {
+  const magEl = document.getElementById('f-magnifier');
+  if (magEl) magEl.style.display = 'none';
+}
+
 function setupFormingCanvasInteractions() {
   const dom = fRenderer.domElement;
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
   let isPickingDrag = false;
+  let lastPointerX = 0, lastPointerY = 0;
+  let pending3DPoint = null;
   let downX = 0, downY = 0, downTime = 0;
   let lastHitPt = null, lastScreenX = 0, lastScreenY = 0;
 
+  function finishPickRelease() {
+    if (!isPickingDrag) return;
+    isPickingDrag = false;
+    hideMagnifier();
+    if (fControls) fControls.enabled = true;
+
+    const pickedPt = pending3DPoint || findBestPlatePointAtScreen(lastPointerX, lastPointerY);
+    pending3DPoint = null;
+
+    if (pickedPt) {
+      if (fManualCorners.length >= 4) fManualCorners = [];
+      fManualCorners.push(pickedPt);
+      const count = fManualCorners.length;
+      applyFormingCorners(fManualCorners);
+
+      if (count < 4) {
+        setFormingMode('view', `✅ C${count} Locked! Zoom to Corner ${count + 1}, then tap "Select Point"`);
+      } else {
+        setFormingMode('measure', `✅ All 4 Corners Locked! Tap plate to measure`);
+      }
+    } else {
+      // Even if user released in empty space outside plate, return safely to view mode
+      setFormingMode('view', `⚠️ Missed plate edge. Tap "Select Point" & touch on plate`);
+    }
+  }
+
   dom.addEventListener('pointerdown', (e) => {
     downX = e.clientX; downY = e.clientY; downTime = Date.now();
+    lastPointerX = e.clientX; lastPointerY = e.clientY;
 
-    // Only arm magnifier if user explicitly clicked "Select Point"
-    if (fMode === 'pick_one' && e.isPrimary) {
+    if (fMode === 'pick_one') {
       isPickingDrag = true;
       if (fControls) fControls.enabled = false;
+      pending3DPoint = findBestPlatePointAtScreen(e.clientX, e.clientY);
       updateMagnifier(e.clientX, e.clientY);
     }
   });
 
   dom.addEventListener('pointermove', (e) => {
     if (isPickingDrag && fMode === 'pick_one') {
+      lastPointerX = e.clientX;
+      lastPointerY = e.clientY;
+      const pt = findBestPlatePointAtScreen(e.clientX, e.clientY);
+      if (pt) pending3DPoint = pt;
       updateMagnifier(e.clientX, e.clientY);
     }
   });
 
   dom.addEventListener('pointerup', (e) => {
-    if (isPickingDrag && fMode === 'pick_one') {
-      isPickingDrag = false;
-      document.getElementById('f-magnifier').style.display = 'none';
-      if (fControls) fControls.enabled = true;
-      handlePlateAction(e.clientX, e.clientY, raycaster, mouse);
+    if (isPickingDrag) {
+      if (e.clientX || e.clientY) {
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+      }
+      finishPickRelease();
       return;
     }
 
-    // In 'view' mode, taps NEVER select points so zooming/panning is 100% safe
-    if (fMode === 'measure') {
+    if (fMode === 'measure' && fManualCorners.length === 4) {
       const moveDist = Math.hypot(e.clientX - downX, e.clientY - downY);
       const dt = Date.now() - downTime;
-      if (moveDist < 10 && dt < 400) {
-        handlePlateAction(e.clientX, e.clientY, raycaster, mouse);
+      if (moveDist < 12 && dt < 450) {
+        const hitPt = findBestPlatePointAtScreen(e.clientX, e.clientY);
+        if (hitPt) {
+          lastHitPt = hitPt.clone(); lastScreenX = e.clientX; lastScreenY = e.clientY;
+          measureFrom4CornerPlane(hitPt, e.clientX, e.clientY);
+        }
       }
     }
   });
 
-  dom.addEventListener('pointercancel', () => {
-    isPickingDrag = false;
-    document.getElementById('f-magnifier').style.display = 'none';
-    if (fControls) fControls.enabled = true;
-  });
+  dom.addEventListener('pointercancel', finishPickRelease);
 
   window._reMeasureLastProbe = () => {
     if (lastHitPt && fManualCorners.length === 4) measureFrom4CornerPlane(lastHitPt, lastScreenX, lastScreenY);
   };
-  window._setLastProbeHit = (pt, sx, sy) => {
-    lastHitPt = pt.clone(); lastScreenX = sx; lastScreenY = sy;
-  };
-}
-
-function handlePlateAction(cx, cy, raycaster, mouse) {
-  if (!fPlateMesh) return;
-  const rect = fRenderer.domElement.getBoundingClientRect();
-  mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((cy - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, fCamera);
-
-  const hits = raycaster.intersectObject(fPlateMesh, false);
-  if (hits.length === 0) return;
-  const hitPt = hits[0].point;
-
-  // SINGLE POINT LOCKING -> IMMEDIATELY RETURNS TO SAFE ZOOM MODE
-  if (fMode === 'pick_one') {
-    const snapped = snapToNearestVertex(hitPt);
-    if (fManualCorners.length >= 4) fManualCorners = [];
-    fManualCorners.push(snapped);
-    const pickedIdx = fManualCorners.length;
-
-    applyFormingCorners(fManualCorners);
-
-    if (pickedIdx < 4) {
-      // Automatically return to 'view' mode so user can safely zoom/pan to the next corner
-      setFormingMode('view', `✅ C${pickedIdx} Locked! Zoom to Corner ${pickedIdx + 1}, then tap "Select Point"`);
-    } else {
-      setFormingMode('measure', `✅ All 4 Corners Locked & Mesh Created! Tap plate to measure`);
-    }
-    return;
-  }
-
-  if (fMode === 'measure' && fManualCorners.length === 4) {
-    window._setLastProbeHit(hitPt, cx, cy);
-    measureFrom4CornerPlane(hitPt, cx, cy);
-  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -917,16 +933,14 @@ function updateCornerControlsUI() {
   const count = fManualCorners.length;
 
   btnUndo.classList.toggle('hidden', count === 0);
-
-  if (count < 4) {
-    btnPick.innerText = `🎯 Select Point (${count + 1}/4)`;
-  } else {
-    btnPick.innerText = `🔄 Re-Pick (4/4)`;
-  }
+  btnPick.innerText = (count < 4) ? `🎯 Select Point (${count + 1}/4)` : `🔄 Re-Pick (4/4)`;
 }
 
 function setFormingMode(mode, customMsg) {
   fMode = mode;
+  hideMagnifier();
+  if (fControls) fControls.enabled = true;
+
   const btnPick = document.getElementById('f-btn-select-point');
   const btnMeasure = document.getElementById('f-btn-mode-measure');
   const banner = document.getElementById('f-mode-banner');
@@ -937,24 +951,20 @@ function setFormingMode(mode, customMsg) {
   if (mode === 'pick_one') {
     btnPick.classList.add('pick-armed');
     const nextNum = (fManualCorners.length >= 4) ? 1 : (fManualCorners.length + 1);
-    banner.innerText = customMsg || `🎯 Touch & release on Corner ${nextNum} (Magnifier Active)`;
-    banner.style.borderColor = '#10b981';
-    banner.style.color = '#6ee7b7';
+    banner.innerText = customMsg || `🎯 Touch & release on Corner ${nextNum}`;
+    banner.style.borderColor = '#10b981'; banner.style.color = '#6ee7b7';
   } else if (mode === 'measure') {
     if (fManualCorners.length < 4) {
       setFormingMode('view', `⚠️ Select all 4 corners first (${fManualCorners.length}/4 done)`);
       return;
     }
     btnMeasure.classList.add('active');
-    banner.innerText = customMsg || '📏 Tap plate to measure drop & edge distances';
-    banner.style.borderColor = '#0284c7';
-    banner.style.color = '#38bdf8';
+    banner.innerText = customMsg || '📏 Tap plate to measure drop & edges';
+    banner.style.borderColor = '#0284c7'; banner.style.color = '#38bdf8';
   } else {
-    // 'view' mode -> Safe Zoom/Pan, no accidental point picking
     const nextNum = fManualCorners.length + 1;
     banner.innerText = customMsg || `🔍 Zoom to Corner ${nextNum}, then tap "Select Point"`;
-    banner.style.borderColor = '#475569';
-    banner.style.color = '#e2e8f0';
+    banner.style.borderColor = '#475569'; banner.style.color = '#e2e8f0';
   }
 }
 
@@ -968,7 +978,7 @@ function undoLastCorner() {
 }
 
 function updateSideOffset(newVal) {
-  fPlaneOffset = Math.max(0, Math.min(500, newVal));
+  fPlaneOffset = Math.max(0, Math.min(500, valClamp(newVal)));
   document.getElementById('f-side-offset-slider').value = fPlaneOffset;
   document.getElementById('f-side-offset-val').innerText = fPlaneOffset + 'mm';
 
@@ -977,9 +987,9 @@ function updateSideOffset(newVal) {
     if (window._reMeasureLastProbe) window._reMeasureLastProbe();
   }
 }
+function valClamp(v) { return Math.max(0, Math.min(500, v)); }
 
 function setupFormingOverlayEvents() {
-  // Arm single point selection (if already 4/4, starts fresh from 1/4)
   document.getElementById('f-btn-select-point').addEventListener('click', () => {
     if (fManualCorners.length >= 4) {
       fManualCorners = [];
@@ -990,13 +1000,10 @@ function setupFormingOverlayEvents() {
     setFormingMode('pick_one');
   });
 
-  // Dock Undo Button & Drawer Undo Button
   document.getElementById('f-btn-dock-undo').addEventListener('click', undoLastCorner);
   document.getElementById('f-btn-undo-corner').addEventListener('click', undoLastCorner);
-
   document.getElementById('f-btn-mode-measure').addEventListener('click', () => setFormingMode('measure'));
 
-  // Collapsible Left Side Offset Tab
   const offsetWrapper = document.getElementById('f-side-offset-wrapper');
   const collapseBtn = document.getElementById('f-btn-collapse-offset');
   collapseBtn.addEventListener('click', () => {
@@ -1008,7 +1015,6 @@ function setupFormingOverlayEvents() {
   document.getElementById('f-btn-offset-up').addEventListener('click', () => updateSideOffset(fPlaneOffset + 10));
   document.getElementById('f-btn-offset-down').addEventListener('click', () => updateSideOffset(fPlaneOffset - 10));
 
-  // Toggle HUD
   const btnHud = document.getElementById('f-btn-toggle-hud');
   const hud = document.getElementById('f-probe-hud');
   btnHud.addEventListener('click', () => {
@@ -1016,7 +1022,6 @@ function setupFormingOverlayEvents() {
     btnHud.innerText = isHidden ? '👁️ Show' : '👁️ HUD';
   });
 
-  // Drawer
   const drawer = document.getElementById('f-settings-drawer');
   const backdrop = document.getElementById('f-drawer-backdrop');
   const openDrawer = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
