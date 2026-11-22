@@ -20,21 +20,64 @@
   <!-- External Stylesheet -->
   <link rel="stylesheet" href="style.css">
   <style>
-    /* ISO യ്ക്ക് താഴെ വരുന്ന FORM ബട്ടൺ ആനിമേഷൻ */
+    /* Lock UI Font Scaling regardless of device font settings */
+    html, body {
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+    }
+
+    /* Mobile Screen Fit for Mode Toolbar (No horizontal scroll on mobile, clean on desktop) */
+    @media (max-width: 767px) {
+      .mode-bar {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 2px !important;
+        padding: 3px 4px !important;
+        left: 6px !important;
+        right: 6px !important;
+        width: auto !important;
+        overflow: hidden !important;
+      }
+      .mode-bar .mode-btn {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding: 6px 2px !important;
+        margin: 0 !important;
+        font-size: 10px !important;
+        letter-spacing: -0.02em !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+    }
+
+    /* Always-visible GO TO FORM / SEND TO FORM button below ISO */
     #btn-forming-iso {
-      display: none;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
       background: linear-gradient(135deg, #0284c7, #0369a1) !important;
       color: #ffffff !important;
       border: 1px solid #38bdf8 !important;
+      font-size: 9px !important;
       font-weight: 800 !important;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.02em;
+      padding: 5px 6px !important;
+      white-space: nowrap !important;
       box-shadow: 0 4px 12px rgba(2, 132, 199, 0.5);
-      animation: pulseBtn 1.5s infinite alternate;
       cursor: pointer;
     }
+    #btn-forming-iso.send-mode {
+      background: linear-gradient(135deg, #059669, #047857) !important;
+      border-color: #34d399 !important;
+      animation: pulseBtn 1.5s infinite alternate;
+    }
     @keyframes pulseBtn {
-      from { box-shadow: 0 0 6px rgba(2, 132, 199, 0.4); }
-      to { box-shadow: 0 0 14px rgba(56, 189, 248, 0.85); }
+      from { box-shadow: 0 0 6px rgba(16, 185, 129, 0.45); }
+      to { box-shadow: 0 0 14px rgba(52, 211, 153, 0.9); }
     }
 
     /* ═══════════════════════════════════════════════════════════
@@ -195,8 +238,8 @@
     <button id="btn-view-y" class="view-btn" title="Side Elevation (XZ Plane)">Y</button>
     <button id="btn-view-x" class="view-btn" title="Section / Transverse (YZ Plane)">X</button>
     <button id="btn-view-iso" class="view-btn iso">ISO</button>
-    <!-- FORM BUTTON -->
-    <button id="btn-forming-iso" class="view-btn" title="Open isolated plate in Forming Studio">FORM</button>
+    <!-- ALWAYS VISIBLE GO TO FORM / SEND TO FORM BUTTON -->
+    <button id="btn-forming-iso" class="view-btn" title="Open Forming Studio">GO TO FORM</button>
   </div>
 
   <!-- COORDS PANEL -->
@@ -446,6 +489,40 @@
 
   <!-- Separate Dedicated Hull Forming Engine -->
   <script src="forming-studio.js"></script>
+
+  <!-- Sync GO TO FORM / SEND TO FORM button safely without altering app.js -->
+  <script>
+    (function() {
+      const btn = document.getElementById('btn-forming-iso');
+      const partNameEl = document.getElementById('meta-part-name');
+      if (!btn || !partNameEl) return;
+
+      function updateFormBtnState() {
+        const name = partNameEl.innerText.trim();
+        const isSelected = (name !== '' && name !== 'None');
+        btn.style.display = 'inline-flex';
+        if (isSelected) {
+          btn.innerText = 'SEND TO FORM';
+          btn.classList.add('send-mode');
+        } else {
+          btn.innerText = 'GO TO FORM';
+          btn.classList.remove('send-mode');
+        }
+      }
+
+      const obs = new MutationObserver(updateFormBtnState);
+      obs.observe(partNameEl, { childList: true, characterData: true, subtree: true });
+      updateFormBtnState();
+
+      // If no part is selected, clicking "GO TO FORM" opens Forming Studio directly
+      btn.addEventListener('click', function() {
+        const name = partNameEl.innerText.trim();
+        if (name === '' || name === 'None') {
+          window.location.href = 'forming.html';
+        }
+      });
+    })();
+  </script>
 
   <!-- PWA Service Worker Registration -->
   <script>
