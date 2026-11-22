@@ -26,7 +26,7 @@
       text-size-adjust: 100% !important;
     }
 
-    /* Mobile Screen Fit for Mode Toolbar (No horizontal scroll on mobile, clean on desktop) */
+    /* Mobile Screen Fit for Mode Toolbar (Centered & Full-width on mobile, untouched on desktop) */
     @media (max-width: 767px) {
       .mode-bar {
         display: flex !important;
@@ -37,15 +37,18 @@
         padding: 3px 4px !important;
         left: 6px !important;
         right: 6px !important;
-        width: auto !important;
+        width: calc(100vw - 12px) !important;
+        max-width: none !important;
+        transform: none !important;
+        margin: 0 !important;
         overflow: hidden !important;
       }
       .mode-bar .mode-btn {
         flex: 1 1 0 !important;
         min-width: 0 !important;
-        padding: 6px 2px !important;
+        padding: 6px 1px !important;
         margin: 0 !important;
-        font-size: 10px !important;
+        font-size: 9.5px !important;
         letter-spacing: -0.02em !important;
         text-align: center !important;
         white-space: nowrap !important;
@@ -403,7 +406,7 @@
 
   <div id="info-pill" class="info-pill-container" title="Click for details">
     <div class="info-pill-icon">i</div>
-    <div class="info-pill-text">Created by <span>Vishnu Puthoor</span> • V 2.0.0</div>
+    <div class="info-pill-text">Created by <span>Vishnu Puthoor</span> • V 3.1.0</div>
   </div>
 
   <div id="loader">
