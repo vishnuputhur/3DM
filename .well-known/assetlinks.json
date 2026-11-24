@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.onrender.threedmviewer.twa",
+        "sha256_cert_fingerprints": ["03:8B:6E:4B:CA:2D:B1:F4:C6:0B:A6:E7:6F:0E:35:9A:03:C4:BD:E9:73:B6:7E:21:59:19:76:6A:59:6F:0E:7A"]
+      }
+    }]
