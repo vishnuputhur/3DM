@@ -195,7 +195,8 @@
       <label id="btn-open-label" class="btn-action btn-open">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
         <span id="open-label-text">Open</span>
-        <input type="file" id="file-input" accept=".3dm,.vts,.step,.stp,.iges,.igs,.dxf" style="display:none;">
+        <!-- Removed 'accept' restriction so Android System WebView / FreeWebToApk shows .3dm, .step, .stp, .iges, .igs, .dxf, .3dxf, .vts files -->
+        <input type="file" id="file-input" style="display:none;">
       </label>
     </div>
   </header>
@@ -493,9 +494,27 @@
   <!-- Separate Dedicated Hull Forming Engine -->
   <script src="forming-studio.js"></script>
 
-  <!-- Sync GO TO FORM / SEND TO FORM button safely without altering app.js -->
+  <!-- Validate Supported CAD Formats in JS (WebView Friendly) & Sync Forming Button -->
   <script>
     (function() {
+      // 1. Validate CAD extensions in JS so Android System WebView doesn't gray out files
+      const fileInp = document.getElementById('file-input');
+      if (fileInp) {
+        fileInp.addEventListener('change', function(e) {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          const validExts = ['.3dm', '.vts', '.step', '.stp', '.iges', '.igs', '.dxf', '.3dxf'];
+          const lowerName = file.name.toLowerCase();
+          const isSupported = validExts.some(ext => lowerName.endsWith(ext));
+          if (!isSupported) {
+            alert('Unsupported file format. Please select a .3dm, .step, .stp, .iges, .igs, .dxf, .3dxf, or .vts file.');
+            e.stopImmediatePropagation();
+            this.value = '';
+          }
+        }, true); // Capture phase runs before app.js listener
+      }
+
+      // 2. Sync GO TO FORM / SEND TO FORM button safely without altering app.js
       const btn = document.getElementById('btn-forming-iso');
       const partNameEl = document.getElementById('meta-part-name');
       if (!btn || !partNameEl) return;
